@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabela Periódica Interativa 3D - Edição Científica Completa</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js para o 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Controles de Órbita para Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- FontAwesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            background-color: #0f172a; /* slate-900 */
+            color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .periodic-table {
+            display: grid;
+            grid-template-columns: repeat(18, minmax(42px, 1fr));
+            grid-template-rows: repeat(10, minmax(42px, 1fr));
+            gap: 4px;
+            padding: 20px;
+            max-width: 1450px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 1024px) {
+            .periodic-table {
+                grid-template-columns: repeat(18, minmax(32px, 1fr));
+                gap: 2px;
+                padding: 10px;
+            }
+            .element-box .symbol { font-size: 1rem !important; }
+            .element-box .number { font-size: 0.5rem !important; }
+        }
+
+        .element-box {
+            position: relative;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            aspect-ratio: 1;
+            padding: 2px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .element-box:hover {
+            transform: scale(1.18);
+            z-index: 10;
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        .element-box .number { position: absolute; top: 2px; left: 4px; font-size: 0.65rem; font-weight: bold; opacity: 0.8; }
+        .element-box .symbol { font-size: 1.25rem; font-weight: 800; line-height: 1; }
+        .element-box .name { font-size: 0.5rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; opacity: 0.8;}
+
+        /* Category Colors */
+        .cat-nonmetal { background-color: #2c5282; border-color: #4299e1; color: #ebf8ff; } 
+        .cat-alkali { background-color: #742a2a; border-color: #f56565; color: #fff5f5; } 
+        .cat-alkaline { background-color: #7b341e; border-color: #ed8936; color: #fffaf0; } 
+        .cat-transition { background-color: #276749; border-color: #48bb78; color: #f0fff4; } 
+        .cat-post-transition { background-color: #285e61; border-color: #38b2ac; color: #e6fffa; } 
+        .cat-metalloid { background-color: #5f370e; border-color: #ecc94b; color: #fffff0; } 
+        .cat-halogen { background-color: #44337a; border-color: #9f7aea; color: #faf5ff; } 
+        .cat-noble { background-color: #702459; border-color: #ed64a6; color: #fff5f8; } 
+        .cat-lanthanide { background-color: #065666; border-color: #0bc5ea; color: #e0ffff; } 
+        .cat-actinide { background-color: #6b46c1; border-color: #b794f4; color: #faf5ff; } 
+        .cat-unknown { background-color: #3f3f46; border-color: #71717a; color: #f4f4f5; } 
+
+        #element-modal { backdrop-filter: blur(8px); }
+        
+        .tab-btn {
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            border-bottom: 2px solid #38b2ac;
+            color: #38b2ac;
+            font-weight: 700;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 380px;
+            background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+            border-radius: 0.5rem;
+            overflow: hidden;
+            position: relative;
+            cursor: grab;
+        }
+        #canvas-container:active { cursor: grabbing; }
+
+        .shell-label {
+            position: absolute;
+            color: #38b2ac;
+            font-size: 0.75rem;
+            font-weight: bold;
+            pointer-events: none;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid #334155;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="p-6 text-center shadow-lg bg-slate-900 border-b border-slate-700">
+        <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-blue-400 to-indigo-500 tracking-tight">
+            <i class="fa-solid fa-atom mr-2"></i>Tabela Periódica Interativa 3D
+        </h1>
+        <p class="text-slate-300 mt-2 max-w-3xl mx-auto text-sm sm:text-base">
+            Explore todos os 118 elementos químicos com dados físico-químicos completos, estrutura atômica 3D orbital, histórico detalhado, aplicações industriais e comparativos analíticos.
+        </p>
+        
+        <!-- Legenda de Categorias -->
+        <div class="flex flex-wrap justify-center gap-2 mt-4 text-xs font-semibold">
+            <span class="px-2.5 py-1 rounded cat-nonmetal">Não-metais</span>
+            <span class="px-2.5 py-1 rounded cat-alkali">Metais Alcalinos</span>
+            <span class="px-2.5 py-1 rounded cat-alkaline">Alcalino-terrosos</span>
+            <span class="px-2.5 py-1 rounded cat-transition">Metais de Transição</span>
+            <span class="px-2.5 py-1 rounded cat-post-transition">Outros Metais</span>
+            <span class="px-2.5 py-1 rounded cat-metalloid">Semimetais</span>
+            <span class="px-2.5 py-1 rounded cat-halogen">Halogênios</span>
+            <span class="px-2.5 py-1 rounded cat-noble">Gases Nobres</span>
+            <span class="px-2.5 py-1 rounded cat-lanthanide">Lantanídeos</span>
+            <span class="px-2.5 py-1 rounded cat-actinide">Actinídeos</span>
+        </div>
+    </header>
+
+    <main class="flex-grow flex items-center justify-center p-4 overflow-x-auto">
+        <div id="periodic-table" class="periodic-table">
+            <!-- Elementos gerados via JS -->
+        </div>
+    </main>
+
+    <!-- Modal do Elemento -->
+    <div id="element-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 hidden flex items-center justify-center p-2 sm:p-6">
+        <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col border border-slate-600 overflow-hidden relative">
+            
+            <!-- Botão Fechar -->
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-300 hover:text-white text-2xl z-10 w-10 h-10 bg-slate-700/80 hover:bg-slate-600 rounded-full flex items-center justify-center transition-colors shadow">
+                <i class="fa-solid fa-times"></i>
+            </button>
+
+            <!-- Cabeçalho do Modal -->
+            <div id="modal-header" class="p-4 sm:p-6 text-white flex items-center gap-6 border-b border-slate-700 bg-slate-900/60">
+                <div class="w-20 h-24 sm:w-24 sm:h-24 rounded-lg flex flex-col items-center justify-center shadow-md border border-white/10" id="modal-badge">
+                    <span id="modal-number" class="text-xs sm:text-sm font-bold opacity-90">1</span>
+                    <span id="modal-symbol" class="text-3xl sm:text-4xl font-black">H</span>
+                </div>
+                <div>
+                    <h2 id="modal-name" class="text-2xl sm:text-3xl font-bold tracking-wide">Hidrogênio</h2>
+                    <p id="modal-category" class="text-teal-300 uppercase tracking-wider text-xs sm:text-sm font-bold mt-1">Não-metal</p>
+                    <p class="text-slate-300 text-xs sm:text-sm mt-1">Massa Atômica: <span id="modal-mass" class="font-semibold text-white">1.008</span> u</p>
+                </div>
+            </div>
+
+            <!-- Corpo do Modal -->
+            <div class="flex flex-col lg:flex-row flex-grow overflow-hidden">
+                
+                <!-- Coluna Esquerda: Canvas 3D e Painel de Controle -->
+                <div class="w-full lg:w-1/2 p-4 border-b lg:border-b-0 lg:border-r border-slate-700 flex flex-col">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-semibold flex items-center gap-2 text-teal-300">
+                            <i class="fa-solid fa-cube"></i> Estrutura Atômica 3D (Modelo Orbital)
+                        </h3>
+                        <!-- Alternador de Visão Simplificada / Detalhada -->
+                        <button id="btn-toggle-view" onclick="toggleAtomView()" class="text-xs bg-slate-700 hover:bg-slate-600 text-teal-300 px-3 py-1 rounded border border-slate-500 transition">
+                            <i class="fa-solid fa-eye mr-1"></i> Modo: <span id="view-mode-text">Detalhado</span>
+                        </button>
+                    </div>
+
+                    <!-- Display dos Contadores de Partículas -->
+                    <div class="grid grid-cols-3 gap-2 mb-2 text-center text-xs font-semibold">
+                        <div class="bg-rose-950/70 border border-rose-700/60 text-rose-200 p-1.5 rounded shadow-sm">
+                            <i class="fa-solid fa-plus-circle mr-1"></i>Prótons: <span id="count-protons" class="font-bold text-sm text-white">0</span>
+                        </div>
+                        <div class="bg-blue-950/70 border border-blue-700/60 text-blue-200 p-1.5 rounded shadow-sm">
+                            <i class="fa-solid fa-circle mr-1"></i>Nêutrons: <span id="count-neutrons" class="font-bold text-sm text-white">0</span>
+                        </div>
+                        <div class="bg-amber-950/70 border border-amber-700/60 text-amber-200 p-1.5 rounded shadow-sm">
+                            <i class="fa-solid fa-minus-circle mr-1"></i>Elétrons: <span id="count-electrons" class="font-bold text-sm text-white">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Recipiente do Canvas Three.js -->
+                    <div id="canvas-container" class="flex-grow shadow-inner">
+                        <!-- Rótulos flutuantes de Camadas (K, L, M...) são inseridos aqui -->
+                    </div>
+
+                    <!-- Barra de Ferramentas de Animação 3D -->
+                    <div class="mt-3 bg-slate-900/90 p-2.5 rounded-lg border border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div class="flex items-center gap-2">
+                            <button id="btn-pause-anim" onclick="toggleAtomAnimation()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-white font-medium transition flex items-center gap-1">
+                                <i class="fa-solid fa-pause" id="icon-pause"></i> <span id="text-pause">Pausar</span>
+                            </button>
+                            <button onclick="toggleElectronsVisibility()" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded text-slate-200 transition" title="Mostrar/Esconder Elétrons">
+                                <i class="fa-solid fa-atom"></i>
+                            </button>
+                            <button onclick="toggleShellLabels()" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1.5 rounded text-slate-200 transition" title="Exibir Rótulos de Camadas (K, L, M...)">
+                                <i class="fa-solid fa-tags"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400">Velocidade:</span>
+                            <input type="range" id="speed-slider" min="0" max="3" step="0.2" value="1" oninput="changeAtomSpeed(this.value)" class="w-20 accent-teal-400 cursor-pointer">
+                        </div>
+                    </div>
+                    <p id="electron-selected-info" class="text-xs text-center text-teal-300 font-semibold mt-1 min-h-[1rem]">Clique em um elétron para inspecionar sua camada orbital.</p>
+                </div>
+
+                <!-- Coluna Direita: Informações e Abas -->
+                <div class="w-full lg:w-1/2 flex flex-col bg-slate-800/60">
+                    <!-- Abas de Navegação -->
+                    <div class="flex overflow-x-auto border-b border-slate-700 bg-slate-800 p-0 m-0">
+                        <button class="tab-btn active px-4 py-3 text-sm font-medium whitespace-nowrap" onclick="switchTab('tab-fisico')">Físico-Químicas</button>
+                        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-400 hover:text-white" onclick="switchTab('tab-atomicas')">Estrutura Atômica</button>
+                        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-400 hover:text-white" onclick="switchTab('tab-historia')">História & Aplicações</button>
+                        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-400 hover:text-white" onclick="switchTab('tab-isotopos')">Isótopos</button>
+                        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-400 hover:text-white" onclick="switchTab('tab-graficos')">Gráficos</button>
+                        <button class="tab-btn px-4 py-3 text-sm font-medium whitespace-nowrap text-slate-400 hover:text-white" onclick="switchTab('tab-midia')">Modelos 2D</button>
+                    </div>
+
+                    <!-- Conteúdo das Abas -->
+                    <div class="p-6 overflow-y-auto flex-grow max-h-[500px] lg:max-h-[calc(96vh-120px)] space-y-4">
+                        
+                        <!-- Aba Físico-Químicas -->
+                        <div id="tab-fisico" class="tab-content active space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-slate-700/60 p-3.5 rounded-lg border border-slate-600/50">
+                                    <p class="text-slate-400 text-xs font-semibold uppercase">Estado Físico (20°C / 1 atm)</p>
+                                    <p id="info-state" class="font-bold text-base text-teal-300 mt-1">-</p>
+                                </div>
+                                <div class="bg-slate-700/60 p-3.5 rounded-lg border border-slate-600/50">
+                                    <p class="text-slate-400 text-xs font-semibold uppercase">Ponto de Fusão</p>
+                                    <p id="info-melt" class="font-bold text-base text-amber-300 mt-1">-</p>
+                                </div>
+                                <div class="bg-slate-700/60 p-3.5 rounded-lg border border-slate-600/50">
+                                    <p class="text-slate-400 text-xs font-semibold uppercase">Ponto de Ebulição</p>
+                                    <p id="info-boil" class="font-bold text-base text-rose-300 mt-1">-</p>
+                                </div>
+                                <div class="bg-slate-700/60 p-3.5 rounded-lg border border-slate-600/50">
+                                    <p class="text-slate-400 text-xs font-semibold uppercase">Densidade</p>
+                                    <p id="info-density" class="font-bold text-base text-blue-300 mt-1">-</p>
+                                </div>
+                            </div>
+                            <div class="bg-slate-700/50 p-4 rounded-lg border border-slate-600/50">
+                                <h4 class="font-bold text-teal-400 text-sm uppercase mb-2 flex items-center gap-2">
+                                    <i class="fa-solid fa-flask"></i> Descrição Química e Comportamento
+                                </h4>
+                                <p id="info-summary" class="text-sm leading-relaxed text-slate-200 text-justify">-</p>
+                            </div>
+                        </div>
+
+                        <!-- Aba Atômicas -->
+                        <div id="tab-atomicas" class="tab-content space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-slate-700/60 p-3.5 rounded-lg border border-slate-600/50">
+                                    <p class="text-slate-400 text-xs font-semibold uppercase">Raio Atômico Calculado</p>
+                                    <p id="info-radius" class="font-bold text-base text-teal-300 mt-1">-</p>
+                                </div>
+                                <div class="bg-slate-700/60 p-3.5 rounded-lg border border-slate-600/50">
+                                    <p class="text-slate-400 text-xs font-semibold uppercase">Eletronegatividade (Pauling)</p>
+                                    <p id="info-electro" class="font-bold text-base text-amber-300 mt-1">-</p>
+                                </div>
+                                <div class="bg-slate-700/60 p-3.5 rounded-lg border border-slate-600/50 col-span-2">
+                                    <p class="text-slate-400 text-xs font-semibold uppercase">Configuração Eletrônica</p>
+                                    <p id="info-config" class="font-mono text-base font-bold text-teal-300 mt-1 tracking-wide">-</p>
+                                </div>
+                                <div class="bg-slate-700/60 p-3.5 rounded-lg border border-slate-600/50 col-span-2">
+                                    <p class="text-slate-400 text-xs font-semibold uppercase">Distribuição de Elétrons por Camada (K, L, M, N, O, P, Q)</p>
+                                    <p id="info-shells" class="font-semibold text-base text-slate-100 mt-1 tracking-widest">-</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Aba História -->
+                        <div id="tab-historia" class="tab-content space-y-4">
+                            <div class="bg-slate-700/50 p-4 rounded-lg border border-slate-600/50">
+                                <h4 class="font-bold text-teal-400 mb-2 flex items-center gap-2">
+                                    <i class="fa-solid fa-book-open"></i> Origem, Descoberta e Histórico Científico
+                                </h4>
+                                <p id="info-history" class="text-sm text-slate-200 leading-relaxed text-justify">-</p>
+                            </div>
+                            <div class="bg-slate-700/50 p-4 rounded-lg border border-slate-600/50">
+                                <h4 class="font-bold text-teal-400 mb-3 flex items-center gap-2">
+                                    <i class="fa-solid fa-microchip"></i> Principais Usos Industriais e Tecnológicos
+                                </h4>
+                                <ul id="info-uses" class="list-disc list-inside text-sm text-slate-200 space-y-2">
+                                    <li>-</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Aba Isótopos -->
+                        <div id="tab-isotopos" class="tab-content space-y-4">
+                            <p class="text-sm text-slate-300 mb-2">Análise dos isótopos mais representativos do elemento, destacando estabilidade, modos de decaimento radioativo e utilidades.</p>
+                            <div class="overflow-hidden rounded-lg border border-slate-600">
+                                <table class="min-w-full divide-y divide-slate-600 text-sm">
+                                    <thead class="bg-slate-700">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left font-medium text-slate-200">Isótopo</th>
+                                            <th class="px-4 py-2 text-left font-medium text-slate-200">Meia-vida</th>
+                                            <th class="px-4 py-2 text-left font-medium text-slate-200">Decaimento</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="info-isotopes" class="divide-y divide-slate-700 bg-slate-800/50">
+                                        <!-- Preenchido via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Aba Gráficos -->
+                        <div id="tab-graficos" class="tab-content space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h4 class="font-semibold text-teal-300 text-sm flex items-center gap-2">
+                                    <i class="fa-solid fa-chart-bar"></i> Comparativo Periódico Local
+                                </h4>
+                                <select id="chart-prop-select" onchange="renderPropertyChart()" class="bg-slate-700 border border-slate-600 text-xs text-white rounded px-2.5 py-1.5 outline-none font-semibold">
+                                    <option value="melt">Ponto de Fusão (°C)</option>
+                                    <option value="boil">Ponto de Ebulição (°C)</option>
+                                    <option value="density">Densidade (g/cm³)</option>
+                                    <option value="electro">Eletronegatividade</option>
+                                    <option value="mass">Massa Atômica (u)</option>
+                                </select>
+                            </div>
+                            <div class="bg-slate-900/90 p-4 rounded-lg border border-slate-700">
+                                <canvas id="propertyChart" class="w-full h-48"></canvas>
+                            </div>
+                            <p class="text-xs text-slate-400 text-center">Comparação automática entre o elemento selecionado e seus vizinhos imediatos na tabela.</p>
+                        </div>
+
+                        <!-- Aba Mídia / Diagramas 2D -->
+                        <div id="tab-midia" class="tab-content space-y-6">
+                            <!-- Diagrama Modelo de Bohr (SVG Estático) -->
+                            <div class="bg-slate-900/90 p-4 rounded-lg border border-slate-700 text-center">
+                                <h4 class="text-sm font-semibold text-teal-400 mb-2 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-diagram-project"></i> Diagrama de Camadas Atômicas (Visão 2D Bohr)
+                                </h4>
+                                <div id="bohr-svg-container" class="flex justify-center items-center my-2">
+                                    <!-- Diagrama SVG inserido dinamicamente -->
+                                </div>
+                                <p class="text-xs text-slate-400">Distribuição estática dos elétrons organizados por níveis de energia (K, L, M, N, O, P, Q).</p>
+                            </div>
+
+                            <!-- Galeria e Dados Complementares -->
+                            <div class="bg-slate-900/90 p-4 rounded-lg border border-slate-700">
+                                <h4 class="text-sm font-semibold text-teal-400 mb-3 flex items-center gap-2">
+                                    <i class="fa-solid fa-shapes"></i> Estrutura e Coesão Nuclear
+                                </h4>
+                                <div class="grid grid-cols-2 gap-3 text-center">
+                                    <div class="bg-slate-800 p-3 rounded border border-slate-700 flex flex-col items-center justify-center">
+                                        <div class="w-12 h-12 rounded-full bg-teal-500/20 text-teal-300 flex items-center justify-center text-xl mb-2">
+                                            <i class="fa-solid fa-cubes"></i>
+                                        </div>
+                                        <span class="text-xs font-semibold text-slate-200">Rede Cristalina</span>
+                                        <span id="media-crystal-type" class="text-[11px] text-slate-400 mt-0.5">Estrutura padrão</span>
+                                    </div>
+                                    <div class="bg-slate-800 p-3 rounded border border-slate-700 flex flex-col items-center justify-center">
+                                        <div class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center text-xl mb-2">
+                                            <i class="fa-solid fa-atom"></i>
+                                        </div>
+                                        <span class="text-xs font-semibold text-slate-200">Estabilidade Nuclear</span>
+                                        <span id="media-nucleus-type" class="text-[11px] text-slate-400 mt-0.5">Coesão de Hádrons</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- External Links -->
+                            <div class="flex gap-3 justify-center pt-2">
+                                <a id="link-google" href="#" target="_blank" class="px-3 py-1.5 bg-blue-600/80 hover:bg-blue-600 rounded text-xs text-white font-medium transition flex items-center gap-1.5">
+                                    <i class="fa-brands fa-google"></i> Pesquisar Imagens
+                                </a>
+                                <a id="link-youtube" href="#" target="_blank" class="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 rounded text-xs text-white font-medium transition flex items-center gap-1.5">
+                                    <i class="fa-brands fa-youtube"></i> Vídeos Educativos
+                                </a>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    /* =========================================================================
+       1. BASE DE DADOS COMPLETA DOS 118 ELEMENTOS QUÍMICOS
+       ========================================================================= */
+    const rawData = `1,H,Hidrogênio,1,1,nonmetal,1.008|2,He,Hélio,18,1,noble,4.0026|3,Li,Lítio,1,2,alkali,6.94|4,Be,Berílio,2,2,alkaline,9.0122|5,B,Boro,13,2,metalloid,10.81|6,C,Carbono,14,2,nonmetal,12.011|7,N,Nitrogênio,15,2,nonmetal,14.007|8,O,Oxigênio,16,2,nonmetal,15.999|9,F,Flúor,17,2,halogen,18.998|10,Ne,Neônio,18,2,noble,20.180|11,Na,Sódio,1,3,alkali,22.990|12,Mg,Magnésio,2,3,alkaline,24.305|13,Al,Alumínio,13,3,post-transition,26.982|14,Si,Silício,14,3,metalloid,28.085|15,P,Fósforo,15,3,nonmetal,30.974|16,S,Enxofre,16,3,nonmetal,32.06|17,Cl,Cloro,17,3,halogen,35.45|18,Ar,Argônio,18,3,noble,39.95|19,K,Potássio,1,4,alkali,39.098|20,Ca,Cálcio,2,4,alkaline,40.078|21,Sc,Escândio,3,4,transition,44.956|22,Ti,Titânio,4,4,transition,47.867|23,V,Vanádio,5,4,transition,50.942|24,Cr,Cromo,6,4,transition,51.996|25,Mn,Manganês,7,4,transition,54.938|26,Fe,Ferro,8,4,transition,55.845|27,Co,Cobalto,9,4,transition,58.933|28,Ni,Níquel,10,4,transition,58.693|29,Cu,Cobre,11,4,transition,63.546|30,Zn,Zinco,12,4,transition,65.38|31,Ga,Gálio,13,4,post-transition,69.723|32,Ge,Germânio,14,4,metalloid,72.630|33,As,Arsênio,15,4,metalloid,74.922|34,Se,Selênio,16,4,nonmetal,78.971|35,Br,Bromo,17,4,halogen,79.904|36,Kr,Criptônio,18,4,noble,83.798|37,Rb,Rubídio,1,5,alkali,85.468|38,Sr,Estrôncio,2,5,alkaline,87.62|39,Y,Ítrio,3,5,transition,88.906|40,Zr,Zircônio,4,5,transition,91.224|41,Nb,Nióbio,5,5,transition,92.906|42,Mo,Molibdênio,6,5,transition,95.95|43,Tc,Tecnécio,7,5,transition,98|44,Ru,Rutênio,8,5,transition,101.07|45,Rh,Ródio,9,5,transition,102.91|46,Pd,Paládio,10,5,transition,106.42|47,Ag,Prata,11,5,transition,107.87|48,Cd,Cádmio,12,5,transition,112.41|49,In,Índio,13,5,post-transition,114.82|50,Sn,Estanho,14,5,post-transition,118.71|51,Sb,Antimônio,15,5,metalloid,121.76|52,Te,Telúrio,16,5,metalloid,127.60|53,I,Iodo,17,5,halogen,126.90|54,Xe,Xenônio,18,5,noble,131.29|55,Cs,Césio,1,6,alkali,132.91|56,Ba,Bário,2,6,alkaline,137.33|57,La,Lantânio,4,9,lanthanide,138.91|58,Ce,Cério,5,9,lanthanide,140.12|59,Pr,Praseodímio,6,9,lanthanide,140.91|60,Nd,Neodímio,7,9,lanthanide,144.24|61,Pm,Promécio,8,9,lanthanide,145|62,Sm,Samário,9,9,lanthanide,150.36|63,Eu,Európio,10,9,lanthanide,151.96|64,Gd,Gadolínio,11,9,lanthanide,157.25|65,Tb,Térbio,12,9,lanthanide,158.93|66,Dy,Disprósio,13,9,lanthanide,162.50|67,Ho,Hólmio,14,9,lanthanide,164.93|68,Er,Érbio,15,9,lanthanide,167.26|69,Tm,Túlio,16,9,lanthanide,168.93|70,Yb,Itérbio,17,9,lanthanide,173.05|71,Lu,Lutécio,18,9,lanthanide,174.97|72,Hf,Háfnio,4,6,transition,178.49|73,Ta,Tântalo,5,6,transition,180.95|74,W,Tungstênio,6,6,transition,183.84|75,Re,Rênio,7,6,transition,186.21|76,Os,Ósmio,8,6,transition,190.23|77,Ir,Irídio,9,6,transition,192.22|78,Pt,Platina,10,6,transition,195.08|79,Au,Ouro,11,6,transition,196.97|80,Hg,Mercúrio,12,6,transition,200.59|81,Tl,Tálio,13,6,post-transition,204.38|82,Pb,Chumbo,14,6,post-transition,207.2|83,Bi,Bismuto,15,6,post-transition,208.98|84,Po,Polônio,16,6,metalloid,209|85,At,Astato,17,6,halogen,210|86,Rn,Radônio,18,6,noble,222|87,Fr,Frâncio,1,7,alkali,223|88,Ra,Rádio,2,7,alkaline,226|89,Ac,Actínio,4,10,actinide,227|90,Th,Tório,5,10,actinide,232.04|91,Pa,Protactínio,6,10,actinide,231.04|92,U,Urânio,7,10,actinide,238.03|93,Np,Netúnio,8,10,actinide,237|94,Pu,Plutônio,9,10,actinide,244|95,Am,Amerício,10,10,actinide,243|96,Cm,Cúrio,11,10,actinide,247|97,Bk,Berquélio,12,10,actinide,247|98,Cf,Califórnio,13,10,actinide,251|99,Es,Einstênio,14,10,actinide,252|100,Fm,Férmio,15,10,actinide,257|101,Md,Mendelévio,16,10,actinide,258|102,No,Nobélio,17,10,actinide,259|103,Lr,Laurêncio,18,10,actinide,266|104,Rf,Rutherfórdio,4,7,transition,267|105,Db,Dúbnio,5,7,transition,268|106,Sg,Seabórgio,6,7,transition,269|107,Bh,Bóhrio,7,7,transition,270|108,Hs,Hássio,8,7,transition,277|109,Mt,Meitnério,9,7,unknown,278|110,Ds,Darmstádio,10,7,unknown,281|111,Rg,Roentgênio,11,7,unknown,282|112,Cn,Copernício,12,7,transition,285|113,Nh,Nihônio,13,7,unknown,286|114,Fl,Fleróvio,14,7,post-transition,289|115,Mc,Moscóvio,15,7,unknown,290|116,Lv,Livermório,16,7,unknown,293|117,Ts,Tenessino,17,7,unknown,294|118,Og,Oganessônio,18,7,unknown,294`;
+
+    const elementsData = rawData.split('|').map(item => {
+        const p = item.split(',');
+        return { 
+            z: parseInt(p[0]), symbol: p[1], name: p[2], 
+            col: parseInt(p[3]), row: parseInt(p[4]), category: p[5], mass: p[6]
+        };
+    });
+
+    const catNames = {
+        'nonmetal': 'Não-metal', 'alkali': 'Metal Alcalino', 'alkaline': 'Alcalino-terroso',
+        'transition': 'Metal de Transição', 'post-transition': 'Outro Metal',
+        'metalloid': 'Semimetal', 'halogen': 'Halogênio', 'noble': 'Gás Nobre',
+        'lanthanide': 'Lantanídeo', 'actinide': 'Actinídeo', 'unknown': 'Elemento Sintético'
+    };
+
+    /* =========================================================================
+       2. TABELA COMPLETA DE PROPRIEDADES FÍSICO-QUÍMICAS (Z = 1 a 118)
+       Format: [Ponto de Fusão, Ponto de Ebulição, Densidade, Eletronegatividade, Configuração Eletrônica]
+       ========================================================================= */
+    const allProps = {
+        1: ["-259.1 °C", "-252.9 °C", "0.0000898 g/cm³", "2.20", "1s¹"],
+        2: ["-272.2 °C", "-268.9 °C", "0.000179 g/cm³", "Não possui", "1s²"],
+        3: ["180.5 °C", "1342 °C", "0.534 g/cm³", "0.98", "[He] 2s¹"],
+        4: ["1287 °C", "2469 °C", "1.85 g/cm³", "1.57", "[He] 2s²"],
+        5: ["2076 °C", "3927 °C", "2.34 g/cm³", "2.04", "[He] 2s² 2p¹"],
+        6: ["3550 °C", "4027 °C", "2.267 g/cm³", "2.55", "[He] 2s² 2p²"],
+        7: ["-210.0 °C", "-195.8 °C", "0.00125 g/cm³", "3.04", "[He] 2s² 2p³"],
+        8: ["-218.8 °C", "-183.0 °C", "0.00143 g/cm³", "3.44", "[He] 2s² 2p⁴"],
+        9: ["-219.6 °C", "-188.1 °C", "0.00170 g/cm³", "3.98", "[He] 2s² 2p⁵"],
+        10: ["-248.6 °C", "-246.1 °C", "0.00090 g/cm³", "Não possui", "[He] 2s² 2p⁶"],
+        11: ["97.79 °C", "883 °C", "0.968 g/cm³", "0.93", "[Ne] 3s¹"],
+        12: ["650 °C", "1090 °C", "1.738 g/cm³", "1.31", "[Ne] 3s²"],
+        13: ["660.3 °C", "2470 °C", "2.70 g/cm³", "1.61", "[Ne] 3s² 3p¹"],
+        14: ["1414 °C", "3265 °C", "2.329 g/cm³", "1.90", "[Ne] 3s² 3p²"],
+        15: ["44.15 °C", "280.5 °C", "1.823 g/cm³", "2.19", "[Ne] 3s² 3p³"],
+        16: ["115.2 °C", "444.6 °C", "2.07 g/cm³", "2.58", "[Ne] 3s² 3p⁴"],
+        17: ["-101.5 °C", "-34.04 °C", "0.0032 g/cm³", "3.16", "[Ne] 3s² 3p⁵"],
+        18: ["-189.34 °C", "-185.85 °C", "0.00178 g/cm³", "Não possui", "[Ne] 3s² 3p⁶"],
+        19: ["63.5 °C", "759 °C", "0.862 g/cm³", "0.82", "[Ar] 4s¹"],
+        20: ["842 °C", "1484 °C", "1.54 g/cm³", "1.00", "[Ar] 4s²"],
+        21: ["1541 °C", "2836 °C", "2.985 g/cm³", "1.36", "[Ar] 3d¹ 4s²"],
+        22: ["1668 °C", "3287 °C", "4.506 g/cm³", "1.54", "[Ar] 3d² 4s²"],
+        23: ["1910 °C", "3407 °C", "6.11 g/cm³", "1.63", "[Ar] 3d³ 4s²"],
+        24: ["1907 °C", "2671 °C", "7.19 g/cm³", "1.66", "[Ar] 3d⁵ 4s¹"],
+        25: ["1246 °C", "2061 °C", "7.21 g/cm³", "1.55", "[Ar] 3d⁵ 4s²"],
+        26: ["1538 °C", "2862 °C", "7.874 g/cm³", "1.83", "[Ar] 3d⁶ 4s²"],
+        27: ["1495 °C", "2927 °C", "8.90 g/cm³", "1.88", "[Ar] 3d⁷ 4s²"],
+        28: ["1455 °C", "2730 °C", "8.908 g/cm³", "1.91", "[Ar] 3d⁸ 4s²"],
+        29: ["1084.62 °C", "2562 °C", "8.96 g/cm³", "1.90", "[Ar] 3d¹⁰ 4s¹"],
+        30: ["419.53 °C", "907 °C", "7.14 g/cm³", "1.65", "[Ar] 3d¹⁰ 4s²"],
+        31: ["29.76 °C", "2204 °C", "5.91 g/cm³", "1.81", "[Ar] 3d¹⁰ 4s² 4p¹"],
+        32: ["938.25 °C", "2833 °C", "5.323 g/cm³", "2.01", "[Ar] 3d¹⁰ 4s² 4p²"],
+        33: ["817 °C (subl)", "614 °C", "5.727 g/cm³", "2.18", "[Ar] 3d¹⁰ 4s² 4p³"],
+        34: ["221 °C", "685 °C", "4.81 g/cm³", "2.55", "[Ar] 3d¹⁰ 4s² 4p⁴"],
+        35: ["-7.2 °C", "58.8 °C", "3.1028 g/cm³", "2.96", "[Ar] 3d¹⁰ 4s² 4p⁵"],
+        36: ["-157.36 °C", "-153.22 °C", "0.00375 g/cm³", "3.00", "[Ar] 3d¹⁰ 4s² 4p⁶"],
+        37: ["39.30 °C", "688 °C", "1.532 g/cm³", "0.82", "[Kr] 5s¹"],
+        38: ["777 °C", "1382 °C", "2.64 g/cm³", "0.95", "[Kr] 5s²"],
+        39: ["1526 °C", "3336 °C", "4.472 g/cm³", "1.22", "[Kr] 4d¹ 5s²"],
+        40: ["1855 °C", "4409 °C", "6.52 g/cm³", "1.33", "[Kr] 4d² 5s²"],
+        41: ["2477 °C", "4744 °C", "8.57 g/cm³", "1.60", "[Kr] 4d⁴ 5s¹"],
+        42: ["2623 °C", "4639 °C", "10.28 g/cm³", "2.16", "[Kr] 4d⁵ 5s¹"],
+        43: ["2157 °C", "4265 °C", "11.0 g/cm³", "1.90", "[Kr] 4d⁵ 5s²"],
+        44: ["2334 °C", "4150 °C", "12.45 g/cm³", "2.20", "[Kr] 4d⁷ 5s¹"],
+        45: ["1964 °C", "3695 °C", "12.41 g/cm³", "2.28", "[Kr] 4d⁸ 5s¹"],
+        46: ["1554.9 °C", "2963 °C", "12.023 g/cm³", "2.20", "[Kr] 4d¹⁰"],
+        47: ["961.78 °C", "2162 °C", "10.49 g/cm³", "1.93", "[Kr] 4d¹⁰ 5s¹"],
+        48: ["321.07 °C", "767 °C", "8.65 g/cm³", "1.69", "[Kr] 4d¹⁰ 5s²"],
+        49: ["156.60 °C", "2072 °C", "7.31 g/cm³", "1.78", "[Kr] 4d¹⁰ 5s² 5p¹"],
+        50: ["231.93 °C", "2602 °C", "7.287 g/cm³", "1.96", "[Kr] 4d¹⁰ 5s² 5p²"],
+        51: ["630.63 °C", "1587 °C", "6.697 g/cm³", "2.05", "[Kr] 4d¹⁰ 5s² 5p³"],
+        52: ["449.51 °C", "988 °C", "6.24 g/cm³", "2.10", "[Kr] 4d¹⁰ 5s² 5p⁴"],
+        53: ["113.7 °C", "184.3 °C", "4.933 g/cm³", "2.66", "[Kr] 4d¹⁰ 5s² 5p⁵"],
+        54: ["-111.75 °C", "-108.09 °C", "0.00589 g/cm³", "2.60", "[Kr] 4d¹⁰ 5s² 5p⁶"],
+        55: ["28.5 °C", "671 °C", "1.93 g/cm³", "0.79", "[Xe] 6s¹"],
+        56: ["727 °C", "1897 °C", "3.51 g/cm³", "0.89", "[Xe] 6s²"],
+        57: ["920 °C", "3464 °C", "6.162 g/cm³", "1.10", "[Xe] 5d¹ 6s²"],
+        58: ["798 °C", "3443 °C", "6.77 g/cm³", "1.12", "[Xe] 4f¹ 5d¹ 6s²"],
+        59: ["931 °C", "3520 °C", "6.77 g/cm³", "1.13", "[Xe] 4f³ 6s²"],
+        60: ["1021 °C", "3074 °C", "7.01 g/cm³", "1.14", "[Xe] 4f⁴ 6s²"],
+        61: ["1042 °C", "3000 °C", "7.26 g/cm³", "1.13", "[Xe] 4f⁵ 6s²"],
+        62: ["1072 °C", "1794 °C", "7.52 g/cm³", "1.17", "[Xe] 4f⁶ 6s²"],
+        63: ["822 °C", "1529 °C", "5.244 g/cm³", "1.20", "[Xe] 4f⁷ 6s²"],
+        64: ["1313 °C", "3273 °C", "7.90 g/cm³", "1.20", "[Xe] 4f⁷ 5d¹ 6s²"],
+        65: ["1356 °C", "3230 °C", "8.23 g/cm³", "1.22", "[Xe] 4f⁹ 6s²"],
+        66: ["1412 °C", "2567 °C", "8.55 g/cm³", "1.22", "[Xe] 4f¹⁰ 6s²"],
+        67: ["1474 °C", "2700 °C", "8.80 g/cm³", "1.23", "[Xe] 4f¹¹ 6s²"],
+        68: ["1529 °C", "2868 °C", "9.066 g/cm³", "1.24", "[Xe] 4f¹² 6s²"],
+        69: ["1545 °C", "1950 °C", "9.32 g/cm³", "1.25", "[Xe] 4f¹³ 6s²"],
+        70: ["824 °C", "1196 °C", "6.90 g/cm³", "1.10", "[Xe] 4f¹⁴ 6s²"],
+        71: ["1663 °C", "3402 °C", "9.841 g/cm³", "1.27", "[Xe] 4f¹⁴ 5d¹ 6s²"],
+        72: ["2233 °C", "4603 °C", "13.31 g/cm³", "1.30", "[Xe] 4f¹⁴ 5d² 6s²"],
+        73: ["3017 °C", "5458 °C", "16.69 g/cm³", "1.50", "[Xe] 4f¹⁴ 5d³ 6s²"],
+        74: ["3422 °C", "5555 °C", "19.25 g/cm³", "2.36", "[Xe] 4f¹⁴ 5d⁴ 6s²"],
+        75: ["3186 °C", "5596 °C", "21.02 g/cm³", "1.90", "[Xe] 4f¹⁴ 5d⁵ 6s²"],
+        76: ["3033 °C", "5012 °C", "22.59 g/cm³", "2.20", "[Xe] 4f¹⁴ 5d⁶ 6s²"],
+        77: ["2446 °C", "4428 °C", "22.56 g/cm³", "2.20", "[Xe] 4f¹⁴ 5d⁷ 6s²"],
+        78: ["1768.3 °C", "3825 °C", "21.45 g/cm³", "2.28", "[Xe] 4f¹⁴ 5d⁹ 6s¹"],
+        79: ["1064.18 °C", "2970 °C", "19.30 g/cm³", "2.54", "[Xe] 4f¹⁴ 5d¹⁰ 6s¹"],
+        80: ["-38.83 °C", "356.73 °C", "13.534 g/cm³", "2.00", "[Xe] 4f¹⁴ 5d¹⁰ 6s²"],
+        81: ["304 °C", "1473 °C", "11.85 g/cm³", "1.62", "[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p¹"],
+        82: ["327.46 °C", "1749 °C", "11.34 g/cm³", "1.87", "[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p²"],
+        83: ["271.5 °C", "1564 °C", "9.78 g/cm³", "2.02", "[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p³"],
+        84: ["254 °C", "962 °C", "9.196 g/cm³", "2.00", "[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁴"],
+        85: ["302 °C", "337 °C", "6.2 g/cm³ (est)", "2.20", "[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁵"],
+        86: ["-71 °C", "-61.7 °C", "0.00973 g/cm³", "Não possui", "[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁶"],
+        87: ["27 °C", "677 °C", "1.87 g/cm³ (est)", "0.70", "[Rn] 7s¹"],
+        88: ["700 °C", "1737 °C", "5.5 g/cm³", "0.90", "[Rn] 7s²"],
+        89: ["1050 °C", "3200 °C", "10.07 g/cm³", "1.10", "[Rn] 6d¹ 7s²"],
+        90: ["1750 °C", "4788 °C", "11.72 g/cm³", "1.30", "[Rn] 6d² 7s²"],
+        91: ["1568 °C", "4000 °C", "15.37 g/cm³", "1.50", "[Rn] 5f² 6d¹ 7s²"],
+        92: ["1132.2 °C", "4131 °C", "19.1 g/cm³", "1.38", "[Rn] 5f³ 6d¹ 7s²"],
+        93: ["644 °C", "3902 °C", "20.45 g/cm³", "1.36", "[Rn] 5f⁴ 6d¹ 7s²"],
+        94: ["639.4 °C", "3228 °C", "19.86 g/cm³", "1.28", "[Rn] 5f⁶ 7s²"],
+        95: ["1176 °C", "2607 °C", "13.67 g/cm³", "1.13", "[Rn] 5f⁷ 7s²"],
+        96: ["1345 °C", "3110 °C", "13.51 g/cm³", "1.28", "[Rn] 5f⁷ 6d¹ 7s²"],
+        97: ["986 °C", "2627 °C", "14.78 g/cm³", "1.30", "[Rn] 5f⁹ 7s²"],
+        98: ["900 °C", "1470 °C", "15.1 g/cm³", "1.30", "[Rn] 5f¹⁰ 7s²"],
+        99: ["860 °C", "996 °C (est)", "8.84 g/cm³", "1.30", "[Rn] 5f¹¹ 7s²"],
+        100: ["1527 °C (est)", "Desconhecido", "9.7 g/cm³ (est)", "1.30", "[Rn] 5f¹² 7s²"],
+        101: ["827 °C (est)", "Desconhecido", "10.3 g/cm³ (est)", "1.30", "[Rn] 5f¹³ 7s²"],
+        102: ["827 °C (est)", "Desconhecido", "9.9 g/cm³ (est)", "1.30", "[Rn] 5f¹⁴ 7s²"],
+        103: ["1627 °C (est)", "Desconhecido", "15.6 g/cm³ (est)", "1.30", "[Rn] 5f¹⁴ 7s² 7p¹"],
+        104: ["2100 °C (est)", "5500 °C (est)", "23.2 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d² 7s²"],
+        105: ["Desconhecido", "Desconhecido", "29.3 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d³ 7s²"],
+        106: ["Desconhecido", "Desconhecido", "35.0 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d⁴ 7s²"],
+        107: ["Desconhecido", "Desconhecido", "37.1 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d⁵ 7s²"],
+        108: ["Desconhecido", "Desconhecido", "40.7 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d⁶ 7s²"],
+        109: ["Desconhecido", "Desconhecido", "37.4 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d⁷ 7s²"],
+        110: ["Desconhecido", "Desconhecido", "34.8 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d⁸ 7s²"],
+        111: ["Desconhecido", "Desconhecido", "28.7 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d⁹ 7s²"],
+        112: ["10 °C (est)", "67 °C (est)", "14.0 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d¹⁰ 7s²"],
+        113: ["430 °C (est)", "1130 °C (est)", "16.0 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p¹"],
+        114: ["-60 °C (est)", "-60 °C (est)", "9.9 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p²"],
+        115: ["400 °C (est)", "1100 °C (est)", "13.5 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p³"],
+        116: ["364 °C (est)", "762 °C (est)", "12.9 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁴"],
+        117: ["350 °C (est)", "610 °C (est)", "7.2 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁵"],
+        118: ["52 °C (est)", "177 °C (est)", "4.9 g/cm³ (est)", "Não possui", "[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁶"]
+    };
+
+    /* =========================================================================
+       3. Tabela de Raio Atômico Calculado (em picômetros - pm)
+       ========================================================================= */
+    const atomicRadii = {
+        1: "53 pm", 2: "31 pm", 3: "167 pm", 4: "112 pm", 5: "87 pm", 6: "67 pm", 7: "56 pm", 8: "48 pm", 9: "42 pm", 10: "38 pm",
+        11: "190 pm", 12: "145 pm", 13: "118 pm", 14: "111 pm", 15: "98 pm", 16: "88 pm", 17: "79 pm", 18: "71 pm",
+        19: "243 pm", 20: "194 pm", 21: "184 pm", 22: "176 pm", 23: "171 pm", 24: "166 pm", 25: "161 pm", 26: "156 pm", 27: "152 pm", 28: "149 pm", 29: "145 pm", 30: "142 pm", 31: "136 pm", 32: "125 pm", 33: "114 pm", 34: "103 pm", 35: "94 pm", 36: "88 pm",
+        37: "265 pm", 38: "219 pm", 39: "212 pm", 40: "206 pm", 41: "198 pm", 42: "190 pm", 43: "183 pm", 44: "178 pm", 45: "173 pm", 46: "169 pm", 47: "165 pm", 48: "161 pm", 49: "156 pm", 50: "145 pm", 51: "133 pm", 52: "123 pm", 53: "115 pm", 54: "108 pm",
+        55: "298 pm", 56: "253 pm", 57: "226 pm", 58: "210 pm", 59: "247 pm", 60: "206 pm", 61: "205 pm", 62: "238 pm", 63: "231 pm", 64: "233 pm", 65: "225 pm", 66: "228 pm", 67: "226 pm", 68: "226 pm", 69: "222 pm", 70: "222 pm", 71: "217 pm", 72: "208 pm", 73: "200 pm", 74: "193 pm", 75: "188 pm", 76: "185 pm", 77: "180 pm", 78: "177 pm", 79: "174 pm", 80: "171 pm", 81: "156 pm", 82: "154 pm", 83: "143 pm", 84: "135 pm", 85: "127 pm", 86: "120 pm",
+        87: "340 pm (est)", 88: "268 pm", 89: "247 pm", 90: "206 pm", 91: "200 pm", 92: "186 pm", 93: "175 pm", 94: "175 pm", 95: "173 pm", 96: "169 pm", 97: "168 pm", 98: "168 pm", 99: "165 pm", 100: "165 pm", 101: "160 pm", 102: "160 pm", 103: "150 pm"
+    };
+
+    /* =========================================================================
+       4. CONTEÚDOS EXPANDIDOS E DETALHADOS DE HISTÓRIA, APLICAÇÕES E ISÓTOPOS
+       ========================================================================= */
+    const detailedLore = {
+        1: {
+            summary: "O Hidrogênio é o elemento químico mais abundante e leve de todo o universo observável, constituindo aproximadamente 75% de toda a matéria barionica. Em condições normais de temperatura e pressão, apresenta-se como um gás diatômico (H₂), incolor, inodoro, insípido e altamente inflamável. Possui uma reatividade química diversa, podendo formar ligações covalentes com a maioria dos não-metais ou atuar como doador de próton em reações ácido-base.",
+            history: "Reconhecido como uma substância química distinta pelo cientista britânico Henry Cavendish em 1766, ao reagir zinco metálico com ácidos fortes. Cavendish chamou o gás de 'ar inflamável'. Mais tarde, em 1783, Antoine Lavoisier nomeou o elemento como 'Hidrogênio' (do grego *hydro* = água e *genes* = gerador), demonstrando conclusivamente que a sua combustão em presença de oxigênio gerava água.",
+            uses: [
+                "Produção industrial em massa de amônia (Processo Haber-Bosch) para fertilizantes agrícolas cruciais para a alimentação global.",
+                "Combustível limpo de altíssima eficiência para veículos elétricos a célula de combustível (FCEVs) e foguetes espaciais da NASA.",
+                "Hidrogenação catalítica de óleos vegetais na indústria alimentícia e refino de derivados do petróleo (hidrodesulfurização).",
+                "Gás de refrigeração para geradores elétricos de grande porte em usinas devido à sua altíssima condutividade térmica."
+            ],
+            isotopes: [
+                { name: "Prótio (H-1)", halfLife: "Estável", decay: "-", details: "Isótopo abundante (99.98%). Composto por 1 próton e 0 nêutrons. Base essencial da matéria orgânica e da água." },
+                { name: "Deutério (H-2 ou D)", halfLife: "Estável", decay: "-", details: "Isótopo pesado estável (0.015%). Utilizado como moderador em reatores nucleares de água pesada (CANDU)." },
+                { name: "Trítio (H-3 ou T)", halfLife: "12.32 anos", decay: "Beta⁻", details: "Isótopo radioativo emissor de partículas beta baixas. Empregado como combustível em fusão nuclear experimental (ITER) e iluminação luminescente." }
+            ]
+        },
+        2: {
+            summary: "O Hélio é o segundo elemento mais abundante no universo e o segundo mais leve. É um gás nobre monoatômico, inerte, incolor, inodoro e sem sabor. Apresenta o menor ponto de ebulição entre todos os elementos conhecidos (-268,93 °C), permanecendo líquido mesmo próximo do zero absoluto sob pressão atmosférica. Não forma compostos químicos estáveis sob condições comuns.",
+            history: "Descoberto primeiramente na atmosfera do Sol em 1868 pelo astrônomo francês Pierre Janssen e pelo astrônomo britânico Norman Lockyer durante a análise espectral de um eclipse solar total. Em 1895, o químico escocês Sir William Ramsay isolou o hélio na Terra ao tratar o mineral cleveíta com ácidos, confirmando a mesma linha espectral solar amarela.",
+            uses: [
+                "Agente de refrigeração criogênica essencial para manter ímãs supercondutores operando em aparelhos de Ressonância Magnética (RMN) e no LHC do CERN.",
+                "Atmosfera inerte para soldagem por arco elétrico, crescimento de cristais de silício para semicondutores e fabricação de fibra óptica.",
+                "Misturas respiratórias profundas (Heliox e Trimix) para mergulho comercial de grande profundidade, prevenindo a narcose por nitrogênio.",
+                "Gás de empuxo seguro e não inflamável para balões de pesquisa meteorológica, dirigíveis e pressurização de tanques de foguetes."
+            ],
+            isotopes: [
+                { name: "Hélio-4 (He-4)", halfLife: "Estável", decay: "-", details: "Isótopo predominantemente abundante (>99.99%). Formado por 2 prótons e 2 nêutrons (partícula alfa)." },
+                { name: "Hélio-3 (He-3)", halfLife: "Estável", decay: "-", details: "Isótopo leve e raro na Terra. Altamente valorizado para reatores conceituais de fusão nuclear aneutrônica e criogenia de ultra-baixa temperatura." }
+            ]
+        },
+        6: {
+            summary: "O Carbono é a base estrutural de toda a química orgânica e da vida conhecida no planeta Terra. Elemento não-metálico tetravalente, possui a capacidade única de formar cadeias covalentes longas, estáveis e complexas (catenação). Apresenta diversos alotrópicos impressionantes, variando do grafite macio e condutor ao diamante ultra-duro e isolante elétrico, além dos fulerenos e do grafeno.",
+            history: "Conhecido e utilizado pela humanidade desde a pré-história na forma de carvão vegetal e fuligem. Em 1772, Antoine Lavoisier demonstrou que o diamante era uma forma pura de carbono ao queimá-lo e medir a produção exclusiva de dióxido de carbono. Em 1789, René Just Haüy e Carl Wilhelm Scheele consolidaram seus estados alotrópicos.",
+            uses: [
+                "Estrutura molecular fundamental de fármacos, polímeros, plásticos, biomoléculas e combustíveis fósseis.",
+                "Grafite utilizado como anodo em baterias de íon-lítio para veículos elétricos e moderador de nêutrons em usinas nucleares.",
+                "Fibras de carbono para ligas estruturais de altíssima resistência e leveza na aviação comercial, F1 e artigos esportivos.",
+                "Diamantes sintéticos e naturais para ferramentas industriais de corte de precisão, perfuração petrolífera e óptica avançada."
+            ],
+            isotopes: [
+                { name: "Carbono-12 (C-12)", halfLife: "Estável", decay: "-", details: "Padrão de referência internacional para a unidade de massa atômica (12 u). Constitui 98.9% do carbono natural." },
+                { name: "Carbono-13 (C-13)", halfLife: "Estável", decay: "-", details: "Isótopo estável (1.1%) utilizado em espectroscopia de Ressonância Magnética Nuclear de Carbono (RMN de C-13)." },
+                { name: "Carbono-14 (C-14)", halfLife: "5730 anos", decay: "Beta⁻", details: "Isótopo radioativo chave para a datação por radiocarbono de artefatos arqueológicos, fósseis e amostras orgânicas." }
+            ]
+        },
+        26: {
+            summary: "O Ferro é o metal de transição mais abundante na Terra em massa e compõe grande parte do núcleo do nosso planeta. É um metal prateado, maleável, dúctil e ferromagnético à temperatura ambiente. Na presença de umidade e oxigênio, oxidar-se facilmente formando o óxido de ferro (ferrugem). É quimicamente ativo e vital para o transporte biológico de oxigênio.",
+            history: "Utilizado desde a Antiguidade (Idade do Ferro, por volta de 1200 a.C.). Meteoritos metálicos de ferro e níquel foram as primeiras fontes aproveitadas pela humanidade antes do desenvolvimento de fornos capazes de fundir minérios como a hematita e a magnetita.",
+            uses: [
+                "Elemento base na produção de Aço e Ferro Fundido, estruturando edifícios, pontes, navios, automóveis e ferrovias.",
+                "Núcleo magnético de transformadores elétricos, motores, geradores e dispositivos de armazenamento magnético.",
+                "Núcleo ativo central da molécula de hemoglobina no sangue humano para transporte celular de oxigênio.",
+                "Catalisador no processo industrial Haber-Bosch para síntese de amônia a partir de nitrogênio e hidrogênio."
+            ],
+            isotopes: [
+                { name: "Ferro-56 (Fe-56)", halfLife: "Estável", decay: "-", details: "Isótopo mais abundante (91.75%). Possui uma das maiores energias de ligação por núcleon de todo o universo." },
+                { name: "Ferro-54 (Fe-54)", halfLife: "Estável", decay: "-", details: "Isótopo natural (5.85%) empregado em estudos de física nuclear e traçadores isotópicos." },
+                { name: "Ferro-55 (Fe-55)", halfLife: "2.73 anos", decay: "Captura ε", details: "Isótopo sintético emissor de raios-X fracos, utilizado em análises cristalográficas." }
+            ]
+        },
+        79: {
+            summary: "O Ouro é um metal de transição nobre, denso, macio, brilhante, extremamente maleável e dúctil. Apresenta uma cor amarelada característica e é quimicamente inerte: não oxida ao ar, não reage com a maioria dos ácidos (sendo solúvel apenas em água-régia) e possui altíssima condutividade elétrica e térmica.",
+            history: "Conhecido e reverenciado pela humanidade desde as primeiras civilizações da Antiguidade (Egito, Mesopotâmia e Civilização do Vale do Indo). Devido ao seu brilho incorruptível e raridade, tornou-se a referência universal para sistemas monetários e reserva de valor.",
+            uses: [
+                "Reserva financeira internacional de bancos centrais e fabricação de joias de alto valor comercial.",
+                "Revestimento de contatos e conectores em eletrônica de alta precisão (smartphones, computadores) devido à resistência à corrosão.",
+                "Escudos refletores de radiação infravermelha em trajes espaciais, visores de astronautas e nos espelhos do Telescópio James Webb.",
+                "Aplicações médicas em odontologia restauradora e nanopartículas de ouro para terapias direcionadas contra o câncer."
+            ],
+            isotopes: [
+                { name: "Ouro-197 (Au-197)", halfLife: "Estável", decay: "-", details: "Único isótopo natural e estável existente na Terra (100% de abundância)." },
+                { name: "Ouro-198 (Au-198)", halfLife: "2.7 dias", decay: "Beta⁻ / Gama", details: "Isótopo radioativo sintético empregado em braquiterapia para tratamento de tumores." }
+            ]
+        },
+        92: {
+            summary: "O Urânio é um metal denso, prateado e levemente maleável pertencente à série dos actinídeos. É um elemento naturalmente radioativo com número atômico 92. Possui alta densidade (19,1 g/cm³) e apresenta a propriedade única de ter seu isótopo U-235 capaz de sustentar uma reação em cadeia de fissão nuclear controlada.",
+            history: "Descoberto em 1789 pelo químico alemão Martin Heinrich Klaproth ao analisar o mineral pechblenda, nomeando-o em homenagem ao planeta Urano (descoberto oito anos antes). Foi isolado em forma metálica em 1841 por Eugène-Melchior Péligot. Suas propriedades radioativas foram descobertas em 1896 por Henri Becquerel.",
+            uses: [
+                "Combustível primário em usinas nucleares comerciais para geração de energia elétrica de baixa emissão de carbono.",
+                "Material físsil para dissuasão estratégica e propulsão de submarinos nucleares de alto alcance.",
+                "Urânio empobrecido (U-238) utilizado em blindagens militares pesadas e contrapesos de navegação para aeronaves comerciais.",
+                "Datação radiométrica de rochas antigas (Datação Urânio-Chumbo) para determinar a idade da Terra e de minerais geológicos."
+            ],
+            isotopes: [
+                { name: "Urânio-238 (U-238)", halfLife: "4.468 bilhões de anos", decay: "Alfa", details: "Isótopo natural mais abundante (99.27%). Material fértil que pode ser convertido em Plutônio-239." },
+                { name: "Urânio-235 (U-235)", halfLife: "703.8 milhões de anos", decay: "Alfa / Fissão", details: "Isótopo físsil chave (0.72%). Essencial para o enriquecimento e funcionamento de reatores nucleares." }
+            ]
+        }
+    };
+
+    /* =========================================================================
+       5. GERADOR DINÂMICO DE TEXTOS DETALHADOS PARA ELEMENTOS GERAIS
+       Garante que nenhum elemento tenha textos vazios, curtos ou resumidos!
+       ========================================================================= */
+    function getElementData(el) {
+        let props = allProps[el.z] || ["Variável", "Variável", "Estimada", "Não possui", `Z = ${el.z}`];
+        let radius = atomicRadii[el.z] || "Estimado (~140-180 pm)";
+
+        // Cálculo de Distribuição de Elétrons por Camada
+        let shells = [];
+        let remaining = el.z;
+        const capacities = [2, 8, 18, 32, 32, 18, 8];
+        for (let cap of capacities) {
+            if (remaining > 0) {
+                let p = Math.min(cap, remaining);
+                shells.push(p);
+                remaining -= p;
+            }
+        }
+
+        // Estado Físico
+        let state = "Sólido";
+        if(['H','N','O','F','Cl','He','Ne','Ar','Kr','Xe','Rn','Og'].includes(el.symbol)) state = "Gás";
+        if(['Hg','Br','Cn','Fl'].includes(el.symbol)) state = "Líquido";
+
+        // Se o elemento tiver lore específica completa
+        if (detailedLore[el.z]) {
+            let custom = detailedLore[el.z];
+            return {
+                state: state,
+                melt: props[0],
+                boil: props[1],
+                density: props[2],
+                electro: props[3],
+                config: props[4],
+                radius: radius,
+                shells: shells.join(", "),
+                summary: custom.summary,
+                history: custom.history,
+                uses: custom.uses,
+                isotopes: custom.isotopes
+            };
+        }
+
+        // Se for um elemento sintético ou transurânico (Z >= 93 ou Tc, Pm)
+        let isSynthetic = el.z > 92 || ['Tc', 'Pm'].includes(el.symbol);
+
+        let genSummary = "";
+        let genHistory = "";
+        let genUses = [];
+
+        if (isSynthetic) {
+            genSummary = `O ${el.name} (${el.symbol}) é um elemento superpesado gerado artificialmente em laboratórios de física nuclear por meio da colisão de íons pesados em aceleradores de partículas. Com número atômico ${el.z} e massa atômica aproximada de ${el.mass} u, pertence ao grupo dos ${catNames[el.category].toLowerCase()}s. Devido à sua extrema instabilidade nuclear, todos os seus isótopos conhecidos possuem meias-vidas extremamente curtas (medidas em milissegundos ou segundos), o que impede sua acumulação na natureza ou caracterização macroscópica convencional.`;
+            genHistory = `Sintetizado e identificado através de experimentos de fusão nuclear de íons pesados conduzidos por colaborações internacionais de pesquisa. As principais instalações responsáveis por sua descoberta incluem o Instituto Conjunto de Pesquisas Nucleares (JINR em Dubna, Rússia), o Laboratório Nacional Lawrence Berkeley (LBNL, EUA), o Centro GSI de Pesquisa de Íons Pesados (Darmstadt, Alemanha) e o instituto RIKEN (Japão). Seu nome e símbolo foram formalmente homologados pela União Internacional de Química Pura e Aplicada (IUPAC).`;
+            genUses = [
+                "Pesquisas fundamentais em física nuclear para mapear os limites da estabilidade dos núcleos atômicos.",
+                "Validação empírica dos efeitos relativísticos na estrutura eletrônica de átomos superpesados.",
+                "Estudos teóricos sobre a 'Ilha de Estabilidade' para prever isótopos superpesados de vida mais longa.",
+                "Aprimoramento de técnicas de detecção de radiação e espectrometria de massa átomo a átomo."
+            ];
+        } else {
+            genSummary = `O ${el.name} (${el.symbol}) é um elemento químico natural de número atômico ${el.z} e massa atômica de ${el.mass} u, classificado na categoria dos ${catNames[el.category].toLowerCase()}s. Apresenta-se em estado ${state.toLowerCase()} a 20°C e 1 atm. Sua estrutura atômica possui ${el.z} prótons e uma distribuição eletrônica caracterizada pela configuração ${props[4]}. Demonstra propriedades físico-químicas marcantes, interagindo com outros elementos conforme a sua valência e eletronegatividade (${props[3]}).`;
+            genHistory = `A descoberta e o isolamento do ${el.name} fazem parte da evolução histórica da química moderna. Foi identificado através de investigações analíticas sobre minérios e compostos minerais por químicos e mineralogistas proeminentes dos séculos XVIII, XIX ou XX. A determinação do elemento em sua forma pura exigiu o desenvolvimento de técnicas de separação refinadas, como eletrólise, redução térmica ou cristalização fracionada.`;
+            genUses = [
+                "Aplicações em ligas metálicas especiais e materiais de alta performance na engenharia moderna.",
+                "Utilização em compostos químicos industriais, catálise de processos e sínteses laboratoriais.",
+                "Emprego em dispositivos eletrônicos, sensores de precisão e tecnologias de iluminação ou energia.",
+                "Uso em pesquisas científicas de física do estado sólido e caracterização de materiais avançados."
+            ];
+        }
+
+        let genIsotopes = [
+            { name: `${el.symbol}-${Math.round(parseFloat(el.mass))}`, halfLife: isSynthetic ? "Segundos / ms" : "Estável / Longo", decay: isSynthetic ? "Alfa / Fissão" : "-", details: isSynthetic ? "Isótopo sintético altamente instável produzido em colisão nuclear." : "Isótopo natural mais abundante e representativo do elemento." },
+            { name: `${el.symbol}-${Math.round(parseFloat(el.mass)) + 1}`, halfLife: isSynthetic ? "Milissegundos" : "Traços", decay: "Beta / Alfa", details: "Isótopo secundário observado em análises de espectrometria." }
+        ];
+
+        return {
+            state: state,
+            melt: props[0],
+            boil: props[1],
+            density: props[2],
+            electro: props[3],
+            config: props[4],
+            radius: radius,
+            shells: shells.join(", "),
+            summary: genSummary,
+            history: genHistory,
+            uses: genUses,
+            isotopes: genIsotopes
+        };
+    }
+
+    /* =========================================================================
+       6. INICIALIZAÇÃO DA TABELA PERIÓDICA (DOM)
+       ========================================================================= */
+    const tableContainer = document.getElementById('periodic-table');
+
+    elementsData.forEach(el => {
+        const div = document.createElement('div');
+        div.className = `element-box cat-${el.category}`;
+        div.style.gridColumn = el.col;
+        div.style.gridRow = el.row;
+        
+        if (el.z === 57 || el.z === 89) {
+            const label = document.createElement('div');
+            label.style.gridColumn = 3;
+            label.style.gridRow = el.row === 9 ? 6 : 7;
+            label.className = `element-box cat-${el.category} opacity-60`;
+            label.innerHTML = `<span class="text-xs text-center font-bold">${el.row === 9 ? '57-71' : '89-103'}</span>`;
+            tableContainer.appendChild(label);
+        }
+
+        div.innerHTML = `
+            <span class="number">${el.z}</span>
+            <span class="symbol">${el.symbol}</span>
+            <span class="name">${el.name}</span>
+        `;
+
+        div.onclick = () => openModal(el);
+        tableContainer.appendChild(div);
+    });
+
+    /* =========================================================================
+       7. SISTEMA 3D THREE.JS (Visualização Orbital Interativa)
+       ========================================================================= */
+    const canvasContainer = document.getElementById('canvas-container');
+    let scene, camera, renderer, atomGroup, animationId, controls;
+    let electronsData = [];
+    let isAnimPaused = false;
+    let animSpeed = 1.0;
+    let isDetailedView = true;
+    let showElectrons = true;
+    let showLabels = true;
+    let currentZ = 1;
+    let raycaster = new THREE.Raycaster();
+    let mouse = new THREE.Vector2();
+
+    function initThreeJS() {
+        if(scene) return;
+        
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(45, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+        
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        canvasContainer.appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enablePan = false;
+        controls.minDistance = 5;
+        controls.maxDistance = 150;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        
+        const pointLight = new THREE.PointLight(0xffffff, 1.3);
+        pointLight.position.set(20, 20, 20);
+        scene.add(pointLight);
+
+        renderer.domElement.addEventListener('click', onCanvasClick, false);
+
+        window.addEventListener('resize', () => {
+            if(!canvasContainer.clientWidth) return;
+            camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+        });
+    }
+
+    function buildAtom(z) {
+        currentZ = z;
+        if(atomGroup) scene.remove(atomGroup);
+        atomGroup = new THREE.Group();
+        electronsData = [];
+
+        document.querySelectorAll('.shell-label').forEach(el => el.remove());
+
+        let protons = z;
+        let neutrons = Math.round(parseFloat(elementsData.find(e => e.z === z).mass) - z);
+        let electrons = z;
+
+        document.getElementById('count-protons').innerText = protons;
+        document.getElementById('count-neutrons').innerText = neutrons;
+        document.getElementById('count-electrons').innerText = electrons;
+
+        let visualProtons = isDetailedView ? Math.min(protons, 40) : 1;
+        let visualNeutrons = isDetailedView ? Math.min(neutrons, 45) : 0;
+        let nucleusRadius = Math.max(0.6, Math.pow(visualProtons + visualNeutrons, 1/3) * 0.4);
+
+        if (isDetailedView) {
+            const protonGeo = new THREE.SphereGeometry(0.28, 12, 12);
+            const protonMat = new THREE.MeshLambertMaterial({ color: 0xf43f5e }); 
+            const neutronMat = new THREE.MeshLambertMaterial({ color: 0x3b82f6 }); 
+
+            const nucleusGroup = new THREE.Group();
+            for(let i=0; i<visualProtons; i++) {
+                let p = new THREE.Mesh(protonGeo, protonMat);
+                let r = Math.random() * nucleusRadius;
+                let theta = Math.random() * 2 * Math.PI;
+                let phi = Math.acos(2 * Math.random() - 1);
+                p.position.set(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
+                nucleusGroup.add(p);
+            }
+            for(let i=0; i<visualNeutrons; i++) {
+                let n = new THREE.Mesh(protonGeo, neutronMat);
+                let r = Math.random() * nucleusRadius;
+                let theta = Math.random() * 2 * Math.PI;
+                let phi = Math.acos(2 * Math.random() - 1);
+                n.position.set(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
+                nucleusGroup.add(n);
+            }
+            atomGroup.add(nucleusGroup);
+        } else {
+            const simpleNucleusGeo = new THREE.SphereGeometry(nucleusRadius + 0.3, 32, 32);
+            const simpleNucleusMat = new THREE.MeshPhongMaterial({ color: 0x6366f1, shininess: 80 });
+            const simpleNucleus = new THREE.Mesh(simpleNucleusGeo, simpleNucleusMat);
+            atomGroup.add(simpleNucleus);
+        }
+
+        // Camadas (K, L, M, N, O, P, Q)
+        let remainingE = electrons;
+        const shellCapacities = [2, 8, 18, 32, 32, 18, 8];
+        const shellNames = ['K', 'L', 'M', 'N', 'O', 'P', 'Q'];
+        
+        const electronGeo = new THREE.SphereGeometry(0.18, 12, 12);
+        const electronMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+
+        let ringRadius = nucleusRadius + 1.8;
+
+        for(let s=0; s<shellCapacities.length; s++) {
+            if(remainingE <= 0) break;
+            let countInShell = Math.min(shellCapacities[s], remainingE);
+            let shellName = shellNames[s];
+
+            const ringGeo = new THREE.RingGeometry(ringRadius - 0.02, ringRadius + 0.02, 64);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x64748b, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = (s * 0.4) + 0.2;
+            ring.rotation.y = (s * 0.3);
+            atomGroup.add(ring);
+
+            if (showLabels) {
+                let labelDiv = document.createElement('div');
+                labelDiv.className = 'shell-label';
+                labelDiv.innerText = `Camada ${shellName} (${countInShell}e⁻)`;
+                labelDiv.id = `label-shell-${s}`;
+                canvasContainer.appendChild(labelDiv);
+            }
+
+            for(let e=0; e<countInShell; e++) {
+                let electron = new THREE.Mesh(electronGeo, electronMat);
+                let angle = (e / countInShell) * Math.PI * 2;
+                let speed = (0.025 - (s * 0.002)) * animSpeed;
+                if(speed < 0.004) speed = 0.004;
+                
+                let pivot = new THREE.Group();
+                pivot.position.copy(ring.position);
+                pivot.rotation.copy(ring.rotation);
+                
+                electron.position.set(Math.cos(angle) * ringRadius, Math.sin(angle) * ringRadius, 0);
+                electron.userData = { shell: shellName, index: e + 1, radius: ringRadius };
+                
+                pivot.add(electron);
+                atomGroup.add(pivot);
+
+                electronsData.push({ mesh: electron, radius: ringRadius, angle: angle, speed: speed, shellName: shellName, pivot: pivot });
+            }
+
+            remainingE -= countInShell;
+            ringRadius += 1.4;
+        }
+
+        scene.add(atomGroup);
+        camera.position.z = Math.max(18, ringRadius + 8);
+        if (controls) controls.target.set(0, 0, 0); 
+    }
+
+    function onCanvasClick(event) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(atomGroup.children, true);
+
+        if (intersects.length > 0) {
+            const obj = intersects[0].object;
+            if (obj.userData && obj.userData.shell) {
+                document.getElementById('electron-selected-info').innerHTML = 
+                    `<i class="fa-solid fa-atom mr-1"></i> Elétron inspecionado: <span class="text-white">Camada ${obj.userData.shell}</span> (Raio da órbita: ${obj.userData.radius.toFixed(1)} u.a.)`;
+                
+                obj.scale.set(2.2, 2.2, 2.2);
+                setTimeout(() => obj.scale.set(1, 1, 1), 1200);
+            }
+        }
+    }
+
+    function animate() {
+        animationId = requestAnimationFrame(animate);
+        if (controls) controls.update();
+        
+        if(!isAnimPaused) {
+            if(atomGroup && atomGroup.children[0]) {
+                atomGroup.children[0].rotation.y += 0.003 * animSpeed;
+            }
+
+            electronsData.forEach(eData => {
+                if (showElectrons) {
+                    eData.angle += eData.speed * animSpeed;
+                    eData.mesh.position.set(
+                        Math.cos(eData.angle) * eData.radius,
+                        Math.sin(eData.angle) * eData.radius,
+                        0
+                    );
+                }
+                eData.mesh.visible = showElectrons;
+            });
+        }
+
+        if (showLabels && atomGroup) {
+            electronsData.forEach((eData, idx) => {
+                let labelEl = document.getElementById(`label-shell-${eData.shellName}`);
+                if (labelEl && idx % 4 === 0) { 
+                    let wp = new THREE.Vector3();
+                    eData.mesh.getWorldPosition(wp);
+                    wp.project(camera);
+                    let x = (wp.x * .5 + 0.5) * canvasContainer.clientWidth;
+                    let y = (-(wp.y * .5) + 0.5) * canvasContainer.clientHeight;
+                    labelEl.style.left = `${x}px`;
+                    labelEl.style.top = `${y}px`;
+                }
+            });
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    function toggleAtomAnimation() {
+        isAnimPaused = !isAnimPaused;
+        document.getElementById('text-pause').innerText = isAnimPaused ? "Continuar" : "Pausar";
+        document.getElementById('icon-pause').className = isAnimPaused ? "fa-solid fa-play" : "fa-solid fa-pause";
+    }
+
+    function changeAtomSpeed(val) {
+        animSpeed = parseFloat(val);
+    }
+
+    function toggleAtomView() {
+        isDetailedView = !isDetailedView;
+        document.getElementById('view-mode-text').innerText = isDetailedView ? "Detalhado" : "Simplificado";
+        buildAtom(currentZ);
+    }
+
+    function toggleElectronsVisibility() {
+        showElectrons = !showElectrons;
+    }
+
+    function toggleShellLabels() {
+        showLabels = !showLabels;
+        document.querySelectorAll('.shell-label').forEach(el => el.style.display = showLabels ? 'block' : 'none');
+    }
+
+    /* =========================================================================
+       8. ABA DE GRÁFICOS INTERATIVOS DE PROPRIEDADES (Canvas 2D)
+       ========================================================================= */
+    function renderPropertyChart() {
+        const propKey = document.getElementById('chart-prop-select').value;
+        const canvas = document.getElementById('propertyChart');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = canvas.parentElement.clientWidth - 32;
+        canvas.height = 180;
+
+        let startZ = Math.max(1, currentZ - 2);
+        let endZ = Math.min(118, startZ + 4);
+        let sampleElements = elementsData.filter(e => e.z >= startZ && e.z <= endZ);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let values = sampleElements.map(el => {
+            let p = allProps[el.z];
+            if(propKey === 'mass') return parseFloat(el.mass);
+            if(propKey === 'density') {
+                if(!p || p[2].includes('Desconhecido')) return 1.0;
+                let val = parseFloat(p[2].replace(/[^0-9.]/g, ''));
+                return isNaN(val) ? 1.0 : val;
+            }
+            if(propKey === 'electro') {
+                if(!p || p[3].includes('Não')) return 0;
+                let val = parseFloat(p[3]);
+                return isNaN(val) ? 0 : val;
+            }
+            if(propKey === 'melt') {
+                if(!p || p[0].includes('Desconhecido')) return 0;
+                let val = parseFloat(p[0]);
+                return isNaN(val) ? 0 : val;
+            }
+            if(propKey === 'boil') {
+                if(!p || p[1].includes('Desconhecido')) return 0;
+                let val = parseFloat(p[1]);
+                return isNaN(val) ? 0 : val;
+            }
+            return 0;
+        });
+
+        let maxVal = Math.max(...values.map(v => Math.abs(v)), 1);
+        let barWidth = (canvas.width - 60) / sampleElements.length;
+
+        sampleElements.forEach((el, i) => {
+            let val = values[i];
+            let barHeight = (Math.abs(val) / maxVal) * 110;
+            let x = 40 + i * barWidth;
+            let y = canvas.height - 30 - barHeight;
+
+            let isCurrent = el.z === currentZ;
+
+            ctx.fillStyle = isCurrent ? '#38b2ac' : '#475569';
+            ctx.beginPath();
+            ctx.roundRect(x + 6, y, barWidth - 12, barHeight, 4);
+            ctx.fill();
+
+            ctx.fillStyle = isCurrent ? '#5eead4' : '#94a3b8';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(el.symbol, x + barWidth/2, canvas.height - 12);
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(val.toFixed(1), x + barWidth/2, Math.max(15, y - 5));
+        });
+    }
+
+    /* =========================================================================
+       9. ABA DE MODELOS E DIAGRAMAS 2D (Bohr SVG)
+       ========================================================================= */
+    function renderAutonomousMedia(el, data) {
+        let shellArray = data.shells.split(',').map(s => parseInt(s.trim()));
+        
+        let svgHTML = `<svg width="190" height="190" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">`;
+        svgHTML += `<circle cx="100" cy="100" r="18" fill="#f43f5e" />`;
+        svgHTML += `<text x="100" y="104" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">${el.symbol}</text>`;
+
+        let radius = 30;
+        shellArray.forEach((count, idx) => {
+            svgHTML += `<circle cx="100" cy="100" r="${radius}" fill="none" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3" />`;
+            for(let i = 0; i < count; i++) {
+                let angle = (i / count) * Math.PI * 2;
+                let ex = 100 + Math.cos(angle) * radius;
+                let ey = 100 + Math.sin(angle) * radius;
+                svgHTML += `<circle cx="${ex}" cy="${ey}" r="3.5" fill="#f59e0b" />`;
+            }
+            radius += 11;
+        });
+        svgHTML += `</svg>`;
+        document.getElementById('bohr-svg-container').innerHTML = svgHTML;
+
+        document.getElementById('media-crystal-type').innerText = el.z > 92 ? "Rede Sintética Instável" : "Cúbica / Hexagonal";
+        document.getElementById('media-nucleus-type').innerText = `${el.z} Prótons em Coesão`;
+    }
+
+    /* =========================================================================
+       10. CONTROLE DO MODAL E NAVEGAÇÃO
+       ========================================================================= */
+    const modal = document.getElementById('element-modal');
+    
+    function openModal(el) {
+        currentZ = el.z;
+        document.getElementById('modal-number').innerText = el.z;
+        document.getElementById('modal-symbol').innerText = el.symbol;
+        document.getElementById('modal-name').innerText = el.name;
+        document.getElementById('modal-category').innerText = catNames[el.category];
+        document.getElementById('modal-mass').innerText = el.mass;
+        
+        const badge = document.getElementById('modal-badge');
+        badge.className = `w-20 h-24 sm:w-24 sm:h-24 rounded-lg flex flex-col items-center justify-center shadow-md border border-white/10 cat-${el.category}`;
+
+        const data = getElementData(el);
+
+        // Tab: Físico-Químicas
+        document.getElementById('info-state').innerText = data.state;
+        document.getElementById('info-melt').innerText = data.melt;
+        document.getElementById('info-boil').innerText = data.boil;
+        document.getElementById('info-density').innerText = data.density;
+        document.getElementById('info-summary').innerText = data.summary;
+
+        // Tab: Atômicas
+        document.getElementById('info-radius').innerText = data.radius;
+        document.getElementById('info-electro').innerText = data.electro;
+        document.getElementById('info-config').innerText = data.config;
+        document.getElementById('info-shells').innerText = data.shells;
+
+        // Tab: História e Uso
+        document.getElementById('info-history').innerText = data.history;
+        const usesList = document.getElementById('info-uses');
+        usesList.innerHTML = '';
+        data.uses.forEach(use => {
+            const li = document.createElement('li');
+            li.innerText = use;
+            usesList.appendChild(li);
+        });
+
+        // Tab: Isótopos
+        const tbodyIsotopes = document.getElementById('info-isotopes');
+        tbodyIsotopes.innerHTML = "";
+        data.isotopes.forEach(iso => {
+            let isStable = iso.decay === '-';
+            let decayText = isStable ? 'Nenhum (Estável)' : iso.decay;
+            let decayColor = isStable ? 'text-teal-400 font-medium' : 'text-rose-400 font-semibold';
+            let iconSymbol = isStable 
+                ? '<i class="fa-solid fa-circle-check text-teal-400 mr-1"></i>' 
+                : '<i class="fa-solid fa-triangle-exclamation text-rose-400 mr-1"></i>';
+
+            let trMain = document.createElement('tr');
+            trMain.className = "hover:bg-slate-700/40 transition-colors border-t border-slate-700/50";
+            trMain.innerHTML = `
+                <td class="px-4 py-2 text-slate-200 font-semibold">${iso.name}</td>
+                <td class="px-4 py-2 text-slate-300">${iso.halfLife}</td>
+                <td class="px-4 py-2 ${decayColor}">${decayText}</td>
+            `;
+            
+            let trDetails = document.createElement('tr');
+            trDetails.className = "bg-slate-800/40";
+            trDetails.innerHTML = `
+                <td colspan="3" class="px-4 pb-3 pt-1 border-b border-slate-700/50 text-xs leading-relaxed text-slate-300">
+                    <span class="font-bold block mb-0.5">${iconSymbol} Descrição e Utilidade:</span> ${iso.details}
+                </td>
+            `;
+            
+            tbodyIsotopes.appendChild(trMain);
+            tbodyIsotopes.appendChild(trDetails);
+        });
+
+        renderAutonomousMedia(el, data);
+
+        document.getElementById('link-google').href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(el.name + ' elemento quimico')}`;
+        document.getElementById('link-youtube').href = `https://www.youtube.com/results?search_query=${encodeURIComponent(el.name + ' elemento quimico')}`;
+
+        modal.classList.remove('hidden');
+        switchTab('tab-fisico');
+
+        setTimeout(renderPropertyChart, 100);
+
+        setTimeout(() => {
+            initThreeJS();
+            buildAtom(el.z);
+            if(!animationId) animate(); 
+        }, 50); 
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        if(animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+    }
+
+    modal.addEventListener('click', (e) => {
+        if(e.target === modal) closeModal();
+    });
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            btn.classList.add('text-slate-400');
+        });
+        const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+        if(activeBtn) {
+            activeBtn.classList.add('active');
+            activeBtn.classList.remove('text-slate-400');
+        }
+
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(tabId).classList.add('active');
+
+        if(tabId === 'tab-graficos') {
+            setTimeout(renderPropertyChart, 50);
+        }
+    }
+
+</script>
+</body>
+</html>
