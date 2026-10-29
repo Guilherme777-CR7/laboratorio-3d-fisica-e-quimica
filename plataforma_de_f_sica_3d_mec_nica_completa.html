@@ -1,0 +1,3297 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhysiLab 3D — Mecânica Clássica Interativa</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        lab: {
+                            bg: '#070b14',
+                            panel: '#0f172a',
+                            card: '#1e293b',
+                            border: '#334155',
+                            accent: '#38bdf8',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            violet: '#a855f7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: #334155 #0f172a;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        body {
+            background-color: #070b14;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        /* Custom Range Slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 999px;
+            outline: none;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #7dd3fc;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.65);
+        }
+        .lab-tab-active {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(59, 130, 246, 0.1));
+            border-color: #38bdf8;
+            color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+        }
+        .math-box {
+            background: rgba(7, 11, 20, 0.75);
+            border-left: 3px solid #38bdf8;
+        }
+        #canvas3d-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 1; box-shadow: 0 0 18px rgba(56, 189, 248, 0.45); }
+        }
+        .cutaway-active {
+            background: linear-gradient(135deg, #f59e0b, #ea580c) !important;
+            color: #fff !important;
+            border-color: #fbbf24 !important;
+            animation: pulseGlow 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans select-none">
+
+    <!-- TOP NAVIGATION HEADER -->
+    <header class="bg-slate-950/90 border-b border-slate-800 px-3 lg:px-6 py-2.5 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center shadow-lg shadow-sky-500/20 border border-sky-400/30">
+                    <i class="fa-solid fa-cube text-white text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base md:text-lg font-extrabold tracking-tight bg-gradient-to-r from-sky-400 via-cyan-300 to-indigo-400 bg-clip-text text-transparent">
+                            PhysiLab 3D
+                        </h1>
+                        <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                            Mecânica Completa • 44 Tópicos
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">
+                        Laboratório Interativo com Corte Seccional 3D, Vetores Dinâmicos, Gráficos ao Vivo e Enciclopédia Conceitual
+                    </p>
+                </div>
+            </div>
+
+            <!-- Module Switcher (4 Branches of Mechanics) -->
+            <nav class="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
+                <button onclick="selectModule('cinematica')" id="mod-btn-cinematica" class="mod-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-location-arrow text-sky-400"></i>
+                    <span>1. Cinemática</span>
+                </button>
+                <button onclick="selectModule('dinamica')" id="mod-btn-dinamica" class="mod-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-bolt text-emerald-400"></i>
+                    <span>2. Dinâmica</span>
+                </button>
+                <button onclick="selectModule('estatica')" id="mod-btn-estatica" class="mod-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-scale-balanced text-amber-400"></i>
+                    <span>3. Estática</span>
+                </button>
+                <button onclick="selectModule('energia')" id="mod-btn-energia" class="mod-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-atom text-rose-400"></i>
+                    <span>4. Trabalho, Energia & Colisões</span>
+                </button>
+            </nav>
+
+            <!-- Encyclopedia Modal Trigger -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleEncyclopediaModal(true)" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-sky-600/20 border border-sky-400/30 transition-all cursor-pointer">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>Enciclopédia (44 Conceitos)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- SUB-HEADER: 8 DISTINCT 3D EXPERIMENTS BAR -->
+    <div class="bg-slate-900/75 border-b border-slate-800/80 px-3 lg:px-6 py-2">
+        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2 overflow-x-auto py-0.5" id="experiment-selector-bar">
+                <!-- Populated dynamically based on active module or all 8 accessible -->
+            </div>
+            <div class="hidden xl:flex items-center gap-3 text-[11px] text-slate-400">
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-computer-mouse text-sky-400"></i> Arraste (Esq): Girar 3D</span>
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-arrows-up-down-left-right text-sky-400"></i> Arraste (Dir): Mover Câmera</span>
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-magnifying-glass-plus text-sky-400"></i> Scroll: Zoom</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN WORKSPACE GRID -->
+    <main class="flex-1 max-w-[1920px] w-full mx-auto p-3 lg:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- LEFT COLUMN: PARAMETERS, PRESETS & CONCEPT GUIDE (3 COLS) -->
+        <aside class="lg:col-span-3 flex flex-col gap-4 order-2 lg:order-1">
+            <!-- Experiment Controls Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3.5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div>
+                        <span id="active-module-badge" class="text-[10px] font-mono uppercase tracking-wider text-sky-400 font-semibold">MÓDULO 1 • CINEMÁTICA</span>
+                        <h2 id="active-lab-title" class="text-sm font-bold text-white leading-snug">Lançamento Balístico 3D & Referencial</h2>
+                    </div>
+                    <button onclick="resetCurrentLabParameters()" title="Restaurar Padrões" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+
+                <!-- Quick Scenario Presets for Current Lab -->
+                <div id="lab-presets-container" class="flex flex-col gap-1.5">
+                    <!-- Dynamic scenario buttons -->
+                </div>
+
+                <!-- Sliders Container -->
+                <div id="sliders-container" class="flex flex-col gap-3 max-h-[380px] overflow-y-auto pr-1">
+                    <!-- Populated dynamically per experiment -->
+                </div>
+            </div>
+
+            <!-- Interactive Concept Explainer for Active Experiment -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-amber-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Conceitos Neste Experimento 3D</h3>
+                    </div>
+                    <span id="concepts-count-badge" class="text-[10px] font-mono bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        12 conceitos
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed" id="active-lab-summary">
+                    Clique em qualquer conceito abaixo para destacar sua explicação detalhada, fórmula e como observá-lo no modelo 3D:
+                </p>
+                <!-- Concept Pills -->
+                <div id="active-lab-concept-pills" class="flex flex-wrap gap-1.5">
+                    <!-- Populated dynamically -->
+                </div>
+                <!-- Selected Concept Detailed Box -->
+                <div id="selected-concept-detail" class="mt-1 bg-slate-950/90 border border-slate-800/90 rounded-xl p-3 flex flex-col gap-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER COLUMN: 3D INTERACTIVE VIEWPORT & FLOATING HUD (6 COLS) -->
+        <section class="lg:col-span-6 flex flex-col gap-3 order-1 lg:order-2">
+            <div class="relative w-full h-[460px] sm:h-[540px] lg:h-[650px] bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col">
+
+                <!-- TOP FLOATING HUD: CAMERA PRESETS, CUTAWAY/X-RAY & VECTORS -->
+                <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <!-- Camera View Buttons -->
+                    <div class="glass-panel p-1.5 rounded-xl flex flex-wrap items-center gap-1 pointer-events-auto shadow-lg">
+                        <span class="text-[10px] font-mono uppercase text-slate-400 px-2 hidden sm:inline">Câmera:</span>
+                        <button onclick="setCameraPreset('iso')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-sky-500/20 hover:text-sky-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1" title="Visão Isométrica 3D">
+                            <i class="fa-solid fa-cube text-sky-400"></i> <span>3D Iso</span>
+                        </button>
+                        <button onclick="setCameraPreset('front')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-sky-500/20 hover:text-sky-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1" title="Visão Frontal 2D (Plano XY)">
+                            <i class="fa-solid fa-border-all text-emerald-400"></i> <span>Frontal 2D</span>
+                        </button>
+                        <button onclick="setCameraPreset('top')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-sky-500/20 hover:text-sky-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1" title="Visão Superior (Planta XZ)">
+                            <i class="fa-solid fa-arrows-to-dot text-amber-400"></i> <span>Superior</span>
+                        </button>
+                        <button onclick="toggleFollowCamera()" id="btn-follow-cam" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-sky-500/20 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1" title="Seguir Objeto Automaticamente">
+                            <i class="fa-solid fa-video text-rose-400"></i> <span>Seguir Alvo</span>
+                        </button>
+                    </div>
+
+                    <!-- Cutaway / Exploded View & Vector Toggle -->
+                    <div class="glass-panel p-1.5 rounded-xl flex items-center gap-1.5 pointer-events-auto shadow-lg">
+                        <button onclick="toggleCutawayMode()" id="btn-cutaway" class="px-3 py-1 rounded-lg bg-slate-800/90 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <span id="cutaway-btn-label">Corte / Raio-X 3D</span>
+                        </button>
+                        <button onclick="toggleVectorsVisibility()" id="btn-vectors" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                            <span>Vetores</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LIVE TELEMETRY OVERLAY (TOP LEFT UNDER CAMERA BAR) -->
+                <div class="absolute top-16 left-3 z-10 pointer-events-none flex flex-col gap-1.5 max-w-[290px]">
+                    <div class="glass-panel px-3 py-2 rounded-xl border border-slate-700/60 shadow-md">
+                        <div class="flex items-center gap-2 text-[11px] font-mono text-sky-400 font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span id="hud-sim-status">SIMULAÇÃO EM EXECUÇÃO</span>
+                            <span class="ml-auto text-slate-300" id="hud-sim-time">t = 0.00 s</span>
+                        </div>
+                        <div id="hud-live-metrics" class="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-mono text-slate-200">
+                            <!-- Live metrics populated on each frame -->
+                        </div>
+                    </div>
+                    <!-- Cutaway Mode Banner Explanation -->
+                    <div id="cutaway-info-banner" class="hidden glass-panel px-3 py-2 rounded-xl border border-amber-500/50 bg-amber-950/40 text-amber-200 text-[11px] leading-snug shadow-lg">
+                        <div class="font-bold text-amber-400 flex items-center gap-1.5 mb-0.5">
+                            <i class="fa-solid fa-eye"></i>
+                            <span id="cutaway-banner-title">Modo Corte / Decomposição Ativo</span>
+                        </div>
+                        <p id="cutaway-banner-desc" class="text-[10px] text-amber-100/90"></p>
+                    </div>
+                </div>
+
+                <!-- VECTOR COLOR LEGEND OVERLAY (BOTTOM TOP-RIGHT) -->
+                <div id="vector-legend-box" class="absolute top-16 right-3 z-10 glass-panel px-3 py-2 rounded-xl pointer-events-none hidden sm:flex flex-col gap-1 text-[10px] font-mono">
+                    <span class="text-slate-400 uppercase font-bold mb-0.5">Legenda de Vetores 3D</span>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-emerald-400 inline-block"></span><span class="text-slate-200">Velocidade ($\vec{v}$) / Deslocamento</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-rose-500 inline-block"></span><span class="text-slate-200">Aceleração ($\vec{a}$) / Força Peso ($\vec{P}$)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-sky-400 inline-block"></span><span class="text-slate-200">Força Normal ($\vec{N}$) / Tração ($\vec{T}$)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-amber-400 inline-block"></span><span class="text-slate-200">Força Elástica / Atrito / Torque ($\vec{\tau}$)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-purple-400 inline-block"></span><span class="text-slate-200">Resultante ($\vec{F}_R$) / Momento ($\vec{Q}$)</span></div>
+                </div>
+
+                <!-- THREE.JS 3D CANVAS CONTAINER -->
+                <div id="canvas3d-container" class="w-full h-full flex-1 cursor-grab active:cursor-grabbing"></div>
+
+                <!-- BOTTOM FLOATING HUD: PLAYBACK & TIME CONTROLS -->
+                <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <div class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-2 pointer-events-auto shadow-lg">
+                        <button onclick="toggleSimulationPlay()" id="btn-play-pause" class="w-8 h-8 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center justify-center font-bold transition-all cursor-pointer" title="Pausar / Continuar">
+                            <i class="fa-solid fa-pause" id="icon-play-pause"></i>
+                        </button>
+                        <button onclick="restartSimulation()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer" title="Reiniciar Experimento (t = 0)">
+                            <i class="fa-solid fa-rotate-right text-sky-400"></i>
+                            <span>Reiniciar</span>
+                        </button>
+                        <button onclick="stepSimulationFrame()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer" title="Avançar Passo a Passo (0.05s)">
+                            <i class="fa-solid fa-forward-step text-amber-400"></i>
+                            <span class="hidden sm:inline">Passo +0.05s</span>
+                        </button>
+                    </div>
+
+                    <!-- Time Speed Multiplier -->
+                    <div class="glass-panel px-2.5 py-1.5 rounded-xl flex items-center gap-1 pointer-events-auto shadow-lg">
+                        <span class="text-[10px] font-mono text-slate-400 mr-1">Velocidade:</span>
+                        <button onclick="setSimSpeed(0.25)" id="speed-025" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800">0.25x</button>
+                        <button onclick="setSimSpeed(0.5)" id="speed-05" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800">0.5x</button>
+                        <button onclick="setSimSpeed(1.0)" id="speed-10" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono bg-sky-500/20 text-sky-300 border border-sky-500/40">1x</button>
+                        <button onclick="setSimSpeed(2.0)" id="speed-20" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800">2x</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: REAL-TIME GRAPH & STEP-BY-STEP LIVE CALCULATIONS (3 COLS) -->
+        <aside class="lg:col-span-3 flex flex-col gap-4 order-3">
+            <!-- Real-time 2D Graph Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-2.5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-sky-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200" id="chart-title">Gráfico em Tempo Real</h3>
+                    </div>
+                    <button onclick="clearChartHistory()" class="text-[10px] font-mono text-slate-400 hover:text-sky-400 transition-colors">
+                        <i class="fa-solid fa-eraser mr-1"></i>Limpar
+                    </button>
+                </div>
+                <!-- Graph Legend -->
+                <div id="chart-legend" class="flex flex-wrap items-center gap-3 text-[11px] font-mono">
+                    <!-- Dynamic Legend -->
+                </div>
+                <!-- HTML5 2D Canvas for Real-Time Charting -->
+                <div class="relative w-full h-48 bg-slate-950 rounded-xl border border-slate-800/90 p-1.5 overflow-hidden">
+                    <canvas id="realtime-chart" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Formulas & Calculations Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-square-root-variable text-emerald-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Cálculos & Equações em Tempo Real</h3>
+                    </div>
+                    <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">SI (MKS)</span>
+                </div>
+                <div id="live-calculations-container" class="flex flex-col gap-2.5 overflow-y-auto max-h-[370px] pr-1 font-mono text-xs">
+                    <!-- Populated dynamically with live substituted numbers -->
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- FULL CONCEPTUAL ENCYCLOPEDIA MODAL (ALL 44 TOPICS EXPLAINED) -->
+    <div id="encyclopedia-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-6">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-6xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-950/60">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                        <i class="fa-solid fa-book-bookmark text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white">Enciclopédia Conceitual Interativa — 44 Tópicos de Mecânica</h2>
+                        <p class="text-xs text-slate-400">Explicação teórica completa, fórmulas, unidades no SI e botão direto para simular cada fenômeno em 3D</p>
+                    </div>
+                </div>
+                <button onclick="toggleEncyclopediaModal(false)" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-300 flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Search & Category Filter Bar -->
+            <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex flex-wrap items-center justify-between gap-3">
+                <div class="relative flex-1 min-w-[240px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="encyclopedia-search" oninput="renderEncyclopediaCards()" placeholder="Buscar conceito (ex: Torque, Queda livre, Atrito, Impulso, MCU, Polias...)" class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400">
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button onclick="setEncyclopediaFilter('all')" id="enc-filter-all" class="enc-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500 text-slate-950">Todos (44)</button>
+                    <button onclick="setEncyclopediaFilter('cinematica')" id="enc-filter-cinematica" class="enc-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Cinemática (15)</button>
+                    <button onclick="setEncyclopediaFilter('dinamica')" id="enc-filter-dinamica" class="enc-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Dinâmica (13)</button>
+                    <button onclick="setEncyclopediaFilter('estatica')" id="enc-filter-estatica" class="enc-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Estática (8)</button>
+                    <button onclick="setEncyclopediaFilter('energia')" id="enc-filter-energia" class="enc-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Trabalho, Energia & Colisões (10)</button>
+                </div>
+            </div>
+
+            <!-- Cards Grid -->
+            <div id="encyclopedia-grid" class="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION JAVASCRIPT -->
+    <script>
+        /***********************************************************************
+         * 1. COMPLETE DATABASE OF ALL 44 PHYSICS CONCEPTS & 8 3D LABORATORIES
+         ***********************************************************************/
+        const CONCEPTS_DB = [
+            // ================= 1. CINEMÁTICA (15 TÓPICOS) =================
+            {
+                id: 'ponto_material',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Ponto Material (vs. Corpo Extenso)',
+                formula: 'L_{objeto} \\ll d_{trajetória}',
+                unit: 'Adimensional (Critério de Escala)',
+                definition: 'Um corpo é considerado um Ponto Material (ou partícula) quando suas dimensões geométricas são desprezíveis em comparação com as distâncias envolvidas no movimento. Quando o tamanho importa (como na rotação ou corte interno), trata-se de um Corpo Extenso.',
+                example: 'Um projétil cruzando um campo de 100 m é tratado como ponto material; já ao analisar seu giro ou seção interna, é um corpo extenso.',
+                howToSeeIn3D: 'Ative o botão "Corte / Raio-X 3D" no Lab 1A para ver o núcleo puntiforme (Centro Geométrico) dentro da esfera do projétil.'
+            },
+            {
+                id: 'referencial',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Referencial (Sistema de Referência)',
+                formula: '\\vec{r}_{P/A} = \\vec{r}_{P/B} + \\vec{r}_{B/A}',
+                unit: 'Sistema de Eixos (x, y, z)',
+                definition: 'É o corpo ou sistema de coordenadas em relação ao qual analisamos se um objeto está em repouso ou em movimento. A trajetória e a velocidade dependem inteiramente do referencial adotado!',
+                example: 'Para um drone que voa na mesma velocidade horizontal do projétil, a bola parece apenas subir e descer em linha reta vertical.',
+                howToSeeIn3D: 'No Lab 1A, mude o seletor de "Referencial do Observador" para acompanhar o Drone Móvel ou o Solo.'
+            },
+            {
+                id: 'trajetoria',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Trajetória',
+                formula: 'y(x) = h_0 + x\\tan\\theta - \\frac{g}{2v_0^2\\cos^2\\theta}x^2',
+                unit: 'Metro (m)',
+                definition: 'É o conjunto de todas as posições geométricas ocupadas sucessivamente por um móvel ao longo do tempo em relação a um dado referencial.',
+                example: 'No lançamento oblíquo visto do solo, a trajetória é um arco de parábola; na queda livre, é uma reta vertical.',
+                howToSeeIn3D: 'Observe a curva pontilhada ciano deixada pelo projétil no espaço 3D e sua sombra nos planos X e Y.'
+            },
+            {
+                id: 'deslocamento',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Deslocamento Vetorial vs. Espaço Percorrido',
+                formula: '|\\Delta \\vec{r}| = \\sqrt{\\Delta x^2 + \\Delta y^2 + \\Delta z^2}',
+                unit: 'Metro (m)',
+                definition: 'O deslocamento vetorial liga diretamente o ponto de partida ao ponto atual em linha reta, enquanto a distância percorrida soma todo o comprimento curvo da trajetória.',
+                example: 'Mesmo que um projétil percorra um longo arco parabólico, o vetor deslocamento é a seta reta direta da origem até ele.',
+                howToSeeIn3D: 'Veja a linha reta tracejada conectando a boca do lançador diretamente à posição atual da esfera no Lab 1A.'
+            },
+            {
+                id: 'velocidade',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Velocidade Escalar e Vetorial',
+                formula: '\\vec{v} = \\frac{d\\vec{r}}{dt} = v_x\\hat{i} + v_y\\hat{j}',
+                unit: 'm/s (metros por segundo)',
+                definition: 'Mede a rapidez com que um móvel muda de posição. O vetor velocidade é sempre tangente à trajetória em cada instante e aponta no sentido do movimento.',
+                example: 'No ponto mais alto de um lançamento oblíquo, a componente vertical vy zera, restando apenas a velocidade horizontal vx.',
+                howToSeeIn3D: 'A seta 3D verde que sai da esfera representa o vetor velocidade resultante tangente à curva.'
+            },
+            {
+                id: 'aceleracao',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Aceleração',
+                formula: '\\vec{a} = \\frac{\\Delta \\vec{v}}{\\Delta t}',
+                unit: 'm/s² (metros por segundo ao quadrado)',
+                definition: 'Taxa de variação da velocidade em função do tempo. Pode alterar o módulo da velocidade (aceleração tangencial) ou a direção do movimento (aceleração centrípeta).',
+                example: 'A aceleração da gravidade terrestre (g ≈ 9,8 m/s²) reduz a velocidade na subida e aumenta na descida.',
+                howToSeeIn3D: 'Observe a seta vermelha apontando verticalmente para baixo no Lab 1A ou para o centro no Lab 1B.'
+            },
+            {
+                id: 'mu',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Movimento Uniforme (MU)',
+                formula: 'x(t) = x_0 + v_x \\cdot t',
+                unit: 'Posição em m, Velocidade constante em m/s',
+                definition: 'Movimento com velocidade escalar constante e diferente de zero (aceleração nula). O móvel percorre distâncias iguais em intervalos de tempo iguais.',
+                example: 'A sombra horizontal (eixo X) de um projétil sem resistência do ar e o drone observador movem-se em MU puro.',
+                howToSeeIn3D: 'Ative o "Corte / Decomposição" no Lab 1A para ver o marcador azul no trilho X avançando em velocidade constante.'
+            },
+            {
+                id: 'muv',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Movimento Uniformemente Variado (MUV)',
+                formula: 'y(t) = y_0 + v_{0y}t + \\frac{1}{2}a_y t^2 \\quad | \\quad v_y^2 = v_{0y}^2 + 2a_y\\Delta y',
+                unit: 'Aceleração constante (m/s²)',
+                definition: 'Movimento no qual a aceleração escalar é constante e não nula. A velocidade varia linearmente com o tempo e a posição segue uma função quadrática.',
+                example: 'O movimento vertical sob ação exclusiva da gravidade obedece exatamente às equações do MUV e à Equação de Torricelli.',
+                howToSeeIn3D: 'No modo "Corte / Decomposição" do Lab 1A, observe a projeção no pilar vertical Y subindo desacelerada e caindo acelerada.'
+            },
+            {
+                id: 'queda_livre',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Queda Livre',
+                formula: 'h(t) = h_0 - \\frac{1}{2}gt^2 \\quad | \\quad v(t) = -gt',
+                unit: 'Tempo de queda t = √(2h₀/g)',
+                definition: 'Caso particular do MUV vertical em que um corpo é abandonado do repouso (v₀ = 0) de uma altura inicial h₀ sob ação exclusiva da gravidade, sem resistência do ar.',
+                example: 'Galileu demonstrou que no vácuo todos os corpos caem com a mesma aceleração g, independentemente de sua massa.',
+                howToSeeIn3D: 'No Lab 1A, clique no botão de cenário rápido "Queda Livre" (v₀ = 0 m/s, h₀ = 25 m).'
+            },
+            {
+                id: 'lancamento_vertical',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Lançamento Vertical',
+                formula: 'H_{máx} = h_0 + \\frac{v_0^2}{2g} \\quad | \\quad t_{subida} = \\frac{v_0}{g}',
+                unit: 'Altura máxima em metros (m)',
+                definition: 'Ocorre quando um corpo é lançado diretamente para cima (θ = 90°) com velocidade inicial v₀. O movimento é retardado na subida até parar no ápice (v = 0) e acelerado na descida.',
+                example: 'Uma bola arremessada verticalmente para cima leva exatamente o mesmo tempo para subir e para retornar à altura de lançamento.',
+                howToSeeIn3D: 'No Lab 1A, selecione o botão de cenário rápido "Lançamento Vertical (90°)".'
+            },
+            {
+                id: 'lancamento_horizontal',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Lançamento Horizontal',
+                formula: 'D_{alcance} = v_0 \\cdot \\sqrt{\\frac{2h_0}{g}}',
+                unit: 'Alcance em metros (m)',
+                definition: 'Composição de dois movimentos simultâneos e independentes: um lançamento com ângulo θ = 0° a partir de uma altura h₀ > 0. No eixo X ocorre MU; no eixo Y ocorre Queda Livre.',
+                example: 'Um pacote solto por um avião em voo nivelado ou um jato de água saindo horizontalmente de uma mangueira.',
+                howToSeeIn3D: 'No Lab 1A, clique no cenário rápido "Lançamento Horizontal (0°)" para ver a semiparábola.'
+            },
+            {
+                id: 'lancamento_obliquo',
+                module: 'cinematica',
+                labId: 'lab1A',
+                title: 'Lançamento Oblíquo (Balístico)',
+                formula: 'A = \\frac{v_0^2 \\sin(2\\theta)}{g} \\quad | \\quad H_{máx} = \\frac{v_0^2 \\sin^2\\theta}{2g}',
+                unit: 'm (Alcance máximo em θ = 45°)',
+                definition: 'Movimento bidimensional/tridimensional onde o projétil é disparado com velocidade v₀ formando um ângulo θ com a horizontal. Combina MU em X (vx = v₀cosθ) com MUV em Y (v₀y = v₀senθ).',
+                example: 'Chute de tiro de meta no futebol, arremesso de basquete ou disparo de artilharia.',
+                howToSeeIn3D: 'Ajuste o ângulo θ no Lab 1A e comprove que θ = 45° produz o maior alcance horizontal.'
+            },
+            {
+                id: 'movimento_circular',
+                module: 'cinematica',
+                labId: 'lab1B',
+                title: 'Movimento Circular e Grandezas Angulares',
+                formula: '\\Delta\\varphi = \\frac{\\Delta s}{R} \\quad | \\quad \\omega = \\frac{\\Delta\\varphi}{\\Delta t}',
+                unit: 'rad (radianos) e rad/s',
+                definition: 'Movimento cuja trajetória é uma circunferência de raio R. A posição é medida pelo ângulo φ (em radianos) e a rapidez de giro pela velocidade angular ω.',
+                example: 'A rotação de uma roda-gigante, hélices de turbinas ou ponteiros de um relógio.',
+                howToSeeIn3D: 'Abra o Lab 1B para visualizar o satélite/esfera descrevendo a órbita circular de raio R ajustável.'
+            },
+            {
+                id: 'mcu',
+                module: 'cinematica',
+                labId: 'lab1B',
+                title: 'Movimento Circular Uniforme (MCU)',
+                formula: 'v = \\omega \\cdot R = \\frac{2\\pi R}{T} = 2\\pi R f',
+                unit: 'Período T (s), Frequência f (Hz)',
+                definition: 'Movimento periódico em trajetória circular com velocidade escalar e angular constantes. Embora o módulo da velocidade não mude, a direção do vetor velocidade muda continuamente.',
+                example: 'Um satélite artificial em órbita circular estacionária ao redor de um planeta.',
+                howToSeeIn3D: 'No Lab 1B, ative o "Corte / Projeção MHS" para ver como o MCU projetado gera uma onda harmônica.'
+            },
+            {
+                id: 'vetores_cinematicos',
+                module: 'cinematica',
+                labId: 'lab1B',
+                title: 'Vetores de Velocidade e Aceleração Centrípeta',
+                formula: 'a_{cp} = \\frac{v^2}{R} = \\omega^2 R \\quad (\\vec{v} \\perp \\vec{a}_{cp})',
+                unit: 'v em m/s, acp em m/s²',
+                definition: 'No MCU, o vetor velocidade v é sempre tangente à circunferência, enquanto o vetor aceleração centrípeta acp aponta perpendicularmente para o centro da curva, sendo responsável por curvar a trajetória.',
+                example: 'Ao fazer uma curva fechada de carro, a aceleração centrípeta aponta para o centro da curva.',
+                howToSeeIn3D: 'No Lab 1B, observe o ângulo de 90° constante entre a seta verde (velocidade tangencial) e a vermelha (aceleração centrípeta).'
+            },
+
+            // ================= 2. DINÂMICA (13 TÓPICOS) =================
+            {
+                id: 'forca',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Força (Conceito Vetorial)',
+                formula: '\\vec{F} \\rightarrow \\text{Módulo, Direção e Sentido}',
+                unit: 'Newton (N = kg·m/s²)',
+                definition: 'Agente físico vetorial capaz de produzir deformação (efeito estático) ou alterar o estado de repouso ou movimento de um corpo (efeito dinâmico, produzindo aceleração).',
+                example: 'Empurrar um bloco, esticar uma mola ou a atração gravitacional da Terra sobre os objetos.',
+                howToSeeIn3D: 'Observe todas as setas 3D aplicadas ao bloco no Lab 2A e à Máquina de Atwood no Lab 2B.'
+            },
+            {
+                id: 'forca_resultante',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Força Resultante',
+                formula: '\\vec{F}_R = \\sum_{i=1}^{n} \\vec{F}_i = \\vec{P} + \\vec{N} + \\vec{F}_{at} + \\vec{F}_{el}',
+                unit: 'Newton (N)',
+                definition: 'É a soma vetorial de todas as forças externas que atuam simultaneamente sobre um corpo. Substitui o sistema de forças produzindo exatamente o mesmo efeito dinâmico.',
+                example: 'Num plano inclinado, a resultante paralela à rampa é a diferença entre a componente Px do peso e o atrito/mola.',
+                howToSeeIn3D: 'A seta roxa no Lab 2A indica em tempo real o sentido e a intensidade da Força Resultante sobre o bloco.'
+            },
+            {
+                id: 'leis_newton',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'As Três Leis de Newton',
+                formula: '1ª: \\vec{F}_R=0 \\Rightarrow \\vec{v}=\\text{cte} \\; | \\; 2ª: \\vec{F}_R = m\\vec{a} \\; | \\; 3ª: \\vec{F}_{AB} = -\\vec{F}_{BA}',
+                unit: 'Massa em kg, Força em N',
+                definition: '1ª Lei (Inércia): tendência de manter a velocidade constante se FR=0. 2ª Lei (Princípio Fundamental): a resultante é proporcional à aceleração. 3ª Lei (Ação e Reação): forças surgem aos pares de mesma intensidade e sentidos opostos em corpos diferentes.',
+                example: 'Quando o bloco comprime a mola na base da rampa, a mola empurra o bloco de volta com força igual e oposta.',
+                howToSeeIn3D: 'No Lab 2A, aumente o atrito até parar o bloco (1ª Lei) ou reduza para vê-lo acelerar (2ª Lei) e colidir com a mola (3ª Lei).'
+            },
+            {
+                id: 'forca_peso',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Força Peso e Decomposição Vetorial',
+                formula: 'P = m \\cdot g \\quad | \\quad P_x = P\\sin\\alpha \\quad | \\quad P_y = P\\cos\\alpha',
+                unit: 'Newton (N)',
+                definition: 'Força de atração gravitacional que um astro exerce sobre uma massa m. Aponta sempre verticalmente para o centro do planeta, podendo ser decomposta em eixos paralelo (Px) e perpendicular (Py) à rampa.',
+                example: 'Quanto maior a inclinação α de uma ladeira, maior é a fração Px do peso que puxa o veículo rampa abaixo.',
+                howToSeeIn3D: 'Ative o "Corte / Raio-X 3D" no Lab 2A para enxergar o triângulo de decomposição de P em Px e Py dentro do bloco.'
+            },
+            {
+                id: 'forca_normal',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Força Normal de Contato',
+                formula: 'N = P_y = m \\cdot g \\cdot \\cos\\alpha',
+                unit: 'Newton (N)',
+                definition: 'Força de reação de compressão que uma superfície exerce sobre um corpo apoiado nela. É sempre perpendicular (normal = 90°) à superfície de contato.',
+                example: 'Em uma superfície horizontal N = P, mas em uma rampa inclinada a Normal é menor que o Peso (N = P·cosα).',
+                howToSeeIn3D: 'Veja a seta azul-clara (Normal) apontando sempre perpendicularmente ao piso da rampa no Lab 2A.'
+            },
+            {
+                id: 'forca_atrito',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Força de Atrito (Estático e Cinético)',
+                formula: 'F_{at,e}^{máx} = \\mu_e N \\quad | \\quad F_{at,c} = \\mu_c N',
+                unit: 'Newton (N), μ é adimensional',
+                definition: 'Força tangencial que se opõe ao deslizamento ou à tendência de escorregamento entre superfícies rugosas. O atrito estático impede o início do movimento até seu limite máximo; o cinético atua durante o deslizamento.',
+                example: 'Se tan(α) ≤ μe, o bloco permanece em repouso na rampa graças ao atrito estático.',
+                howToSeeIn3D: 'Ajuste o coeficiente de atrito μ no Lab 2A e veja no modo Raio-X a rugosidade microscópica na base do bloco.'
+            },
+            {
+                id: 'tracao',
+                module: 'dinamica',
+                labId: 'lab2B',
+                title: 'Força de Tração em Cabos e Fios',
+                formula: 'T = m_2(g + a) = \\frac{2 m_1 m_2}{m_1 + m_2} g',
+                unit: 'Newton (N)',
+                definition: 'Força transmitida ao longo de cordas, cabos ou fios inextensíveis quando submetidos a tensão mecânica, puxando os corpos presos às suas extremidades.',
+                example: 'Cabos de aço de um elevador ou o fio que interliga os dois cilindros na Máquina de Atwood.',
+                howToSeeIn3D: 'Abra o Lab 2B para ver as setas azuis de Tração puxando ambos os blocos para cima e o mapa de tensão no cabo.'
+            },
+            {
+                id: 'forca_elastica',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Força Elástica (Lei de Hooke)',
+                formula: 'F_{el} = -k \\cdot \\Delta x',
+                unit: 'F em N, k em N/m, Δx em m',
+                definition: 'Força restauradora exercida por um corpo elástico deformado (comprimido ou esticado), diretamente proporcional à deformação Δx sofrida no regime elástico.',
+                example: 'Amortecedores automotivos, dinamômetros e molas de contenção industriais.',
+                howToSeeIn3D: 'Observe no Lab 2A o bloco comprimindo a mola 3D no fim da rampa e sendo impulsionado de volta pela força elástica.'
+            },
+            {
+                id: 'mola',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Mola Helicoidal e Constante Elástica (k)',
+                formula: 'k = \\frac{F}{\\Delta x} \\quad | \\quad k_{série}, k_{paralelo}',
+                unit: 'N/m (Newtons por metro)',
+                definition: 'Elemento mecânico helicoidal capaz de armazenar energia potencial mecânica e exercer força restauradora. A constante k mede a rigidez da mola.',
+                example: 'Uma mola de suspensão de caminhão possui k muito elevado, exigindo milhares de Newtons por centímetro.',
+                howToSeeIn3D: 'Altere o slider "Constante da Mola (k)" no Lab 2A ou no Lab 4A e veja os elos 3D da mola engrossarem e comprimirem menos.'
+            },
+            {
+                id: 'plano_inclinado',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Plano Inclinado',
+                formula: 'a = g(\\sin\\alpha - \\mu\\cos\\alpha)',
+                unit: 'Ângulo α em graus (°)',
+                definition: 'Superfície plana elevada em um ângulo α em relação à horizontal. Reduz a força necessária para elevar cargas ao decompor a força gravitacional.',
+                example: 'Rampas de acessibilidade, estradas em serras sinuosas e escorregadores.',
+                howToSeeIn3D: 'Varie o ângulo α de 5° a 55° no Lab 2A e observe a inclinação da rampa 3D em tempo real.'
+            },
+            {
+                id: 'sistemas_blocos',
+                module: 'dinamica',
+                labId: 'lab2B',
+                title: 'Sistemas de Blocos Acoplados',
+                formula: 'F_{R,ext} = (m_1 + m_2 + \\dots) \\cdot a',
+                unit: 'Aceleração conjunta em m/s²',
+                definition: 'Conjunto de dois ou mais corpos interligados por contato direto ou por fios inextensíveis que compartilham o mesmo módulo de velocidade e aceleração.',
+                example: 'Locomotiva puxando vagões acoplados ou dois pesos ligados por cabo.',
+                howToSeeIn3D: 'No Lab 2B, veja como m₁ e m₂ aceleram juntos em sentidos opostos com a mesma magnitude |a|.'
+            },
+            {
+                id: 'maquina_atwood',
+                module: 'dinamica',
+                labId: 'lab2B',
+                title: 'Máquina de Atwood',
+                formula: 'a = \\frac{m_1 - m_2}{m_1 + m_2} g',
+                unit: 'a em m/s², T em N',
+                definition: 'Dispositivo criado em 1784 por George Atwood composto por duas massas m₁ e m₂ presas por um fio que passa por uma polia ideal, permitindo reduzir e medir com precisão a aceleração da gravidade.',
+                example: 'O sistema de cabine e contrapeso dos elevadores modernos funciona exatamente como uma Máquina de Atwood.',
+                howToSeeIn3D: 'Interaja com o Lab 2B, iguale m₁ = m₂ para ver o equilíbrio dinâmico ou diferencie as massas para medir a aceleração.'
+            },
+            {
+                id: 'centro_massa',
+                module: 'dinamica',
+                labId: 'lab2A',
+                title: 'Centro de Massa (CM)',
+                formula: '\\vec{r}_{CM} = \\frac{\\sum m_i \\vec{r}_i}{\\sum m_i}',
+                unit: 'Coordenadas (x, y, z) em metros',
+                definition: 'Ponto geométrico onde toda a massa de um sistema ou corpo extenso pode ser considerada concentrada para o estudo do movimento de translação sob ação de forças externas.',
+                example: 'Mesmo em um corpo grande deslizando numa rampa, todas as forças translacionais podem ser aplicadas ao seu Centro de Massa.',
+                howToSeeIn3D: 'Ative o "Corte / Raio-X 3D" no Lab 2A ou 2B para ver a esfera brilhante do Centro de Massa no interior dos blocos.'
+            },
+
+            // ================= 3. ESTÁTICA (8 TÓPICOS) =================
+            {
+                id: 'equilibrio_forcas',
+                module: 'estatica',
+                labId: 'lab3A',
+                title: 'Equilíbrio de Forças (Equilíbrio Translacional)',
+                formula: '\\sum \\vec{F} = 0 \\iff \\sum F_x = 0, \\; \\sum F_y = 0, \\; \\sum F_z = 0',
+                unit: 'Newton (N)',
+                definition: 'Primeira condição de equilíbrio estático: um corpo não sofre aceleração linear quando a resultante de todas as forças que atuam sobre ele é nula.',
+                example: 'Na viga da balança, a força de reação vertical do apoio central (fulcro) equilibra a soma dos pesos pendurados.',
+                howToSeeIn3D: 'No Lab 3A, observe a seta azul no fulcro igualando a soma das forças verticais descendentes (FN = F₁ + F₂ + Pviga).'
+            },
+            {
+                id: 'equilibrio_corpos',
+                module: 'estatica',
+                labId: 'lab3A',
+                title: 'Equilíbrio de Corpos Extensos (Translacional + Rotacional)',
+                formula: '\\sum \\vec{F} = \\vec{0} \\quad \\text{e} \\quad \\sum \\vec{\\tau} = \\vec{0}',
+                unit: 'N e N·m',
+                definition: 'Para que um corpo extenso permaneça totalmente imóvel sem transladar e sem girar, duas condições simultâneas são exigidas: Força Resultante nula e Torque Resultante nulo em relação a qualquer ponto.',
+                example: 'Pontes estaiadas, guindastes de construção civil e balanças de precisão.',
+                howToSeeIn3D: 'No Lab 3A, ajuste m₁·d₁ = m₂·d₂ para nivelar a viga horizontalmente em equilíbrio estático perfeito.'
+            },
+            {
+                id: 'torque',
+                module: 'estatica',
+                labId: 'lab3A',
+                title: 'Torque (Vetorial)',
+                formula: '\\vec{\\tau} = \\vec{r} \\times \\vec{F} \\quad | \\quad \\tau = F \\cdot d \\cdot \\sin\\theta',
+                unit: 'N·m (Newton-metro)',
+                definition: 'Grandeza vetorial que mede a eficácia de uma força em produzir rotação ao redor de um eixo ou pivô. O vetor torque é perpendicular ao plano formado pelo braço de alavanca r e pela força F (Regra da Mão Direita).',
+                example: 'Apertar um parafuso com uma chave de roda longa exige muito menos força porque o braço de alavanca d é maior.',
+                howToSeeIn3D: 'No Lab 3A, ative o "Corte / Raio-X" para ver a seta axial dourada do Vetor Torque saindo do eixo central do pivô.'
+            },
+            {
+                id: 'momento_forca',
+                module: 'estatica',
+                labId: 'lab3A',
+                title: 'Momento de uma Força (Regra de Sinais)',
+                formula: 'M_O = \\pm F \\cdot b \\quad (+ \\text{ anti-horário}, \\; - \\text{ horário})',
+                unit: 'N·m (Newton-metro)',
+                definition: 'Sinônimo escalar/algébrico de torque em um plano. Por convenção, forças que tendem a girar o corpo no sentido anti-horário possuem momento positivo (+), e no sentido horário, momento negativo (-).',
+                example: 'No Teorema de Varignon, o momento resultante é a soma algébrica dos momentos horários e anti-horários.',
+                howToSeeIn3D: 'Veja no painel de cálculos do Lab 3A a comparação instantânea entre o Momento Anti-horário (+M₁) e o Horário (-M₂).'
+            },
+            {
+                id: 'alavancas',
+                module: 'estatica',
+                labId: 'lab3A',
+                title: 'Alavancas (Interfixa, Inter-resistente e Interpotente)',
+                formula: 'F_P \\cdot d_P = F_R \\cdot d_R \\quad | \\quad VM = \\frac{d_P}{d_R}',
+                unit: 'Vantagem Mecânica (VM adimensional)',
+                definition: 'Máquina simples constituída por uma barra rígida que gira sobre um Ponto de Apoio (Fulcro - A). Classifica-se pelo elemento central: Interfixa (A no meio: gangorra, tesoura), Inter-resistente (R no meio: carrinho de mão, quebra-nozes) e Interpotente (P no meio: pinça, antebraço humano).',
+                example: 'Um carrinho de mão é inter-resistente e sempre multiplica a força do operador (dP > dR).',
+                howToSeeIn3D: 'No Lab 3A, use os botões de seleção para alternar o modelo 3D entre Alavanca Interfixa, Inter-resistente e Interpotente!'
+            },
+            {
+                id: 'centro_gravidade',
+                module: 'estatica',
+                labId: 'lab3A',
+                title: 'Centro de Gravidade (CG)',
+                formula: 'x_{CG} = \\frac{m_1 x_1 + m_2 x_2 + m_v x_v}{m_1 + m_2 + m_v}',
+                unit: 'Metro (m)',
+                definition: 'Ponto onde se aplica o peso resultante de um corpo ou sistema de corpos. Em campos gravitacionais uniformes, coincide com o Centro de Massa. Se o CG estiver exatamente sobre o fulcro, o sistema se equilibra.',
+                example: 'Para equilibrar uma bandeja com copos de pesos diferentes, a mão do garçom deve ficar exatamente sob o CG do conjunto.',
+                howToSeeIn3D: 'No Lab 3A, observe o marcador esférico luminoso roxo indicando onde está o Centro de Gravidade combinado dos pesos.'
+            },
+            {
+                id: 'polias',
+                module: 'estatica',
+                labId: 'lab3B',
+                title: 'Polias Fixas, Móveis e Talha Exponencial',
+                formula: 'F_{motriz} = \\frac{P_{carga}}{2^n} \\quad (\\text{Talha Exponencial})',
+                unit: 'Força em N, n = nº de polias móveis',
+                definition: 'Polias fixas mudam apenas a direção e o sentido da força (F = P). Já cada polia móvel divide a força necessária pela metade, multiplicando a vantagem mecânica por 2ⁿ numa talha exponencial.',
+                example: 'Com 3 polias móveis (2³ = 8), um operário ergue um motor de 800 N aplicando apenas 100 N de força na corda!',
+                howToSeeIn3D: 'No Lab 3B, altere o número de polias móveis (n = 1, 2 ou 3) e veja o sistema de cabos e roldanas 3D erguer a carga.'
+            },
+            {
+                id: 'engrenagens',
+                module: 'estatica',
+                labId: 'lab3B',
+                title: 'Engrenagens e Transmissão de Torque',
+                formula: 'i = \\frac{Z_2}{Z_1} = \\frac{\\omega_1}{\\omega_2} = \\frac{\\tau_2}{\\tau_1}',
+                unit: 'Relação de transmissão i (adimensional)',
+                definition: 'Rodas dentadas engrenadas que transmitem movimento circular e torque sem deslizamento. Uma engrenagem menor (pinhão Z₁) girando uma maior (coroa Z₂) reduz a velocidade angular mas multiplica o torque na mesma proporção, invertendo o sentido de giro.',
+                example: 'Caixas de câmbio automotivas, redutores de robôs industriais e relógios mecânicos.',
+                howToSeeIn3D: 'No Lab 3B, ajuste o número de dentes Z₁ e Z₂ e ative a "Vista Explodida 3D" para inspecionar os dentes e mancais.'
+            },
+
+            // ================= 4. TRABALHO, ENERGIA & COLISÕES (10 TÓPICOS) =================
+            {
+                id: 'trabalho_forca',
+                module: 'energia',
+                labId: 'lab4A',
+                title: 'Trabalho de uma Força (τ ou W)',
+                formula: '\\tau = F \\cdot d \\cdot \\cos\\theta \\quad | \\quad \\tau_{total} = \\Delta E_c',
+                unit: 'Joule (J = N·m)',
+                definition: 'Mede a energia transferida para (ou retirada de) um corpo por uma força ao longo de um deslocamento d. É motor (τ > 0) quando favorece o movimento, resistente (τ < 0, como o atrito) quando se opõe, e nulo quando F é perpendicular ao deslocamento (como a força normal).',
+                example: 'A gravidade realiza trabalho positivo na descida da montanha-russa e negativo na subida.',
+                howToSeeIn3D: 'No Lab 4A, veja no painel o Trabalho da Mola, o Trabalho da Gravidade e o Trabalho dissipado pelo Atrito.'
+            },
+            {
+                id: 'energia_cinetica',
+                module: 'energia',
+                labId: 'lab4A',
+                title: 'Energia Cinética (Ec)',
+                formula: 'E_c = \\frac{1}{2} m v^2',
+                unit: 'Joule (J)',
+                definition: 'Energia associada ao estado de movimento de um corpo de massa m e velocidade v. Pelo Teorema da Energia Cinética, o trabalho resultante sobre um corpo é igual à variação de sua energia cinética.',
+                example: 'No ponto mais baixo do vale da pista 3D, a velocidade é máxima e, portanto, a Energia Cinética atinge seu pico.',
+                howToSeeIn3D: 'Acompanhe a barra verde de Energia Cinética (Ec) flutuando sobre o veículo no Lab 4A e a curva verde no gráfico.'
+            },
+            {
+                id: 'energia_potencial_gravitacional',
+                module: 'energia',
+                labId: 'lab4A',
+                title: 'Energia Potencial Gravitacional (Epg)',
+                formula: 'E_{pg} = m \\cdot g \\cdot h',
+                unit: 'Joule (J)',
+                definition: 'Energia armazenada em virtude da posição (altura h em relação a um nível de referência) de um corpo num campo gravitacional.',
+                example: 'Água represada no alto de uma usina hidrelétrica ou um vagão no topo de uma montanha-russa.',
+                howToSeeIn3D: 'No Lab 4A, altere a "Altura Inicial da Colina" e veja a barra azul de Epg converter-se em Ec na descida.'
+            },
+            {
+                id: 'energia_potencial_elastica',
+                module: 'energia',
+                labId: 'lab4A',
+                title: 'Energia Potencial Elástica (Epe)',
+                formula: 'E_{pe} = \\frac{1}{2} k \\cdot x^2',
+                unit: 'Joule (J)',
+                definition: 'Energia armazenada em um corpo elástico (como uma mola ou arco) quando deformado de um comprimento x.',
+                example: 'Lançadores de pinball, catapultas de mola e varas de salto com vara.',
+                howToSeeIn3D: 'No início e no fim da pista do Lab 4A, observe as molas 3D comprimindo e armazenando Epe (barra dourada).'
+            },
+            {
+                id: 'conservacao_energia',
+                module: 'energia',
+                labId: 'lab4A',
+                title: 'Conservação e Dissipação da Energia Mecânica',
+                formula: 'E_{mec} = E_c + E_{pg} + E_{pe} = E_{mec,0} - E_{térmica}',
+                unit: 'Joule (J)',
+                definition: 'Em sistemas conservativos (sem atrito ou forças dissipativas), a Energia Mecânica total permanece rigorosamente constante, apenas se transformando entre Ec, Epg e Epe. Com atrito, parte converte-se em calor (energia térmica).',
+                example: 'Sem atrito (μ = 0), a esfera oscila eternamente na pista; com atrito (μ > 0), ela perde altura a cada ciclo.',
+                howToSeeIn3D: 'No Lab 4A, teste com μ = 0 (linha roxa de Emec horizontal) e depois aumente o atrito para ver a dissipação térmica.'
+            },
+            {
+                id: 'potencia',
+                module: 'energia',
+                labId: 'lab4A',
+                title: 'Potência Mecânica',
+                formula: 'P_m = \\frac{\\tau}{\\Delta t} \\quad | \\quad P_{inst} = F \\cdot v \\cos\\theta',
+                unit: 'Watt (W = J/s)',
+                definition: 'Mede a rapidez com que um trabalho é realizado ou com que a energia é transformada por unidade de tempo.',
+                example: 'Um guincho potente ergue o carrinho até o topo da montanha-russa em poucos segundos.',
+                howToSeeIn3D: 'Veja no painel de cálculos do Lab 4A a Potência Útil desenvolvida pelo sistema propulsor.'
+            },
+            {
+                id: 'rendimento',
+                module: 'energia',
+                labId: 'lab4A',
+                title: 'Rendimento Mecânico (η)',
+                formula: '\\eta = \\frac{P_{útil}}{P_{total}} = \\frac{E_{útil}}{E_{total}} \\quad (0 \\le \\eta \\le 100\\%)',
+                unit: 'Adimensional ou Porcentagem (%)',
+                definition: 'Relação entre a potência (ou energia) efetivamente aproveitada no movimento e a potência total fornecida à máquina, descontadas as perdas dissipativas ($P_{total} = P_{útil} + P_{dissipada}$).',
+                example: 'Motores elétricos de alta eficiência possuem rendimento próximo de 90%, enquanto motores a combustão ficam em torno de 30%.',
+                howToSeeIn3D: 'Ajuste o slider de Rendimento/Atrito no Lab 4A e veja o balanço energético entre Potência Total, Útil e Dissipada.'
+            },
+            {
+                id: 'colisoes',
+                module: 'energia',
+                labId: 'lab4B',
+                title: 'Colisões e Coeficiente de Restituição (e)',
+                formula: 'e = \\frac{|v_{2f} - v_{1f}|}{|v_{1i} - v_{2i}|} \\quad (0 \\le e \\le 1)',
+                unit: 'Adimensional',
+                definition: 'Choque mecânico breve e intenso entre corpos. Classifica-se pelo coeficiente de restituição (e): Elástica (e = 1, conserva Q e Ec), Parcialmente Elástica (0 < e < 1, conserva Q, perde parte de Ec) e Perfeitamente Inelástica (e = 0, os corpos batem e seguem grudados com perda máxima de Ec).',
+                example: 'Bolas de bilhar têm colisão quase elástica (e ≈ 0,95); já vagões que se engatam sofrem colisão inelástica (e = 0).',
+                howToSeeIn3D: 'No Lab 4B, use os botões rápidos para testar Colisão Elástica (e=1), Parcial (e=0.5) e Inelástica (e=0).'
+            },
+            {
+                id: 'quantidade_movimento',
+                module: 'energia',
+                labId: 'lab4B',
+                title: 'Quantidade de Movimento (Momento Linear)',
+                formula: '\\vec{Q} = m \\cdot \\vec{v} \\quad | \\quad \\vec{Q}_{antes} = \\vec{Q}_{depois}',
+                unit: 'kg·m/s (ou N·s)',
+                definition: 'Grandeza vetorial produto da massa pela velocidade. Em qualquer sistema isolado (como em todas as colisões, mesmo nas inelásticas!), a Quantidade de Movimento total antes do choque é igual à total após o choque.',
+                example: 'Quando uma bola pesada colide com uma leve parada, a leve sai em alta velocidade para conservar Q = m₁v₁ + m₂v₂.',
+                howToSeeIn3D: 'Observe as setas roxas de Momento Linear Q₁ e Q₂ nas esferas do Lab 4B antes e depois do impacto.'
+            },
+            {
+                id: 'impulso',
+                module: 'energia',
+                labId: 'lab4B',
+                title: 'Impulso e Teorema do Impulso',
+                formula: '\\vec{I} = \\int F(t)dt = \\vec{F}_{média} \\cdot \\Delta t = \\Delta \\vec{Q}',
+                unit: 'N·s (Newton-segundo)',
+                definition: 'Mede o efeito de uma força atuando durante um intervalo de tempo Δt. Pelo Teorema do Impulso, o impulso resultante aplicado a um corpo é igual à variação de sua quantidade de movimento (I = Qf - Qi).',
+                example: 'Airbags e zonas de deformação aumentam o tempo de colisão Δt para reduzir a força de impacto F sobre os passageiros.',
+                howToSeeIn3D: 'Durante o choque no Lab 4B, veja o anel de onda de choque 3D e o pico da curva de Força Impulsiva F(t) no gráfico.'
+            }
+        ];
+
+        // 8 Distinct 3D Laboratories Configuration
+        const LABS_CONFIG = {
+            lab1A: {
+                id: 'lab1A',
+                module: 'cinematica',
+                moduleName: 'MÓDULO 1 • CINEMÁTICA',
+                shortTitle: '1A. Lançamento Balístico & Referencial',
+                fullTitle: 'Lançamento Balístico 3D, Queda Livre e Referencial Móvel',
+                summary: 'Explore Ponto Material, Referencial (Solo vs Drone em MU), Trajetória 3D, Deslocamento Vetorial, MU no eixo X, MUV no eixo Y, Queda Livre, Lançamento Vertical, Horizontal e Oblíquo.',
+                cutawayTitle: 'Decomposição Galileana (MU + MUV) & Ponto Material',
+                cutawayDesc: 'Esfera semitransparente revelando o Ponto Material central + Projeções ortogonais simultâneas no eixo X (MU constante) e no pilar vertical Y (MUV acelerado pela gravidade).',
+                presets: [
+                    { label: 'Oblíquo (45°)', values: { v0: 22, angle: 45, h0: 0, g: 9.8, refMode: 0 } },
+                    { label: 'Horizontal (0°)', values: { v0: 18, angle: 0, h0: 22, g: 9.8, refMode: 0 } },
+                    { label: 'Vertical (90°)', values: { v0: 20, angle: 90, h0: 0, g: 9.8, refMode: 0 } },
+                    { label: 'Queda Livre', values: { v0: 0, angle: 0, h0: 25, g: 9.8, refMode: 0 } },
+                    { label: 'Visão Drone (MU)', values: { v0: 20, angle: 55, h0: 0, g: 9.8, refMode: 1 } }
+                ],
+                sliders: [
+                    { key: 'v0', label: 'Velocidade Inicial (v₀)', min: 0, max: 30, step: 0.5, unit: 'm/s', default: 22 },
+                    { key: 'angle', label: 'Ângulo de Disparo (θ)', min: 0, max: 90, step: 1, unit: '°', default: 45 },
+                    { key: 'h0', label: 'Altura Inicial (h₀)', min: 0, max: 30, step: 1, unit: 'm', default: 0 },
+                    { key: 'g', label: 'Gravidade (g)', min: 1.6, max: 20, step: 0.2, unit: 'm/s²', default: 9.8 },
+                    { key: 'refMode', label: 'Referencial (0=Solo, 1=Drone MU)', min: 0, max: 1, step: 1, unit: '', default: 0 }
+                ]
+            },
+            lab1B: {
+                id: 'lab1B',
+                module: 'cinematica',
+                moduleName: 'MÓDULO 1 • CINEMÁTICA',
+                shortTitle: '1B. Movimento Circular (MCU) & Vetores',
+                fullTitle: 'Movimento Circular Uniforme (MCU) e Vetores Cinemáticos 3D',
+                summary: 'Visualize o movimento circular em 3D, a velocidade tangencial (v), a aceleração centrípeta (acp perpendicular à velocidade), velocidade angular (ω), período (T) e frequência (f).',
+                cutawayTitle: 'Corte do Rotor & Projeção Harmônica (MCU → MHS)',
+                cutawayDesc: 'Seção aberta do rolamento central + Projeção lateral mostrando como a sombra do Movimento Circular Uniforme gera uma onda harmônica cossenoidal em tempo real.',
+                presets: [
+                    { label: 'Órbita Padrão', values: { radius: 10, omega: 1.5, mass: 2 } },
+                    { label: 'Alta Rotação (ω=3)', values: { radius: 8, omega: 3.0, mass: 2 } },
+                    { label: 'Grande Raio (R=15m)', values: { radius: 15, omega: 1.2, mass: 3 } }
+                ],
+                sliders: [
+                    { key: 'radius', label: 'Raio da Trajetória (R)', min: 4, max: 16, step: 0.5, unit: 'm', default: 10 },
+                    { key: 'omega', label: 'Velocidade Angular (ω)', min: 0.4, max: 3.5, step: 0.1, unit: 'rad/s', default: 1.5 },
+                    { key: 'mass', label: 'Massa do Satélite (m)', min: 1, max: 10, step: 0.5, unit: 'kg', default: 2 }
+                ]
+            },
+            lab2A: {
+                id: 'lab2A',
+                module: 'dinamica',
+                moduleName: 'MÓDULO 2 • DINÂMICA',
+                shortTitle: '2A. Plano Inclinado, Atrito & Mola',
+                fullTitle: 'Plano Inclinado 3D com Decomposição de Forças, Atrito e Mola de Hooke',
+                summary: 'Estude as 3 Leis de Newton, Força Resultante, Peso (Px e Py), Força Normal, Atrito Estático e Cinético, Centro de Massa e colisão elástica com Mola Helicoidal (Lei de Hooke).',
+                cutawayTitle: 'Raio-X do Centro de Massa & Decomposição Interna (Px, Py)',
+                cutawayDesc: 'Bloco e rampa em corte translúcido exibindo o Centro de Massa interno, o triângulo vetorial P → Px + Py, micro-rugosidades de atrito e o núcleo da mola helicoidal.',
+                presets: [
+                    { label: 'Descida com Rebote na Mola', values: { alpha: 30, mass: 5, mu: 0.12, kSpring: 90 } },
+                    { label: 'Sem Atrito (Liso μ=0)', values: { alpha: 25, mass: 4, mu: 0.0, kSpring: 120 } },
+                    { label: 'Equilíbrio por Atrito Estático', values: { alpha: 20, mass: 6, mu: 0.45, kSpring: 90 } }
+                ],
+                sliders: [
+                    { key: 'alpha', label: 'Inclinação da Rampa (α)', min: 10, max: 50, step: 1, unit: '°', default: 30 },
+                    { key: 'mass', label: 'Massa do Bloco (m)', min: 1, max: 15, step: 0.5, unit: 'kg', default: 5 },
+                    { key: 'mu', label: 'Coeficiente de Atrito (μ)', min: 0, max: 0.7, step: 0.02, unit: '', default: 0.12 },
+                    { key: 'kSpring', label: 'Constante da Mola (k)', min: 30, max: 200, step: 5, unit: 'N/m', default: 90 }
+                ]
+            },
+            lab2B: {
+                id: 'lab2B',
+                module: 'dinamica',
+                moduleName: 'MÓDULO 2 • DINÂMICA',
+                shortTitle: '2B. Máquina de Atwood & Tração',
+                fullTitle: 'Máquina de Atwood 3D e Sistemas de Blocos Acoplados com Tração',
+                summary: 'Analise sistemas de blocos interligados por cabos inextensíveis, Força de Tração (T), aceleração acoplada e o Centro de Massa combinado do sistema.',
+                cutawayTitle: 'Corte Seccional do Rolamento da Polia & Tensão Interna',
+                cutawayDesc: 'Carcaça superior aberta revelando o rolamento de esferas 3D, o eixo central, os Centros de Massa dos cilindros e a tensão uniforme ao longo do cabo.',
+                presets: [
+                    { label: 'Aceleração Padrão (8kg vs 4kg)', values: { m1: 8, m2: 4, g: 9.8 } },
+                    { label: 'Equilíbrio de Massas (6kg vs 6kg)', values: { m1: 6, m2: 6, g: 9.8 } },
+                    { label: 'Inversão (3kg vs 9kg)', values: { m1: 3, m2: 9, g: 9.8 } }
+                ],
+                sliders: [
+                    { key: 'm1', label: 'Massa Esquerda (m₁)', min: 1, max: 15, step: 0.5, unit: 'kg', default: 8 },
+                    { key: 'm2', label: 'Massa Direita (m₂)', min: 1, max: 15, step: 0.5, unit: 'kg', default: 4 },
+                    { key: 'g', label: 'Gravidade Local (g)', min: 1.6, max: 15, step: 0.2, unit: 'm/s²', default: 9.8 }
+                ]
+            },
+            lab3A: {
+                id: 'lab3A',
+                module: 'estatica',
+                moduleName: 'MÓDULO 3 • ESTÁTICA',
+                shortTitle: '3A. Torque, Alavancas & Equilíbrio',
+                fullTitle: 'Balança de Torque 3D, Tipos de Alavancas e Centro de Gravidade',
+                summary: 'Experimente o Equilíbrio de Forças (∑F=0), Equilíbrio Rotacional (∑τ=0), Torque/Momento (M = F·d·senθ), Centro de Gravidade e os 3 tipos de Alavancas.',
+                cutawayTitle: 'Vetor Axial de Torque (Regra da Mão Direita) & Eixo do CG',
+                cutawayDesc: 'Viga em seção aberta destacando o vetor Torque 3D ao longo do eixo Z do fulcro e a linha vertical do Centro de Gravidade (CG) combinado.',
+                presets: [
+                    { label: 'Alavanca Interfixa Equilibrada', values: { m1: 6, d1: 8, m2: 4, d2: 12, leverType: 1 } },
+                    { label: 'Desequilíbrio Horário', values: { m1: 4, d1: 6, m2: 8, d2: 10, leverType: 1 } },
+                    { label: 'Alavanca Inter-resistente', values: { m1: 5, d1: 12, m2: 10, d2: 6, leverType: 2 } },
+                    { label: 'Alavanca Interpotente', values: { m1: 12, d1: 5, m2: 4, d2: 14, leverType: 3 } }
+                ],
+                sliders: [
+                    { key: 'm1', label: 'Força/Massa Potente (m₁)', min: 1, max: 15, step: 0.5, unit: 'kg', default: 6 },
+                    { key: 'd1', label: 'Braço Potente (d₁)', min: 2, max: 14, step: 0.5, unit: 'm', default: 8 },
+                    { key: 'm2', label: 'Carga Resistente (m₂)', min: 1, max: 15, step: 0.5, unit: 'kg', default: 4 },
+                    { key: 'd2', label: 'Braço Resistente (d₂)', min: 2, max: 14, step: 0.5, unit: 'm', default: 12 },
+                    { key: 'leverType', label: 'Tipo (1=Interfixa, 2=Inter-res, 3=Interpot)', min: 1, max: 3, step: 1, unit: '', default: 1 }
+                ]
+            },
+            lab3B: {
+                id: 'lab3B',
+                module: 'estatica',
+                moduleName: 'MÓDULO 3 • ESTÁTICA',
+                shortTitle: '3B. Polias (Talha) & Engrenagens 3D',
+                fullTitle: 'Sistema 3D de Polias (Talha Exponencial) e Trem de Engrenagens',
+                summary: 'Inspecione o funcionamento simultâneo de um Trem de Engrenagens (relação de dentes Z₂/Z₁ e multiplicação de torque) acoplado a uma Talha Exponencial de Polias móveis (F = P/2ⁿ).',
+                cutawayTitle: 'Vista Explodida 3D de Engrenagens, Eixos, Mancais e Roldanas',
+                cutawayDesc: 'Afasta axialmente as engrenagens motora e movida, mancais e polias para visualizar o engrenamento dos dentes involutos e a passagem dos cabos.',
+                presets: [
+                    { label: 'Redutor 1:2 + 2 Polias Móveis', values: { z1: 12, z2: 24, nPulleys: 2, loadMass: 80, rpm1: 30 } },
+                    { label: 'Alta Vantagem (1:3 + 3 Polias)', values: { z1: 10, z2: 30, nPulleys: 3, loadMass: 160, rpm1: 45 } },
+                    { label: 'Transmissão 1:1 + 1 Polia Móvel', values: { z1: 18, z2: 18, nPulleys: 1, loadMass: 60, rpm1: 25 } }
+                ],
+                sliders: [
+                    { key: 'z1', label: 'Dentes Pinhão Motor (Z₁)', min: 8, max: 24, step: 2, unit: 'dentes', default: 12 },
+                    { key: 'z2', label: 'Dentes Coroa Movida (Z₂)', min: 12, max: 36, step: 2, unit: 'dentes', default: 24 },
+                    { key: 'nPulleys', label: 'Nº de Polias Móveis (n)', min: 1, max: 3, step: 1, unit: 'polias', default: 2 },
+                    { key: 'loadMass', label: 'Carga Suspensa (M)', min: 20, max: 200, step: 10, unit: 'kg', default: 80 },
+                    { key: 'rpm1', label: 'Rotação de Entrada (RPM₁)', min: 10, max: 60, step: 5, unit: 'rpm', default: 30 }
+                ]
+            },
+            lab4A: {
+                id: 'lab4A',
+                module: 'energia',
+                moduleName: 'MÓDULO 4 • TRABALHO & ENERGIA',
+                shortTitle: '4A. Pista de Energia, Potência & Rendimento',
+                fullTitle: 'Pista 3D com Mola Propulsora: Conservação de Energia, Trabalho e Rendimento',
+                summary: 'Acompanhe a transformação contínua entre Energia Potencial Gravitacional (Epg), Energia Cinética (Ec), Energia Potencial Elástica (Epe), Trabalho (τ), Potência (P) e Rendimento (η).',
+                cutawayTitle: 'Barras Holográficas 3D no Veículo & Estrutura Tubular da Pista',
+                cutawayDesc: 'Exibe colunas 3D de Ec, Epg e Epe acopladas diretamente ao veículo em movimento + corte estrutural dos amortecedores de mola nas extremidades.',
+                presets: [
+                    { label: 'Sistema Conservativo Ideal (μ=0)', values: { hStart: 14, kSpring: 120, xComp: 3.5, mass: 4, muLoss: 0.0, etaMotor: 85 } },
+                    { label: 'Com Dissipação Térmica (μ=0.06)', values: { hStart: 14, kSpring: 120, xComp: 3.5, mass: 4, muLoss: 0.06, etaMotor: 75 } },
+                    { label: 'Super Disparo Elástico', values: { hStart: 8, kSpring: 180, xComp: 4.5, mass: 3, muLoss: 0.0, etaMotor: 90 } }
+                ],
+                sliders: [
+                    { key: 'hStart', label: 'Altura da Colina (h₀)', min: 4, max: 18, step: 1, unit: 'm', default: 14 },
+                    { key: 'kSpring', label: 'Rigidez das Molas (k)', min: 50, max: 220, step: 10, unit: 'N/m', default: 120 },
+                    { key: 'xComp', label: 'Compressão Inicial (Δx)', min: 0, max: 5, step: 0.5, unit: 'm', default: 3.5 },
+                    { key: 'mass', label: 'Massa do Vagão (m)', min: 1, max: 10, step: 0.5, unit: 'kg', default: 4 },
+                    { key: 'muLoss', label: 'Coeficiente Dissipativo (μ)', min: 0, max: 0.15, step: 0.01, unit: '', default: 0.0 },
+                    { key: 'etaMotor', label: 'Rendimento do Guincho (η)', min: 40, max: 100, step: 5, unit: '%', default: 85 }
+                ]
+            },
+            lab4B: {
+                id: 'lab4B',
+                module: 'energia',
+                moduleName: 'MÓDULO 4 • TRABALHO & ENERGIA',
+                shortTitle: '4B. Colisões 3D, Impulso & Momento Q',
+                fullTitle: 'Laboratório de Colisões 3D, Teorema do Impulso e Quantidade de Movimento',
+                summary: 'Simule colisões Elásticas (e=1), Parcialmente Elásticas (0<e<1) e Inelásticas (e=0). Verifique a conservação do Momento Linear (Q = m·v) e o Impulso (I = F·Δt = ΔQ) no impacto.',
+                cutawayTitle: 'Raio-X dos Núcleos de Massa & Deformação Impulsiva no Choque',
+                cutawayDesc: 'Esferas em corte equatorial exibindo seus núcleos maciços proporcionais às massas m₁ e m₂ e o anel de força impulsiva durante o contato Δt.',
+                presets: [
+                    { label: 'Colisão Elástica (e = 1.0)', values: { m1: 4, v1: 10, m2: 4, v2: -6, rest: 1.0 } },
+                    { label: 'Parcialmente Elástica (e = 0.6)', values: { m1: 6, v1: 12, m2: 3, v2: -4, rest: 0.6 } },
+                    { label: 'Perfeitamente Inelástica (e = 0)', values: { m1: 5, v1: 10, m2: 5, v2: -4, rest: 0.0 } },
+                    { label: 'Pêndulo de Newton (m₁=m₂, v₂=0)', values: { m1: 5, v1: 12, m2: 5, v2: 0, rest: 1.0 } }
+                ],
+                sliders: [
+                    { key: 'm1', label: 'Massa Esfera 1 (m₁)', min: 1, max: 12, step: 0.5, unit: 'kg', default: 4 },
+                    { key: 'v1', label: 'Velocidade Inicial 1 (v₁ᵢ)', min: 2, max: 16, step: 1, unit: 'm/s', default: 10 },
+                    { key: 'm2', label: 'Massa Esfera 2 (m₂)', min: 1, max: 12, step: 0.5, unit: 'kg', default: 4 },
+                    { key: 'v2', label: 'Velocidade Inicial 2 (v₂ᵢ)', min: -14, max: 4, step: 1, unit: 'm/s', default: -6 },
+                    { key: 'rest', label: 'Coef. de Restituição (e)', min: 0, max: 1, step: 0.05, unit: '', default: 1.0 }
+                ]
+            }
+        };
+
+        /***********************************************************************
+         * 2. GLOBAL APPLICATION STATE
+         ***********************************************************************/
+        const state = {
+            currentModule: 'cinematica',
+            currentLabId: 'lab1A',
+            selectedConceptId: 'lancamento_obliquo',
+            isPlaying: true,
+            simTime: 0,
+            simSpeed: 1.0,
+            cutawayMode: false,
+            showVectors: true,
+            followCamera: false,
+            encyclopediaFilter: 'all',
+            params: {},
+            chartHistory: [],
+            // Lab specific runtime states
+            labRuntime: {}
+        };
+
+        // Initialize default parameters for all labs
+        Object.keys(LABS_CONFIG).forEach(labKey => {
+            state.params[labKey] = {};
+            LABS_CONFIG[labKey].sliders.forEach(s => {
+                state.params[labKey][s.key] = s.default;
+            });
+        });
+
+        /***********************************************************************
+         * 3. THREE.JS ENGINE, ORBITAL CAMERA & 3D HELPERS
+         ***********************************************************************/
+        let scene, camera, renderer, labGroup;
+        const camControl = {
+            theta: 0.65,      // Horizontal orbit angle (rad)
+            phi: 1.08,        // Vertical polar angle (rad)
+            radius: 42,       // Distance to target
+            target: new THREE.Vector3(0, 5, 0),
+            desiredTarget: new THREE.Vector3(0, 5, 0),
+            isDraggingLeft: false,
+            isDraggingRight: false,
+            prevMouse: { x: 0, y: 0 }
+        };
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas3d-container');
+            const w = container.clientWidth || 800;
+            const h = container.clientHeight || 550;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x060a12);
+            scene.fog = new THREE.FogExp2(0x060a12, 0.0075);
+
+            camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
+            updateCameraPositionFromSpherical();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Lighting Setup
+            const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.65);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
+            dirLight.position.set(28, 45, 32);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.35);
+            fillLight.position.set(-25, 18, -20);
+            scene.add(fillLight);
+
+            // Laboratory Base Floor & Metric Grid
+            const gridHelper = new THREE.GridHelper(90, 45, 0x1e3a8a, 0x0f172a);
+            gridHelper.position.y = -0.02;
+            scene.add(gridHelper);
+
+            // World Coordinate Axes Reference (Subtle)
+            const axesGroup = new THREE.Group();
+            const xAxis = create3DArrow(new THREE.Vector3(-24, 0.05, -18), new THREE.Vector3(1, 0, 0), 4, 0xef4444);
+            const yAxis = create3DArrow(new THREE.Vector3(-24, 0.05, -18), new THREE.Vector3(0, 1, 0), 4, 0x22c55e);
+            const zAxis = create3DArrow(new THREE.Vector3(-24, 0.05, -18), new THREE.Vector3(0, 0, 1), 4, 0x3b82f6);
+            axesGroup.add(xAxis, yAxis, zAxis);
+            scene.add(axesGroup);
+
+            // Dynamic Container for active 3D Experiment
+            labGroup = new THREE.Group();
+            scene.add(labGroup);
+
+            // Mouse & Touch Interactive Camera Listeners
+            const dom = renderer.domElement;
+            dom.addEventListener('contextmenu', e => e.preventDefault());
+
+            dom.addEventListener('mousedown', e => {
+                if (e.button === 0) camControl.isDraggingLeft = true;
+                if (e.button === 2 || e.button === 1) camControl.isDraggingRight = true;
+                camControl.prevMouse = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => {
+                camControl.isDraggingLeft = false;
+                camControl.isDraggingRight = false;
+            });
+
+            window.addEventListener('mousemove', e => {
+                if (!camControl.isDraggingLeft && !camControl.isDraggingRight) return;
+                const dx = e.clientX - camControl.prevMouse.x;
+                const dy = e.clientY - camControl.prevMouse.y;
+                camControl.prevMouse = { x: e.clientX, y: e.clientY };
+
+                if (camControl.isDraggingLeft) {
+                    camControl.theta -= dx * 0.007;
+                    camControl.phi = Math.max(0.12, Math.min(Math.PI / 2 - 0.02, camControl.phi - dy * 0.007));
+                } else if (camControl.isDraggingRight) {
+                    state.followCamera = false;
+                    updateFollowCamButtonUI();
+                    const panSpeed = camControl.radius * 0.0015;
+                    const right = new THREE.Vector3(Math.cos(camControl.theta), 0, -Math.sin(camControl.theta));
+                    camControl.desiredTarget.addScaledVector(right, -dx * panSpeed);
+                    camControl.desiredTarget.y = Math.max(0, camControl.desiredTarget.y + dy * panSpeed);
+                }
+            });
+
+            dom.addEventListener('wheel', e => {
+                e.preventDefault();
+                camControl.radius = Math.max(12, Math.min(95, camControl.radius + e.deltaY * 0.03));
+            }, { passive: false });
+
+            // Touch Support for Mobile/Tablet
+            let lastTouchDist = 0;
+            dom.addEventListener('touchstart', e => {
+                if (e.touches.length === 1) {
+                    camControl.isDraggingLeft = true;
+                    camControl.prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                } else if (e.touches.length === 2) {
+                    camControl.isDraggingLeft = false;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    lastTouchDist = Math.hypot(dx, dy);
+                }
+            }, { passive: true });
+
+            dom.addEventListener('touchmove', e => {
+                if (e.touches.length === 1 && camControl.isDraggingLeft) {
+                    const dx = e.touches[0].clientX - camControl.prevMouse.x;
+                    const dy = e.touches[0].clientY - camControl.prevMouse.y;
+                    camControl.prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    camControl.theta -= dx * 0.007;
+                    camControl.phi = Math.max(0.12, Math.min(Math.PI / 2 - 0.02, camControl.phi - dy * 0.007));
+                } else if (e.touches.length === 2) {
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const dist = Math.hypot(dx, dy);
+                    camControl.radius = Math.max(12, Math.min(95, camControl.radius - (dist - lastTouchDist) * 0.08));
+                    lastTouchDist = dist;
+                }
+            }, { passive: true });
+
+            dom.addEventListener('touchend', () => {
+                camControl.isDraggingLeft = false;
+            });
+
+            window.addEventListener('resize', handleWindowResize);
+        }
+
+        function updateCameraPositionFromSpherical() {
+            camControl.target.lerp(camControl.desiredTarget, 0.12);
+            const x = camControl.target.x + camControl.radius * Math.sin(camControl.phi) * Math.sin(camControl.theta);
+            const y = camControl.target.y + camControl.radius * Math.cos(camControl.phi);
+            const z = camControl.target.z + camControl.radius * Math.sin(camControl.phi) * Math.cos(camControl.theta);
+            camera.position.set(x, y, z);
+            camera.lookAt(camControl.target);
+        }
+
+        function handleWindowResize() {
+            const container = document.getElementById('canvas3d-container');
+            if (!container || !renderer) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            resize2DChartCanvas();
+        }
+
+        // Camera Presets
+        function setCameraPreset(preset) {
+            state.followCamera = false;
+            updateFollowCamButtonUI();
+            if (preset === 'iso') {
+                camControl.theta = 0.62;
+                camControl.phi = 1.08;
+                camControl.radius = 42;
+                camControl.desiredTarget.set(0, 6, 0);
+            } else if (preset === 'front') {
+                camControl.theta = 0.0;
+                camControl.phi = 1.48;
+                camControl.radius = 44;
+                camControl.desiredTarget.set(0, 6, 0);
+            } else if (preset === 'top') {
+                camControl.theta = 0.0;
+                camControl.phi = 0.14;
+                camControl.radius = 46;
+                camControl.desiredTarget.set(0, 2, 0);
+            }
+        }
+
+        function toggleFollowCamera() {
+            state.followCamera = !state.followCamera;
+            updateFollowCamButtonUI();
+        }
+
+        function updateFollowCamButtonUI() {
+            const btn = document.getElementById('btn-follow-cam');
+            if (state.followCamera) {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-rose-500 text-white text-[11px] font-semibold transition-all flex items-center gap-1 shadow-lg shadow-rose-500/30';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-sky-500/20 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1';
+            }
+        }
+
+        function toggleCutawayMode() {
+            state.cutawayMode = !state.cutawayMode;
+            const btn = document.getElementById('btn-cutaway');
+            const banner = document.getElementById('cutaway-info-banner');
+            const labCfg = LABS_CONFIG[state.currentLabId];
+
+            if (state.cutawayMode) {
+                btn.classList.add('cutaway-active');
+                banner.classList.remove('hidden');
+                document.getElementById('cutaway-banner-title').textContent = labCfg.cutawayTitle;
+                document.getElementById('cutaway-banner-desc').textContent = labCfg.cutawayDesc;
+            } else {
+                btn.classList.remove('cutaway-active');
+                banner.classList.add('hidden');
+            }
+            rebuildActive3DLabScene();
+        }
+
+        function toggleVectorsVisibility() {
+            state.showVectors = !state.showVectors;
+            const btn = document.getElementById('btn-vectors');
+            const legend = document.getElementById('vector-legend-box');
+            if (state.showVectors) {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer';
+                legend.classList.remove('hidden');
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800/90 text-slate-400 border border-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer';
+                legend.classList.add('hidden');
+            }
+        }
+
+        // Helper to create a 3D ArrowHelper with thicker shaft visibility
+        function create3DArrow(origin, dir, length, hexColor) {
+            const safeDir = dir.clone();
+            if (safeDir.lengthSq() < 0.0001) safeDir.set(0, 1, 0);
+            safeDir.normalize();
+            const safeLen = Math.max(0.01, length);
+            return new THREE.ArrowHelper(safeDir, origin, safeLen, hexColor, Math.min(1.4, safeLen * 0.28), Math.min(0.8, safeLen * 0.18));
+        }
+
+        function update3DArrow(arrow, origin, dir, length) {
+            if (!arrow) return;
+            arrow.visible = state.showVectors && length > 0.15;
+            if (!arrow.visible) return;
+            arrow.position.copy(origin);
+            const norm = dir.clone();
+            if (norm.lengthSq() < 0.0001) norm.set(0, 1, 0);
+            norm.normalize();
+            arrow.setDirection(norm);
+            const safeLen = Math.max(0.2, length);
+            arrow.setLength(safeLen, Math.min(1.3, safeLen * 0.26), Math.min(0.75, safeLen * 0.17));
+        }
+
+        // Helper to generate a procedural 3D Helical Spring Mesh
+        function createHelicalSpringGeometry(length, radius = 0.85, coils = 10, tubeRadius = 0.12) {
+            const pts = [];
+            const steps = coils * 16;
+            const safeLen = Math.max(0.6, length);
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const angle = t * coils * Math.PI * 2;
+                pts.push(new THREE.Vector3(t * safeLen, Math.cos(angle) * radius, Math.sin(angle) * radius));
+            }
+            const curve = new THREE.CatmullRomCurve3(pts);
+            return new THREE.TubeGeometry(curve, steps, tubeRadius, 8, false);
+        }
+
+        // Helper to create a 3D Gear with real involute teeth
+        function createGearMesh(teethCount, pitchRadius, thickness, colorHex, isCutaway) {
+            const shape = new THREE.Shape();
+            const outerR = pitchRadius + 0.42;
+            const innerR = pitchRadius - 0.38;
+            const totalSteps = teethCount * 4;
+
+            for (let i = 0; i < totalSteps; i++) {
+                const angle = (i / totalSteps) * Math.PI * 2;
+                const mod = i % 4;
+                const r = (mod === 0 || mod === 1) ? outerR : innerR;
+                const x = Math.cos(angle) * r;
+                const y = Math.sin(angle) * r;
+                if (i === 0) shape.moveTo(x, y);
+                else shape.lineTo(x, y);
+            }
+            shape.closePath();
+
+            // Bore hole in center
+            const holePath = new THREE.Path();
+            holePath.absarc(0, 0, Math.max(0.6, pitchRadius * 0.25), 0, Math.PI * 2, true);
+            shape.holes.push(holePath);
+
+            const extrudeSettings = { depth: thickness, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.08, bevelThickness: 0.08 };
+            const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            geom.center();
+
+            const mat = new THREE.MeshStandardMaterial({
+                color: colorHex,
+                metalness: 0.65,
+                roughness: 0.3,
+                transparent: isCutaway,
+                opacity: isCutaway ? 0.65 : 1.0
+            });
+            return new THREE.Mesh(geom, mat);
+        }
+
+        /***********************************************************************
+         * 4. BUILDERS & UPDATERS FOR ALL 8 DISTINCT 3D LABORATORIES
+         ***********************************************************************/
+        function clearLabGroup() {
+            while (labGroup.children.length > 0) {
+                const obj = labGroup.children[0];
+                labGroup.remove(obj);
+            }
+        }
+
+        function rebuildActive3DLabScene() {
+            clearLabGroup();
+            const id = state.currentLabId;
+            if (id === 'lab1A') buildLab1AScene();
+            else if (id === 'lab1B') buildLab1BScene();
+            else if (id === 'lab2A') buildLab2AScene();
+            else if (id === 'lab2B') buildLab2BScene();
+            else if (id === 'lab3A') buildLab3AScene();
+            else if (id === 'lab3B') buildLab3BScene();
+            else if (id === 'lab4A') buildLab4AScene();
+            else if (id === 'lab4B') buildLab4BScene();
+        }
+
+        /* =====================================================================
+         * LAB 1A: LANÇAMENTO BALÍSTICO 3D, QUEDA LIVRE E REFERENCIAL MÓVEL
+         * ===================================================================== */
+        function buildLab1AScene() {
+            const p = state.params.lab1A;
+            const rt = {};
+
+            // Launch Tower / Platform at X = -18
+            const startX = -18;
+            const towerH = Math.max(0.4, p.h0);
+            const towerGeo = new THREE.BoxGeometry(2.6, towerH, 2.6);
+            const towerMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                metalness: 0.5,
+                roughness: 0.4,
+                transparent: state.cutawayMode,
+                opacity: state.cutawayMode ? 0.45 : 1
+            });
+            const towerMesh = new THREE.Mesh(towerGeo, towerMat);
+            towerMesh.position.set(startX, towerH / 2, 0);
+            labGroup.add(towerMesh);
+
+            // Launcher Cannon Barrel
+            const cannonGroup = new THREE.Group();
+            cannonGroup.position.set(startX, p.h0 + 0.8, 0);
+            cannonGroup.rotation.z = THREE.MathUtils.degToRad(p.angle);
+            const barrelGeo = new THREE.CylinderGeometry(0.45, 0.55, 2.6, 20);
+            barrelGeo.rotateZ(-Math.PI / 2);
+            barrelGeo.translate(0.9, 0, 0);
+            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.7, roughness: 0.2 });
+            cannonGroup.add(new THREE.Mesh(barrelGeo, barrelMat));
+            labGroup.add(cannonGroup);
+
+            // Projectile Sphere (Corpo Extenso + Ponto Material core in Cutaway)
+            const projGroup = new THREE.Group();
+            const sphereMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                emissive: 0x0284c7,
+                emissiveIntensity: 0.25,
+                transparent: state.cutawayMode,
+                opacity: state.cutawayMode ? 0.35 : 1.0
+            });
+            const sphereMesh = new THREE.Mesh(new THREE.SphereGeometry(0.95, 28, 28), sphereMat);
+            projGroup.add(sphereMesh);
+
+            // Internal Material Point Core (visible especially in cutaway)
+            const coreMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.26, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xfef08a })
+            );
+            projGroup.add(coreMesh);
+            labGroup.add(projGroup);
+            rt.projGroup = projGroup;
+
+            // Moving Reference Frame Drone (Observador em MU)
+            const droneGroup = new THREE.Group();
+            const droneBody = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2, 0.45, 1.4),
+                new THREE.MeshStandardMaterial({ color: 0xa855f7, metalness: 0.6, roughness: 0.3 })
+            );
+            droneGroup.add(droneBody);
+            // Vertical laser guide from drone to projectile
+            const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -25, 0)]);
+            const laserLine = new THREE.Line(laserGeo, new THREE.LineDashedMaterial({ color: 0xa855f7, dashSize: 0.6, gapSize: 0.4 }));
+            droneGroup.add(laserLine);
+            labGroup.add(droneGroup);
+            rt.droneGroup = droneGroup;
+
+            // Trajectory Curve 3D
+            const rad = THREE.MathUtils.degToRad(p.angle);
+            const vx = p.v0 * Math.cos(rad);
+            const vy0 = p.v0 * Math.sin(rad);
+            const disc = vy0 * vy0 + 2 * p.g * p.h0;
+            const tFlight = p.g > 0 ? Math.max(0.1, (vy0 + Math.sqrt(Math.max(0, disc))) / p.g) : 3;
+            rt.tFlight = tFlight;
+            rt.startX = startX;
+            rt.vx = vx;
+            rt.vy0 = vy0;
+
+            const trajPts = [];
+            const steps = 80;
+            for (let i = 0; i <= steps; i++) {
+                const t = (i / steps) * tFlight;
+                const x = startX + vx * t;
+                const y = Math.max(0, p.h0 + vy0 * t - 0.5 * p.g * t * t);
+                trajPts.push(new THREE.Vector3(x, y + 0.8, 0));
+            }
+            const trajLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints(trajPts),
+                new THREE.LineBasicMaterial({ color: 0x38bdf8 })
+            );
+            labGroup.add(trajLine);
+
+            // Direct Displacement Vector Line (Origin -> Current Position)
+            const dispGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(startX, p.h0 + 0.8, 0),
+                new THREE.Vector3(startX, p.h0 + 0.8, 0)
+            ]);
+            const dispLine = new THREE.Line(dispGeo, new THREE.LineBasicMaterial({ color: 0x10b981 }));
+            labGroup.add(dispLine);
+            rt.dispLine = dispLine;
+
+            // Cutaway Mode: Orthogonal Galilean Projections (MU on X rail, MUV on Y pillar)
+            const decompGroup = new THREE.Group();
+            decompGroup.visible = state.cutawayMode;
+            // X Rail (MU)
+            const xRail = new THREE.Mesh(
+                new THREE.BoxGeometry(52, 0.15, 0.4),
+                new THREE.MeshBasicMaterial({ color: 0x1d4ed8 })
+            );
+            xRail.position.set(4, 0.1, 4.5);
+            decompGroup.add(xRail);
+
+            const shadowX = new THREE.Mesh(
+                new THREE.SphereGeometry(0.55, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0x60a5fa })
+            );
+            decompGroup.add(shadowX);
+            rt.shadowX = shadowX;
+
+            // Y Pillar (MUV)
+            const yPillar = new THREE.Mesh(
+                new THREE.BoxGeometry(0.3, 36, 0.3),
+                new THREE.MeshBasicMaterial({ color: 0xb91c1c })
+            );
+            yPillar.position.set(startX - 4, 18, 0);
+            decompGroup.add(yPillar);
+
+            const shadowY = new THREE.Mesh(
+                new THREE.SphereGeometry(0.55, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xf87171 })
+            );
+            decompGroup.add(shadowY);
+            rt.shadowY = shadowY;
+            labGroup.add(decompGroup);
+
+            // 3D Vectors: Velocity (v), Components (vx, vy), Gravity Acceleration (g)
+            rt.arrowV = create3DArrow(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), 3, 0x10b981);
+            rt.arrowVx = create3DArrow(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), 2, 0x38bdf8);
+            rt.arrowVy = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 2, 0xf59e0b);
+            rt.arrowG = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 3, 0xf43f5e);
+            labGroup.add(rt.arrowV, rt.arrowVx, rt.arrowVy, rt.arrowG);
+
+            state.labRuntime = rt;
+        }
+
+        function updateLab1A(dt) {
+            const p = state.params.lab1A;
+            const rt = state.labRuntime;
+            if (!rt.projGroup) return;
+
+            if (state.simTime > rt.tFlight) {
+                state.simTime = 0;
+                state.chartHistory = [];
+            }
+
+            const t = state.simTime;
+            const x = rt.startX + rt.vx * t;
+            const y = Math.max(0, p.h0 + rt.vy0 * t - 0.5 * p.g * t * t);
+            const vy = rt.vy0 - p.g * t;
+            const vMag = Math.hypot(rt.vx, vy);
+            const pos = new THREE.Vector3(x, y + 0.8, 0);
+
+            rt.projGroup.position.copy(pos);
+
+            // Drone at altitude moving with constant horizontal velocity vx (MU)
+            rt.droneGroup.position.set(x, 28, 0);
+
+            // Displacement direct vector update
+            const originPos = new THREE.Vector3(rt.startX, p.h0 + 0.8, 0);
+            rt.dispLine.geometry.setFromPoints([originPos, pos]);
+            const dispMag = pos.distanceTo(originPos);
+
+            // Cutaway projections
+            if (state.cutawayMode) {
+                rt.shadowX.position.set(x, 0.3, 4.5);
+                rt.shadowY.position.set(rt.startX - 4, y + 0.8, 0);
+            }
+
+            // Update 3D vectors
+            update3DArrow(rt.arrowV, pos, new THREE.Vector3(rt.vx, vy, 0), vMag * 0.25);
+            update3DArrow(rt.arrowVx, pos, new THREE.Vector3(Math.sign(rt.vx) || 1, 0, 0), Math.abs(rt.vx) * 0.25);
+            update3DArrow(rt.arrowVy, pos, new THREE.Vector3(0, Math.sign(vy) || 1, 0), Math.abs(vy) * 0.25);
+            update3DArrow(rt.arrowG, pos, new THREE.Vector3(0, -1, 0), p.g * 0.32);
+
+            // Reference Frame Camera Tracking
+            if (p.refMode === 1 || state.followCamera) {
+                camControl.desiredTarget.set(x, Math.max(5, y * 0.6 + 4), 0);
+            }
+
+            // Push to live chart
+            pushChartPoint(t, y, vMag, Math.abs(vy));
+
+            // Update HUD & Live Math
+            setHUDMetrics([
+                `x(MU): ${(x - rt.startX).toFixed(1)} m`,
+                `y(MUV): ${y.toFixed(1)} m`,
+                `|v|: ${vMag.toFixed(1)} m/s`,
+                `|Δr|: ${dispMag.toFixed(1)} m`
+            ]);
+
+            const hMax = p.h0 + (rt.vy0 * rt.vy0) / (2 * p.g);
+            const rangeMax = rt.vx * rt.tFlight;
+            renderCalculationsHTML([
+                {
+                    title: 'Decomposição Inicial (MU em X, MUV em Y)',
+                    eq: `v₀ₓ = v₀·cos(${p.angle}°) | v₀ᵧ = v₀·sen(${p.angle}°)`,
+                    val: `v₀ₓ = ${rt.vx.toFixed(2)} m/s | v₀ᵧ = ${rt.vy0.toFixed(2)} m/s`
+                },
+                {
+                    title: 'Posição Atual x(t) e y(t)',
+                    eq: `x = v₀ₓ·t  |  y = h₀ + v₀ᵧ·t - ½·g·t²`,
+                    val: `x(${t.toFixed(2)}s) = ${(x - rt.startX).toFixed(2)} m | y = ${y.toFixed(2)} m`
+                },
+                {
+                    title: 'Velocidade Vetorial Instantânea',
+                    eq: `vᵧ = v₀ᵧ - g·t  |  |v| = √(vₓ² + vᵧ²)`,
+                    val: `vᵧ = ${vy.toFixed(2)} m/s  |  |v| = ${vMag.toFixed(2)} m/s`
+                },
+                {
+                    title: 'Altura Máxima, Alcance e Tempo de Voo',
+                    eq: `H_máx = h₀ + v₀ᵧ²/(2g) | A = v₀ₓ·t_voo`,
+                    val: `H_máx = ${hMax.toFixed(2)} m | A = ${rangeMax.toFixed(2)} m | t_voo = ${rt.tFlight.toFixed(2)} s`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 1B: MOVIMENTO CIRCULAR UNIFORME (MCU) & VETORES CINEMÁTICOS 3D
+         * ===================================================================== */
+        function buildLab1BScene() {
+            const p = state.params.lab1B;
+            const rt = {};
+
+            // Central Pedestal & Bearing Hub
+            const hubGeo = new THREE.CylinderGeometry(1.8, 2.2, 3.2, 28, 1, false, 0, state.cutawayMode ? Math.PI * 1.4 : Math.PI * 2);
+            const hubMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3, side: THREE.DoubleSide });
+            const hubMesh = new THREE.Mesh(hubGeo, hubMat);
+            hubMesh.position.y = 1.6;
+            labGroup.add(hubMesh);
+
+            // Inner shaft visible in cutaway
+            const shaftMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.6, 0.6, 4.2, 20),
+                new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.2 })
+            );
+            shaftMesh.position.y = 2.1;
+            labGroup.add(shaftMesh);
+
+            // Circular Orbit Ring
+            const ringGeo = new THREE.RingGeometry(p.radius - 0.12, p.radius + 0.12, 64);
+            ringGeo.rotateX(-Math.PI / 2);
+            const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide }));
+            ringMesh.position.y = 3.2;
+            labGroup.add(ringMesh);
+
+            // Rotating Arm & Satellite Sphere
+            const armGroup = new THREE.Group();
+            armGroup.position.y = 3.2;
+            const rodGeo = new THREE.BoxGeometry(p.radius, 0.2, 0.2);
+            rodGeo.translate(p.radius / 2, 0, 0);
+            armGroup.add(new THREE.Mesh(rodGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8 })));
+            labGroup.add(armGroup);
+            rt.armGroup = armGroup;
+
+            const satRadius = 0.7 + p.mass * 0.08;
+            const satMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(satRadius, 28, 28),
+                new THREE.MeshStandardMaterial({
+                    color: 0x38bdf8,
+                    metalness: 0.4,
+                    roughness: 0.2,
+                    transparent: state.cutawayMode,
+                    opacity: state.cutawayMode ? 0.55 : 1.0
+                })
+            );
+            satMesh.position.y = 3.2;
+            labGroup.add(satMesh);
+            rt.satMesh = satMesh;
+
+            // Cutaway Mode: Harmonic Projection Screen (MHS shadow of MCU)
+            const mhsGroup = new THREE.Group();
+            mhsGroup.visible = state.cutawayMode;
+            const screenWall = new THREE.Mesh(
+                new THREE.BoxGeometry(36, 1.2, 0.3),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b })
+            );
+            screenWall.position.set(0, 3.2, -18);
+            mhsGroup.add(screenWall);
+
+            const shadowBall = new THREE.Mesh(
+                new THREE.SphereGeometry(0.65, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xf59e0b })
+            );
+            shadowBall.position.set(0, 3.2, -17.7);
+            mhsGroup.add(shadowBall);
+            rt.shadowBall = shadowBall;
+
+            const projRayGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+            const projRay = new THREE.Line(projRayGeo, new THREE.LineDashedMaterial({ color: 0xf59e0b, dashSize: 0.5, gapSize: 0.3 }));
+            mhsGroup.add(projRay);
+            rt.projRay = projRay;
+            labGroup.add(mhsGroup);
+
+            // Vectors: Tangential Velocity (green), Centripetal Acceleration (red), Angular Velocity ω (purple axial)
+            rt.arrowV = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 4, 0x10b981);
+            rt.arrowAcp = create3DArrow(new THREE.Vector3(), new THREE.Vector3(-1, 0, 0), 4, 0xf43f5e);
+            rt.arrowOmega = create3DArrow(new THREE.Vector3(0, 3.2, 0), new THREE.Vector3(0, 1, 0), 4, 0xa855f7);
+            labGroup.add(rt.arrowV, rt.arrowAcp, rt.arrowOmega);
+
+            state.labRuntime = rt;
+        }
+
+        function updateLab1B(dt) {
+            const p = state.params.lab1B;
+            const rt = state.labRuntime;
+            if (!rt.satMesh) return;
+
+            const phi = p.omega * state.simTime;
+            const x = p.radius * Math.cos(phi);
+            const z = -p.radius * Math.sin(phi);
+            const pos = new THREE.Vector3(x, 3.2, z);
+
+            rt.satMesh.position.copy(pos);
+            rt.armGroup.rotation.y = phi;
+
+            const vTang = p.omega * p.radius;
+            const acp = p.omega * p.omega * p.radius;
+            const periodT = (2 * Math.PI) / p.omega;
+            const freqF = 1 / periodT;
+
+            // Tangent direction (-sin(phi), 0, -cos(phi))
+            const vDir = new THREE.Vector3(-Math.sin(phi), 0, -Math.cos(phi));
+            // Centripetal direction (-cos(phi), 0, sin(phi)) pointing toward center (0, 3.2, 0)
+            const acpDir = new THREE.Vector3(-Math.cos(phi), 0, Math.sin(phi));
+
+            update3DArrow(rt.arrowV, pos, vDir, vTang * 0.35);
+            update3DArrow(rt.arrowAcp, pos, acpDir, Math.min(p.radius * 0.9, acp * 0.18));
+            update3DArrow(rt.arrowOmega, new THREE.Vector3(0, 3.2, 0), new THREE.Vector3(0, 1, 0), p.omega * 2.2);
+
+            if (state.cutawayMode) {
+                const shadowPos = new THREE.Vector3(x, 3.2, -17.7);
+                rt.shadowBall.position.copy(shadowPos);
+                rt.projRay.geometry.setFromPoints([pos, shadowPos]);
+            }
+
+            if (state.followCamera) {
+                camControl.desiredTarget.copy(pos);
+            }
+
+            pushChartPoint(state.simTime, x, vTang, acp);
+
+            setHUDMetrics([
+                `φ: ${(phi % (2 * Math.PI)).toFixed(2)} rad`,
+                `v: ${vTang.toFixed(2)} m/s`,
+                `acp: ${acp.toFixed(2)} m/s²`,
+                `T: ${periodT.toFixed(2)}s | f: ${freqF.toFixed(2)}Hz`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: 'Período (T) e Frequência (f)',
+                    eq: `T = 2π / ω   |   f = 1 / T`,
+                    val: `T = ${periodT.toFixed(2)} s   |   f = ${freqF.toFixed(2)} Hz`
+                },
+                {
+                    title: 'Velocidade Escalar / Tangencial (v)',
+                    eq: `v = ω · R = ${p.omega.toFixed(1)} · ${p.radius.toFixed(1)}`,
+                    val: `v = ${vTang.toFixed(2)} m/s (sempre ⊥ ao raio)`
+                },
+                {
+                    title: 'Aceleração Centrípeta (acp)',
+                    eq: `a_cp = v² / R = ω² · R`,
+                    val: `a_cp = ${acp.toFixed(2)} m/s² (aponta para o centro)`
+                },
+                {
+                    title: 'Força Centrípeta Resultante (Fcp)',
+                    eq: `F_cp = m · a_cp = ${p.mass} · ${acp.toFixed(2)}`,
+                    val: `F_cp = ${(p.mass * acp).toFixed(2)} N`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 2A: PLANO INCLINADO 3D COM ATRITO, BLOCO E MOLA DE HOOKE
+         * ===================================================================== */
+        function buildLab2AScene() {
+            const p = state.params.lab2A;
+            const rt = {};
+            const alphaRad = THREE.MathUtils.degToRad(p.alpha);
+            const rampLen = 28;
+
+            // Tilted Ramp Coordinate Frame
+            const rampGroup = new THREE.Group();
+            // Pivot at bottom-right of ramp (X = 10, Y = 1, Z = 0)
+            rampGroup.position.set(10, 1.0, 0);
+            rampGroup.rotation.z = alphaRad; // Tilted up towards -X
+
+            // Ramp Deck
+            const deckMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                metalness: 0.4,
+                roughness: 0.6,
+                transparent: state.cutawayMode,
+                opacity: state.cutawayMode ? 0.45 : 1.0
+            });
+            const deckMesh = new THREE.Mesh(new THREE.BoxGeometry(rampLen, 1.0, 6), deckMat);
+            deckMesh.position.set(-rampLen / 2, -0.5, 0);
+            rampGroup.add(deckMesh);
+
+            // End Stopper Wall at s = 0 (bottom of ramp)
+            const wallMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 3.2, 6),
+                new THREE.MeshStandardMaterial({ color: 0x475569 })
+            );
+            wallMesh.position.set(0.4, 1.1, 0);
+            rampGroup.add(wallMesh);
+
+            // Helical 3D Spring at the bottom of the ramp (from s = 0 to s = -4.5)
+            const springMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.2 });
+            const springMesh = new THREE.Mesh(createHelicalSpringGeometry(4.5, 0.75, 9, 0.12), springMat);
+            springMesh.rotation.y = Math.PI; // Extend towards -X along ramp
+            springMesh.position.set(0, 1.1, 0);
+            rampGroup.add(springMesh);
+            rt.springMesh = springMesh;
+
+            // Sliding Block
+            const blockGroup = new THREE.Group();
+            const blockMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                metalness: 0.3,
+                roughness: 0.3,
+                transparent: state.cutawayMode,
+                opacity: state.cutawayMode ? 0.32 : 1.0
+            });
+            const blockMesh = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.2, 2.8), blockMat);
+            blockGroup.add(blockMesh);
+
+            // Internal Center of Mass Sphere (highlighted in Cutaway Mode)
+            const cmSphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.35, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xfef08a })
+            );
+            blockGroup.add(cmSphere);
+
+            // Vectors attached to Center of Mass inside rampGroup frame:
+            // Normal (+Y local), Px (+X local down-ramp), Py (-Y local), Friction/Spring (-X local)
+            rt.arrowN = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 3, 0x38bdf8);
+            rt.arrowPx = create3DArrow(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), 3, 0xf87171);
+            rt.arrowPy = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 3, 0xfb7185);
+            rt.arrowFat = create3DArrow(new THREE.Vector3(), new THREE.Vector3(-1, 0, 0), 3, 0xf59e0b);
+            rt.arrowP = create3DArrow(new THREE.Vector3(), new THREE.Vector3(Math.sin(alphaRad), -Math.cos(alphaRad), 0), 4, 0xf43f5e);
+
+            blockGroup.add(rt.arrowN, rt.arrowPx, rt.arrowPy, rt.arrowFat, rt.arrowP);
+            rampGroup.add(blockGroup);
+            labGroup.add(rampGroup);
+
+            rt.rampGroup = rampGroup;
+            rt.blockGroup = blockGroup;
+            rt.sPos = 22.0; // Initial distance up the ramp from bottom stopper
+            rt.vVel = 0.0;  // Velocity along ramp (+ down, - up)
+            rt.springRestLen = 4.5;
+
+            state.labRuntime = rt;
+        }
+
+        function updateLab2A(dt) {
+            const p = state.params.lab2A;
+            const rt = state.labRuntime;
+            if (!rt.blockGroup) return;
+
+            const g = 9.8;
+            const alphaRad = THREE.MathUtils.degToRad(p.alpha);
+            const P = p.mass * g;
+            const Px = P * Math.sin(alphaRad);
+            const Py = P * Math.cos(alphaRad);
+            const N = Py;
+            const FatMax = p.mu * N;
+
+            // Spring compression when block front face (sPos - 1.6) < springRestLen (4.5)
+            const blockFront = rt.sPos - 1.6;
+            const springComp = Math.max(0, rt.springRestLen - blockFront);
+            const Fel = p.kSpring * springComp; // Pushes up-ramp (-v direction)
+
+            // Physics integration (sub-stepped for accuracy)
+            const subSteps = 4;
+            const subDt = dt / subSteps;
+            let currentFat = 0;
+            let netForce = 0;
+
+            for (let i = 0; i < subSteps; i++) {
+                const bFront = rt.sPos - 1.6;
+                const xComp = Math.max(0, rt.springRestLen - bFront);
+                const fSpring = p.kSpring * xComp;
+                const driveForce = Px - fSpring; // + means down-ramp
+
+                if (Math.abs(rt.vVel) < 0.03 && Math.abs(driveForce) <= FatMax) {
+                    rt.vVel = 0;
+                    currentFat = driveForce;
+                    netForce = 0;
+                } else {
+                    const dir = Math.abs(rt.vVel) >= 0.03 ? Math.sign(rt.vVel) : Math.sign(driveForce);
+                    currentFat = dir * FatMax;
+                    netForce = driveForce - currentFat;
+                    const acc = netForce / p.mass;
+                    rt.vVel += acc * subDt;
+                    rt.sPos -= rt.vVel * subDt;
+                }
+
+                if (rt.sPos > 24.5) {
+                    rt.sPos = 24.5;
+                    rt.vVel = 0;
+                }
+                if (rt.sPos < 2.3) {
+                    rt.sPos = 2.3;
+                    rt.vVel = -Math.abs(rt.vVel) * 0.8;
+                }
+            }
+
+            // Position block on ramp
+            rt.blockGroup.position.set(-rt.sPos, 1.1, 0);
+
+            // Compress 3D helical spring dynamically
+            const activeSpringLen = Math.max(0.8, rt.springRestLen - springComp);
+            rt.springMesh.scale.x = activeSpringLen / rt.springRestLen;
+
+            // Update force vectors
+            const scaleF = 0.08;
+            update3DArrow(rt.arrowP, new THREE.Vector3(), new THREE.Vector3(Math.sin(alphaRad), -Math.cos(alphaRad), 0), P * scaleF);
+            update3DArrow(rt.arrowN, new THREE.Vector3(), new THREE.Vector3(0, 1, 0), N * scaleF);
+            update3DArrow(rt.arrowPx, new THREE.Vector3(), new THREE.Vector3(1, 0, 0), Px * scaleF);
+            update3DArrow(rt.arrowPy, new THREE.Vector3(), new THREE.Vector3(0, -1, 0), state.cutawayMode ? Py * scaleF : 0);
+            const resistForce = currentFat + Fel;
+            update3DArrow(rt.arrowFat, new THREE.Vector3(), new THREE.Vector3(-Math.sign(resistForce) || -1, 0, 0), Math.abs(resistForce) * scaleF);
+
+            const accNow = netForce / p.mass;
+            pushChartPoint(state.simTime, rt.vVel, accNow, Fel * 0.05);
+
+            setHUDMetrics([
+                `Px: ${Px.toFixed(1)} N`,
+                `Fat: ${Math.abs(currentFat).toFixed(1)} N`,
+                `Fel: ${Fel.toFixed(1)} N`,
+                `a: ${accNow.toFixed(2)} m/s²`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: 'Decomposição do Peso (P = m·g)',
+                    eq: `Pₓ = m·g·sen(${p.alpha}°) | Pᵧ = m·g·cos(${p.alpha}°)`,
+                    val: `Pₓ = ${Px.toFixed(1)} N | Pᵧ = N = ${N.toFixed(1)} N`
+                },
+                {
+                    title: 'Força de Atrito e Força Elástica (Hooke)',
+                    eq: `F_at,máx = μ·N  |  F_el = k·Δx`,
+                    val: `F_at = ${Math.abs(currentFat).toFixed(1)} N | F_el = ${Fel.toFixed(1)} N (Δx=${springComp.toFixed(2)}m)`
+                },
+                {
+                    title: '2ª Lei de Newton (Força Resultante e Aceleração)',
+                    eq: `F_R = Pₓ - F_at - F_el = m · a`,
+                    val: `F_R = ${netForce.toFixed(1)} N  ⇒  a = ${accNow.toFixed(2)} m/s²`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 2B: MÁQUINA DE ATWOOD 3D & SISTEMAS DE BLOCOS COM TRAÇÃO
+         * ===================================================================== */
+        function buildLab2BScene() {
+            const p = state.params.lab2B;
+            const rt = {};
+
+            // Tall Support Gantry Frame
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.4 });
+            const leftPost = new THREE.Mesh(new THREE.BoxGeometry(1.2, 26, 1.2), frameMat);
+            leftPost.position.set(-9, 13, -2.5);
+            const rightPost = new THREE.Mesh(new THREE.BoxGeometry(1.2, 26, 1.2), frameMat);
+            rightPost.position.set(9, 13, -2.5);
+            const topBeam = new THREE.Mesh(new THREE.BoxGeometry(20, 1.4, 2.5), frameMat);
+            topBeam.position.set(0, 25.5, -1.5);
+            labGroup.add(leftPost, rightPost, topBeam);
+
+            // Central Pulley Wheel at Y = 22
+            const pulleyRadius = 3.5;
+            const pulleyGroup = new THREE.Group();
+            pulleyGroup.position.set(0, 22, 0);
+
+            const wheelGeo = new THREE.CylinderGeometry(pulleyRadius, pulleyRadius, 1.2, 32, 1, false, 0, state.cutawayMode ? Math.PI * 1.35 : Math.PI * 2);
+            wheelGeo.rotateX(Math.PI / 2);
+            const wheelMat = new THREE.MeshStandardMaterial({
+                color: 0x0ea5e9,
+                metalness: 0.6,
+                roughness: 0.3,
+                side: THREE.DoubleSide
+            });
+            pulleyGroup.add(new THREE.Mesh(wheelGeo, wheelMat));
+
+            // Internal Ball Bearing Spheres (visible in Cutaway Mode)
+            for (let i = 0; i < 8; i++) {
+                const ang = (i / 8) * Math.PI * 2;
+                const ball = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.32, 12, 12),
+                    new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.1 })
+                );
+                ball.position.set(Math.cos(ang) * 1.2, Math.sin(ang) * 1.2, 0.2);
+                pulleyGroup.add(ball);
+            }
+            labGroup.add(pulleyGroup);
+            rt.pulleyGroup = pulleyGroup;
+            rt.pulleyRadius = pulleyRadius;
+
+            // Left Mass m1 and Right Mass m2
+            const createMassCylinder = (massVal, colorHex) => {
+                const g = new THREE.Group();
+                const h = 1.6 + massVal * 0.14;
+                const cylMat = new THREE.MeshStandardMaterial({
+                    color: colorHex,
+                    metalness: 0.4,
+                    roughness: 0.3,
+                    transparent: state.cutawayMode,
+                    opacity: state.cutawayMode ? 0.45 : 1.0
+                });
+                const mesh = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, h, 24), cylMat);
+                g.add(mesh);
+                // Core CM
+                const cm = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 14), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+                g.add(cm);
+                return g;
+            };
+
+            rt.block1 = createMassCylinder(p.m1, 0x38bdf8);
+            rt.block2 = createMassCylinder(p.m2, 0x10b981);
+            labGroup.add(rt.block1, rt.block2);
+
+            // Ropes
+            const ropeMat = new THREE.LineBasicMaterial({ color: state.cutawayMode ? 0xf59e0b : 0xe2e8f0 });
+            rt.rope1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), ropeMat);
+            rt.rope2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), ropeMat);
+            labGroup.add(rt.rope1, rt.rope2);
+
+            // Force Vectors (P1, T1, P2, T2)
+            rt.arrowP1 = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 3, 0xf43f5e);
+            rt.arrowT1 = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 3, 0x38bdf8);
+            rt.arrowP2 = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 3, 0xf43f5e);
+            rt.arrowT2 = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, 1, 0), 3, 0x38bdf8);
+            labGroup.add(rt.arrowP1, rt.arrowT1, rt.arrowP2, rt.arrowT2);
+
+            rt.y1 = 11.5;
+            rt.y2 = 11.5;
+            rt.vel = 0;
+
+            state.labRuntime = rt;
+        }
+
+        function updateLab2B(dt) {
+            const p = state.params.lab2B;
+            const rt = state.labRuntime;
+            if (!rt.block1) return;
+
+            const totalMass = p.m1 + p.m2;
+            const acc = ((p.m1 - p.m2) * p.g) / totalMass; // + means m1 goes down, m2 goes up
+            const tension = (2 * p.m1 * p.m2 * p.g) / totalMass;
+            const P1 = p.m1 * p.g;
+            const P2 = p.m2 * p.g;
+
+            // Update motion with soft bounce at travel limits
+            rt.vel += acc * dt;
+            rt.y1 -= rt.vel * dt;
+            rt.y2 += rt.vel * dt;
+
+            if (rt.y1 < 3.0) {
+                rt.y1 = 3.0;
+                rt.y2 = 20.0;
+                rt.vel = 0;
+            } else if (rt.y2 < 3.0) {
+                rt.y2 = 3.0;
+                rt.y1 = 20.0;
+                rt.vel = 0;
+            }
+
+            const pos1 = new THREE.Vector3(-rt.pulleyRadius, rt.y1, 0);
+            const pos2 = new THREE.Vector3(rt.pulleyRadius, rt.y2, 0);
+            rt.block1.position.copy(pos1);
+            rt.block2.position.copy(pos2);
+
+            // Rotate pulley proportionally to cable displacement
+            rt.pulleyGroup.rotation.z = (11.5 - rt.y1) / rt.pulleyRadius;
+
+            // Update rope geometry
+            rt.rope1.geometry.setFromPoints([new THREE.Vector3(-rt.pulleyRadius, 22, 0), pos1]);
+            rt.rope2.geometry.setFromPoints([new THREE.Vector3(rt.pulleyRadius, 22, 0), pos2]);
+
+            // Vectors
+            const fScale = 0.06;
+            update3DArrow(rt.arrowP1, pos1, new THREE.Vector3(0, -1, 0), P1 * fScale);
+            update3DArrow(rt.arrowT1, pos1, new THREE.Vector3(0, 1, 0), tension * fScale);
+            update3DArrow(rt.arrowP2, pos2, new THREE.Vector3(0, -1, 0), P2 * fScale);
+            update3DArrow(rt.arrowT2, pos2, new THREE.Vector3(0, 1, 0), tension * fScale);
+
+            pushChartPoint(state.simTime, rt.vel, acc, tension * 0.1);
+
+            setHUDMetrics([
+                `a: ${Math.abs(acc).toFixed(2)} m/s²`,
+                `Tração T: ${tension.toFixed(1)} N`,
+                `P₁: ${P1.toFixed(1)} N`,
+                `P₂: ${P2.toFixed(1)} N`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: 'Pesos Individuais (P₁ e P₂)',
+                    eq: `P₁ = m₁·g   |   P₂ = m₂·g`,
+                    val: `P₁ = ${P1.toFixed(1)} N   |   P₂ = ${P2.toFixed(1)} N`
+                },
+                {
+                    title: 'Aceleração do Sistema Acoplado',
+                    eq: `a = (m₁ - m₂)·g / (m₁ + m₂)`,
+                    val: `a = (${p.m1} - ${p.m2})·${p.g} / ${totalMass} = ${acc.toFixed(2)} m/s²`
+                },
+                {
+                    title: 'Força de Tração no Cabo (T)',
+                    eq: `T = 2·m₁·m₂·g / (m₁ + m₂)`,
+                    val: `T = ${tension.toFixed(2)} N (idêntica nos dois ramos)`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 3A: BALANÇA DE TORQUE 3D, ALAVANCAS & CENTRO DE GRAVIDADE
+         * ===================================================================== */
+        function buildLab3AScene() {
+            const p = state.params.lab3A;
+            const rt = {};
+
+            // Determine Fulcrum X position based on Lever Type:
+            // 1 = Interfixa (Fulcrum in center X=0)
+            // 2 = Inter-resistente (Fulcrum at left end X=-14, Resistance in middle, Effort at right)
+            // 3 = Interpotente (Fulcrum at left end X=-14, Effort in middle, Resistance at right)
+            const fulcrumX = p.leverType === 1 ? 0 : -14;
+            rt.fulcrumX = fulcrumX;
+
+            // Fulcrum Pyramid Stand
+            const standMesh = new THREE.Mesh(
+                new THREE.ConeGeometry(2.6, 6.5, 4),
+                new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5, roughness: 0.4 })
+            );
+            standMesh.rotation.y = Math.PI / 4;
+            standMesh.position.set(fulcrumX, 3.25, 0);
+            labGroup.add(standMesh);
+
+            // Pivot Group at Fulcrum Top (Y = 6.5)
+            const pivotGroup = new THREE.Group();
+            pivotGroup.position.set(fulcrumX, 6.5, 0);
+
+            const beamMat = new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                metalness: 0.5,
+                roughness: 0.3,
+                transparent: state.cutawayMode,
+                opacity: state.cutawayMode ? 0.45 : 1.0
+            });
+            const beamLen = 32;
+            const beamMesh = new THREE.Mesh(new THREE.BoxGeometry(beamLen, 0.9, 2.2), beamMat);
+            // Offset beam if fulcrum is at the left edge
+            const beamCenterOffset = p.leverType === 1 ? 0 : 14;
+            beamMesh.position.set(beamCenterOffset, 0, 0);
+            pivotGroup.add(beamMesh);
+
+            // Positions along beam relative to fulcrum
+            const pos1X = p.leverType === 1 ? -p.d1 : p.d1;
+            const pos2X = p.d2;
+            rt.pos1X = pos1X;
+            rt.pos2X = pos2X;
+
+            // Load 1 and Load 2 Cylinders on Beam
+            const w1Mesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.1, 1.1, 1.2 + p.m1 * 0.15, 24),
+                new THREE.MeshStandardMaterial({ color: 0x38bdf8 })
+            );
+            w1Mesh.position.set(pos1X, 1.2, 0);
+            pivotGroup.add(w1Mesh);
+
+            const w2Mesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.1, 1.1, 1.2 + p.m2 * 0.15, 24),
+                new THREE.MeshStandardMaterial({ color: 0xf43f5e })
+            );
+            w2Mesh.position.set(pos2X, 1.2, 0);
+            pivotGroup.add(w2Mesh);
+
+            // Combined Center of Gravity (CG) Glowing Sphere
+            const xCG = (p.m1 * pos1X + p.m2 * pos2X) / (p.m1 + p.m2);
+            const cgSphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.55, 20, 20),
+                new THREE.MeshBasicMaterial({ color: 0xa855f7 })
+            );
+            cgSphere.position.set(xCG, 0, 0);
+            pivotGroup.add(cgSphere);
+            rt.xCG = xCG;
+
+            // Vectors inside Pivot Group
+            const f1Dir = p.leverType === 1 ? -1 : 1; // In inter-res/interpot, effort pulls UP (+1)
+            rt.arrowF1 = create3DArrow(new THREE.Vector3(pos1X, 0, 0), new THREE.Vector3(0, f1Dir, 0), p.m1 * 0.55, 0x10b981);
+            rt.arrowF2 = create3DArrow(new THREE.Vector3(pos2X, 0, 0), new THREE.Vector3(0, -1, 0), p.m2 * 0.55, 0xf43f5e);
+            pivotGroup.add(rt.arrowF1, rt.arrowF2);
+
+            labGroup.add(pivotGroup);
+            rt.pivotGroup = pivotGroup;
+
+            // Fulcrum Normal Force Vector & Axial Torque Vector (Right-Hand Rule along Z)
+            rt.arrowFulcrum = create3DArrow(new THREE.Vector3(fulcrumX, 6.5, 0), new THREE.Vector3(0, 1, 0), 4, 0x38bdf8);
+            rt.arrowTorqueZ = create3DArrow(new THREE.Vector3(fulcrumX, 6.5, 0), new THREE.Vector3(0, 0, 1), 4, 0xf59e0b);
+            labGroup.add(rt.arrowFulcrum, rt.arrowTorqueZ);
+
+            rt.angle = 0;
+            rt.angVel = 0;
+            state.labRuntime = rt;
+        }
+
+        function updateLab3A(dt) {
+            const p = state.params.lab3A;
+            const rt = state.labRuntime;
+            if (!rt.pivotGroup) return;
+
+            const g = 9.8;
+            const F1 = p.m1 * g;
+            const F2 = p.m2 * g;
+
+            // Counter-clockwise torque M1 (+), Clockwise torque M2 (-)
+            const M1 = F1 * p.d1;
+            const M2 = F2 * p.d2;
+            const netTorque = M1 - M2;
+
+            // Smooth damped angular response towards physical tilt angle
+            const targetAngle = THREE.MathUtils.clamp(netTorque * 0.0022, -0.32, 0.32);
+            rt.angle = THREE.MathUtils.lerp(rt.angle, targetAngle, 0.08);
+            rt.pivotGroup.rotation.z = rt.angle;
+
+            // Axial Torque Vector along Z axis (+Z for CCW, -Z for CW)
+            const torqueDirZ = netTorque >= 0 ? 1 : -1;
+            update3DArrow(
+                rt.arrowTorqueZ,
+                new THREE.Vector3(rt.fulcrumX, 6.5, 0),
+                new THREE.Vector3(0, 0, torqueDirZ),
+                Math.min(7, Math.abs(netTorque) * 0.025 + (state.cutawayMode ? 1.5 : 0))
+            );
+
+            const fulcrumReaction = p.leverType === 1 ? (F1 + F2) : Math.abs(F2 - F1);
+            update3DArrow(rt.arrowFulcrum, new THREE.Vector3(rt.fulcrumX, 6.5, 0), new THREE.Vector3(0, 1, 0), fulcrumReaction * 0.045);
+
+            pushChartPoint(state.simTime, M1 * 0.1, M2 * 0.1, netTorque * 0.1);
+
+            const leverNames = { 1: 'Interfixa', 2: 'Inter-resistente', 3: 'Interpotente' };
+            setHUDMetrics([
+                `Tipo: ${leverNames[p.leverType]}`,
+                `+M₁: ${M1.toFixed(0)} N·m`,
+                `-M₂: ${M2.toFixed(0)} N·m`,
+                `∑τ: ${netTorque.toFixed(0)} N·m`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: `Alavanca ${leverNames[p.leverType]} & Vantagem Mecânica`,
+                    eq: `VM = d_potência / d_resistência = d₁ / d₂`,
+                    val: `VM = ${(p.d1 / p.d2).toFixed(2)}  |  Posição CG = ${rt.xCG.toFixed(2)} m`
+                },
+                {
+                    title: 'Momento / Torque de Cada Força (τ = F · d)',
+                    eq: `M₁ = +F₁·d₁ (anti-horário) | M₂ = -F₂·d₂ (horário)`,
+                    val: `M₁ = +${M1.toFixed(1)} N·m  |  M₂ = -${M2.toFixed(1)} N·m`
+                },
+                {
+                    title: 'Condições de Equilíbrio Estático (∑F = 0 e ∑τ = 0)',
+                    eq: `∑τ = M₁ - M₂ = ${netTorque.toFixed(1)} N·m`,
+                    val: Math.abs(netTorque) < 1 ? '✅ SISTEMA EM EQUILÍBRIO ROTACIONAL PERFEITO!' : '⚠️ Torque resultante não nulo (Tendência de giro)'
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 3B: SISTEMA DE POLIAS (TALHA EXPONENCIAL) & TREM DE ENGRENAGENS 3D
+         * ===================================================================== */
+        function buildLab3BScene() {
+            const p = state.params.lab3B;
+            const rt = {};
+            const explodeZ = state.cutawayMode ? 3.8 : 0;
+
+            // --- LEFT SIDE: 3D GEAR TRAIN (Z1 Pinion driving Z2 Gear) ---
+            const r1 = p.z1 * 0.22;
+            const r2 = p.z2 * 0.22;
+            const gearCenterX = -11;
+            const gearY = 12;
+
+            const gear1Mesh = createGearMesh(p.z1, r1, 1.4, 0x38bdf8, state.cutawayMode);
+            gear1Mesh.position.set(gearCenterX - r1 - 0.15, gearY, explodeZ);
+            labGroup.add(gear1Mesh);
+            rt.gear1Mesh = gear1Mesh;
+
+            const gear2Mesh = createGearMesh(p.z2, r2, 1.4, 0xf59e0b, state.cutawayMode);
+            gear2Mesh.position.set(gearCenterX + r2 + 0.15, gearY, -explodeZ * 0.5);
+            labGroup.add(gear2Mesh);
+            rt.gear2Mesh = gear2Mesh;
+
+            // Gear Backing Plate & Shafts
+            const plateMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(r1 * 2 + r2 * 2 + 6, 12, 0.6),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, transparent: state.cutawayMode, opacity: state.cutawayMode ? 0.35 : 1 })
+            );
+            plateMesh.position.set(gearCenterX + (r2 - r1) / 2, gearY, -1.5 - explodeZ);
+            labGroup.add(plateMesh);
+
+            // --- RIGHT SIDE: EXPONENTIAL PULLEY HOIST (TALHA EXPONENCIAL) ---
+            const hoistX = 10;
+            const topBeam = new THREE.Mesh(
+                new THREE.BoxGeometry(14, 1.2, 3),
+                new THREE.MeshStandardMaterial({ color: 0x334155 })
+            );
+            topBeam.position.set(hoistX, 24, 0);
+            labGroup.add(topBeam);
+
+            // Fixed Pulley at Top
+            const fixedPulley = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.6, 1.6, 0.8, 24),
+                new THREE.MeshStandardMaterial({ color: 0x0ea5e9, metalness: 0.6 })
+            );
+            fixedPulley.rotation.x = Math.PI / 2;
+            fixedPulley.position.set(hoistX - 3, 21.5, explodeZ * 0.4);
+            labGroup.add(fixedPulley);
+
+            // Movable Pulleys Group + Suspended Heavy Load
+            const hoistGroup = new THREE.Group();
+            for (let i = 0; i < p.nPulleys; i++) {
+                const mp = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.4, 1.4, 0.8, 24),
+                    new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.6 })
+                );
+                mp.rotation.x = Math.PI / 2;
+                mp.position.set(hoistX + i * 2.2, 4.5 + i * 2.2, (i % 2 === 0 ? 1 : -1) * explodeZ * 0.3);
+                hoistGroup.add(mp);
+            }
+
+            const loadBox = new THREE.Mesh(
+                new THREE.BoxGeometry(4.2, 3.2, 3.2),
+                new THREE.MeshStandardMaterial({ color: 0xf43f5e, metalness: 0.4, roughness: 0.4 })
+            );
+            loadBox.position.set(hoistX + 1, 1.6, 0);
+            hoistGroup.add(loadBox);
+            labGroup.add(hoistGroup);
+            rt.hoistGroup = hoistGroup;
+
+            // Force Vectors on Hoist
+            rt.arrowLoadP = create3DArrow(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 4, 0xf43f5e);
+            rt.arrowEffortF = create3DArrow(new THREE.Vector3(hoistX - 4.6, 16, 0), new THREE.Vector3(0, -1, 0), 3, 0x10b981);
+            labGroup.add(rt.arrowLoadP, rt.arrowEffortF);
+
+            state.labRuntime = rt;
+        }
+
+        function updateLab3B(dt) {
+            const p = state.params.lab3B;
+            const rt = state.labRuntime;
+            if (!rt.gear1Mesh) return;
+
+            const omega1 = (p.rpm1 * 2 * Math.PI) / 60;
+            const gearRatio = p.z2 / p.z1;
+            const omega2 = omega1 / gearRatio;
+            const rpm2 = p.rpm1 / gearRatio;
+
+            // Rotate gears in opposite directions
+            rt.gear1Mesh.rotation.z -= omega1 * dt;
+            rt.gear2Mesh.rotation.z += omega2 * dt;
+
+            // Pulley mechanical advantage: 2^n
+            const pulleyVM = Math.pow(2, p.nPulleys);
+            const totalVM = gearRatio * pulleyVM;
+            const weightP = p.loadMass * 9.8;
+            const ropeEffortF = weightP / pulleyVM;
+            const inputTorque = 15; // Reference motor torque N·m
+            const outputTorque = inputTorque * gearRatio;
+
+            // Oscillate hoist vertical lift smoothly
+            const liftOffset = (Math.sin(state.simTime * omega2 * 0.8) + 1) * 3.5;
+            rt.hoistGroup.position.y = liftOffset;
+
+            update3DArrow(rt.arrowLoadP, new THREE.Vector3(11, 1.6 + liftOffset, 0), new THREE.Vector3(0, -1, 0), Math.min(6, weightP * 0.004));
+            update3DArrow(rt.arrowEffortF, new THREE.Vector3(5.4, 18, 0), new THREE.Vector3(0, -1, 0), Math.max(1.2, ropeEffortF * 0.008));
+
+            pushChartPoint(state.simTime, rpm2, ropeEffortF * 0.05, outputTorque);
+
+            setHUDMetrics([
+                `i (Z₂/Z₁): ${gearRatio.toFixed(2)}x`,
+                `RPM₂: ${rpm2.toFixed(1)} rpm`,
+                `F_motriz: ${ropeEffortF.toFixed(1)} N`,
+                `VM Total: ${totalVM.toFixed(1)}x`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: 'Relação de Engrenagens (Velocidade e Torque)',
+                    eq: `i = Z₂ / Z₁ = ${p.z2} / ${p.z1} = ${gearRatio.toFixed(2)}`,
+                    val: `RPM₂ = ${rpm2.toFixed(1)} rpm | Torque Saída τ₂ = ${outputTorque.toFixed(1)} N·m`
+                },
+                {
+                    title: 'Talha Exponencial de Polias Móveis',
+                    eq: `F_motriz = P_carga / 2ⁿ = (${weightP.toFixed(0)} N) / 2^${p.nPulleys}`,
+                    val: `F_motriz = ${ropeEffortF.toFixed(1)} N (Redução de ${pulleyVM}x na força!)`
+                },
+                {
+                    title: 'Vantagem Mecânica Combinada (Engrenagens + Polias)',
+                    eq: `VM_total = (Z₂ / Z₁) · 2ⁿ`,
+                    val: `VM_total = ${gearRatio.toFixed(2)} × ${pulleyVM} = ${totalVM.toFixed(2)}x`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 4A: PISTA DE ENERGIA 3D COM MOLA PROPULSORA, POTÊNCIA E RENDIMENTO
+         * ===================================================================== */
+        function getTrackHeightAtX(x, hStart) {
+            // Smooth valley track between X = -18 and X = +18
+            const norm = x / 18; // -1 to +1
+            return Math.max(0, hStart * Math.pow(norm, 2) * (0.85 + 0.15 * Math.cos(norm * Math.PI)));
+        }
+
+        function buildLab4AScene() {
+            const p = state.params.lab4A;
+            const rt = {};
+
+            // Build 3D Roller-Coaster Track Curve
+            const curvePts = [];
+            for (let x = -18; x <= 18; x += 0.5) {
+                const y = getTrackHeightAtX(x, p.hStart);
+                curvePts.push(new THREE.Vector3(x, y + 1.0, 0));
+            }
+            const trackCurve = new THREE.CatmullRomCurve3(curvePts);
+            const tubeGeo = new THREE.TubeGeometry(trackCurve, 90, 0.35, 12, false);
+            const tubeMat = new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                metalness: 0.7,
+                roughness: 0.25,
+                wireframe: state.cutawayMode
+            });
+            labGroup.add(new THREE.Mesh(tubeGeo, tubeMat));
+
+            // Support Pillars under track
+            for (let x = -18; x <= 18; x += 6) {
+                const y = getTrackHeightAtX(x, p.hStart) + 1.0;
+                const pillar = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.22, 0.28, y, 12),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b })
+                );
+                pillar.position.set(x, y / 2, 0);
+                labGroup.add(pillar);
+            }
+
+            // Left Booster Spring at X = -18
+            const leftY = getTrackHeightAtX(-18, p.hStart) + 1.4;
+            const springMesh = new THREE.Mesh(
+                createHelicalSpringGeometry(4.0, 0.65, 8, 0.1),
+                new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8 })
+            );
+            springMesh.position.set(-18, leftY, 0);
+            labGroup.add(springMesh);
+            rt.springMesh = springMesh;
+
+            // Sphere / Coaster Cart
+            const cartGroup = new THREE.Group();
+            const cartMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.95, 28, 28),
+                new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.4, roughness: 0.2 })
+            );
+            cartGroup.add(cartMesh);
+
+            // Cutaway Mode: Floating 3D Energy Bars directly above the Cart (Ec, Epg, Epe)
+            const barsGroup = new THREE.Group();
+            barsGroup.position.set(0, 2.2, 0);
+            const createBar = (xOff, colorHex) => {
+                const m = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.55, 1, 0.55),
+                    new THREE.MeshBasicMaterial({ color: colorHex })
+                );
+                m.position.set(xOff, 0.5, 0);
+                barsGroup.add(m);
+                return m;
+            };
+            rt.barEc = createBar(-0.8, 0x10b981);
+            rt.barEpg = createBar(0, 0x38bdf8);
+            rt.barEpe = createBar(0.8, 0xf59e0b);
+            cartGroup.add(barsGroup);
+
+            labGroup.add(cartGroup);
+            rt.cartGroup = cartGroup;
+
+            // Total initial mechanical energy = m*g*hStart + 0.5*k*xComp^2
+            const g = 9.8;
+            rt.eTotal0 = p.mass * g * p.hStart + 0.5 * p.kSpring * p.xComp * p.xComp;
+            rt.eThermal = 0;
+            rt.xPos = -17.5;
+            rt.dir = 1;
+
+            state.labRuntime = rt;
+        }
+
+        function updateLab4A(dt) {
+            const p = state.params.lab4A;
+            const rt = state.labRuntime;
+            if (!rt.cartGroup) return;
+
+            const g = 9.8;
+            const y = getTrackHeightAtX(rt.xPos, p.hStart);
+            const Epg = p.mass * g * y;
+
+            // Elastic compression near ends (|x| > 14.5)
+            const endComp = Math.max(0, Math.abs(rt.xPos) - 14.5) * (p.xComp / 3.5);
+            const Epe = 0.5 * p.kSpring * endComp * endComp;
+
+            // Thermal dissipation if muLoss > 0
+            const availEmec = Math.max(Epg + Epe, rt.eTotal0 - rt.eThermal);
+            const Ec = Math.max(0, availEmec - Epg - Epe);
+            const vMag = Math.sqrt((2 * Ec) / p.mass);
+
+            // Advance along track
+            const stepV = Math.max(2.2, vMag);
+            rt.xPos += rt.dir * stepV * dt * 0.75;
+
+            if (p.muLoss > 0) {
+                rt.eThermal = Math.min(rt.eTotal0 * 0.85, rt.eThermal + p.muLoss * p.mass * g * stepV * dt * 0.25);
+            }
+
+            if (rt.xPos >= 17.5) {
+                rt.xPos = 17.5;
+                rt.dir = -1;
+            } else if (rt.xPos <= -17.5) {
+                rt.xPos = -17.5;
+                rt.dir = 1;
+            }
+
+            const pos = new THREE.Vector3(rt.xPos, y + 1.4, 0);
+            rt.cartGroup.position.copy(pos);
+
+            // Update 3D Energy Bars above cart
+            const barScale = 0.0045;
+            rt.barEc.scale.y = Math.max(0.1, Ec * barScale);
+            rt.barEc.position.y = rt.barEc.scale.y / 2;
+            rt.barEpg.scale.y = Math.max(0.1, Epg * barScale);
+            rt.barEpg.position.y = rt.barEpg.scale.y / 2;
+            rt.barEpe.scale.y = Math.max(0.1, Epe * barScale);
+            rt.barEpe.position.y = rt.barEpe.scale.y / 2;
+
+            if (state.followCamera) {
+                camControl.desiredTarget.copy(pos);
+            }
+
+            const EmecNow = Ec + Epg + Epe;
+            pushChartPoint(state.simTime, Ec * 0.02, Epg * 0.02, EmecNow * 0.02);
+
+            // Power & Efficiency calculation for lifting cart to hStart in Δt = 4s
+            const pUtil = (p.mass * g * p.hStart) / 4.0;
+            const pTotal = pUtil / (p.etaMotor / 100);
+
+            setHUDMetrics([
+                `Ec: ${Ec.toFixed(0)} J`,
+                `Epg: ${Epg.toFixed(0)} J`,
+                `Epe: ${Epe.toFixed(0)} J`,
+                `Emec: ${EmecNow.toFixed(0)} J`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: 'Energia Cinética, Gravitacional e Elástica',
+                    eq: `E_c = ½mv² | E_pg = mgh | E_pe = ½kx²`,
+                    val: `E_c = ${Ec.toFixed(0)} J | E_pg = ${Epg.toFixed(0)} J | E_pe = ${Epe.toFixed(0)} J`
+                },
+                {
+                    title: 'Conservação da Energia Mecânica',
+                    eq: `E_mec = E_c + E_pg + E_pe = E_total - E_térmica`,
+                    val: `E_mec = ${EmecNow.toFixed(0)} J  |  Calor Dissipado = ${rt.eThermal.toFixed(0)} J`
+                },
+                {
+                    title: 'Potência (P = τ/Δt) e Rendimento do Guincho (η)',
+                    eq: `η = P_útil / P_total = ${p.etaMotor}%`,
+                    val: `P_útil = ${pUtil.toFixed(1)} W | P_total = ${pTotal.toFixed(1)} W`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 4B: LABORATÓRIO DE COLISÕES 3D, IMPULSO E QUANTIDADE DE MOVIMENTO
+         * ===================================================================== */
+        function buildLab4BScene() {
+            const p = state.params.lab4B;
+            const rt = {};
+
+            // Linear Magnetic Track
+            const trackBeam = new THREE.Mesh(
+                new THREE.BoxGeometry(44, 0.8, 4.5),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.3 })
+            );
+            trackBeam.position.set(0, 0.4, 0);
+            labGroup.add(trackBeam);
+
+            // End Bumpers
+            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(1, 3.5, 4.5), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+            leftWall.position.set(-22, 1.8, 0);
+            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(1, 3.5, 4.5), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+            rightWall.position.set(22, 1.8, 0);
+            labGroup.add(leftWall, rightWall);
+
+            // Sphere 1 and Sphere 2
+            const r1 = 1.1 + p.m1 * 0.08;
+            const r2 = 1.1 + p.m2 * 0.08;
+            rt.r1 = r1;
+            rt.r2 = r2;
+
+            const createColliderSphere = (radius, colorHex) => {
+                const g = new THREE.Group();
+                const outer = new THREE.Mesh(
+                    new THREE.SphereGeometry(radius, 28, 28),
+                    new THREE.MeshStandardMaterial({
+                        color: colorHex,
+                        metalness: 0.35,
+                        roughness: 0.25,
+                        transparent: state.cutawayMode,
+                        opacity: state.cutawayMode ? 0.38 : 1.0
+                    })
+                );
+                g.add(outer);
+                const core = new THREE.Mesh(
+                    new THREE.SphereGeometry(radius * 0.45, 16, 16),
+                    new THREE.MeshBasicMaterial({ color: 0xfef08a })
+                );
+                g.add(core);
+                return g;
+            };
+
+            rt.sphere1 = createColliderSphere(r1, 0x38bdf8);
+            rt.sphere2 = createColliderSphere(r2, 0xf43f5e);
+            labGroup.add(rt.sphere1, rt.sphere2);
+
+            // Impact Shockwave Ring (Flashes at collision instant)
+            const ringGeo = new THREE.RingGeometry(0.5, 2.6, 32);
+            ringGeo.rotateY(Math.PI / 2);
+            const shockRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xfbbf24, side: THREE.DoubleSide }));
+            shockRing.visible = false;
+            labGroup.add(shockRing);
+            rt.shockRing = shockRing;
+
+            // Momentum Vectors Q1 and Q2
+            rt.arrowQ1 = create3DArrow(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), 3, 0xa855f7);
+            rt.arrowQ2 = create3DArrow(new THREE.Vector3(), new THREE.Vector3(-1, 0, 0), 3, 0x10b981);
+            labGroup.add(rt.arrowQ1, rt.arrowQ2);
+
+            // Exact Post-Collision Velocities via 1D Conservation of Momentum + Restitution e
+            const m1 = p.m1, m2 = p.m2, u1 = p.v1, u2 = p.v2, e = p.rest;
+            rt.v1After = ((m1 - e * m2) * u1 + (1 + e) * m2 * u2) / (m1 + m2);
+            rt.v2After = ((m2 - e * m1) * u2 + (1 + e) * m1 * u1) / (m1 + m2);
+            rt.impulseMag = Math.abs(m1 * (rt.v1After - u1));
+
+            rt.x1 = -13;
+            rt.x2 = 11;
+            rt.currV1 = u1;
+            rt.currV2 = u2;
+            rt.hasCollided = false;
+            rt.impactTime = -10;
+
+            state.labRuntime = rt;
+        }
+
+        function updateLab4B(dt) {
+            const p = state.params.lab4B;
+            const rt = state.labRuntime;
+            if (!rt.sphere1) return;
+
+            rt.x1 += rt.currV1 * dt;
+            rt.x2 += rt.currV2 * dt;
+
+            const minDist = rt.r1 + rt.r2;
+            if (!rt.hasCollided && (rt.x2 - rt.x1) <= minDist) {
+                rt.hasCollided = true;
+                rt.impactTime = state.simTime;
+                const mid = (rt.x1 + rt.x2) / 2;
+                rt.x1 = mid - minDist / 2;
+                rt.x2 = mid + minDist / 2;
+                rt.currV1 = rt.v1After;
+                rt.currV2 = rt.v2After;
+                rt.shockRing.position.set(mid, 2.2, 0);
+            }
+
+            // Auto-loop after spheres reach track boundaries
+            if (rt.x1 < -20.5 || rt.x1 > 20.5 || rt.x2 < -20.5 || rt.x2 > 20.5 || state.simTime > 5.5) {
+                restartSimulation();
+                return;
+            }
+
+            const pos1 = new THREE.Vector3(rt.x1, rt.r1 + 0.8, 0);
+            const pos2 = new THREE.Vector3(rt.x2, rt.r2 + 0.8, 0);
+            rt.sphere1.position.copy(pos1);
+            rt.sphere2.position.copy(pos2);
+
+            // Shockwave pulse & impulsive force Gaussian curve during impact window (0.18s)
+            const timeSinceImpact = state.simTime - rt.impactTime;
+            let impulsiveForceNow = 0;
+            if (timeSinceImpact >= 0 && timeSinceImpact < 0.22) {
+                rt.shockRing.visible = true;
+                const s = 1 + timeSinceImpact * 8;
+                rt.shockRing.scale.set(s, s, s);
+                // Elastic squash deformation during collision
+                const squash = 1 - 0.22 * Math.sin((timeSinceImpact / 0.22) * Math.PI);
+                rt.sphere1.scale.set(squash, 1 / squash, 1);
+                rt.sphere2.scale.set(squash, 1 / squash, 1);
+                impulsiveForceNow = (rt.impulseMag / 0.1) * Math.sin((timeSinceImpact / 0.22) * Math.PI);
+            } else {
+                rt.shockRing.visible = false;
+                rt.sphere1.scale.set(1, 1, 1);
+                rt.sphere2.scale.set(1, 1, 1);
+            }
+
+            const Q1 = p.m1 * rt.currV1;
+            const Q2 = p.m2 * rt.currV2;
+            const QTotal = Q1 + Q2;
+
+            update3DArrow(rt.arrowQ1, pos1, new THREE.Vector3(Math.sign(Q1) || 1, 0, 0), Math.abs(Q1) * 0.12);
+            update3DArrow(rt.arrowQ2, pos2, new THREE.Vector3(Math.sign(Q2) || 1, 0, 0), Math.abs(Q2) * 0.12);
+
+            pushChartPoint(state.simTime, Q1 * 0.2, Q2 * 0.2, impulsiveForceNow * 0.04);
+
+            const ecBefore = 0.5 * p.m1 * p.v1 * p.v1 + 0.5 * p.m2 * p.v2 * p.v2;
+            const ecAfter = 0.5 * p.m1 * rt.v1After * rt.v1After + 0.5 * p.m2 * rt.v2After * rt.v2After;
+
+            setHUDMetrics([
+                `Q₁: ${Q1.toFixed(1)} kg·m/s`,
+                `Q₂: ${Q2.toFixed(1)} kg·m/s`,
+                `Q_tot: ${QTotal.toFixed(1)} kg·m/s`,
+                `|I|: ${rt.impulseMag.toFixed(1)} N·s`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: 'Conservação da Quantidade de Movimento (Q = m·v)',
+                    eq: `Q_antes = m₁v₁ᵢ + m₂v₂ᵢ = Q_depois`,
+                    val: `Q_total = ${QTotal.toFixed(2)} kg·m/s (Conservado 100%!)`
+                },
+                {
+                    title: 'Velocidades Finais Pós-Colisão (Restituição e)',
+                    eq: `e = |v₂f - v₁f| / |v₁ᵢ - v₂ᵢ| = ${p.rest.toFixed(2)}`,
+                    val: `v₁f = ${rt.v1After.toFixed(2)} m/s   |   v₂f = ${rt.v2After.toFixed(2)} m/s`
+                },
+                {
+                    title: 'Teorema do Impulso (I = ΔQ) & Balanço de Energia',
+                    eq: `|I| = |m₁·v₁f - m₁·v₁ᵢ| = F_média · Δt`,
+                    val: `|I| = ${rt.impulseMag.toFixed(1)} N·s | Ec: ${ecBefore.toFixed(0)}J → ${ecAfter.toFixed(0)}J`
+                }
+            ]);
+        }
+
+        /***********************************************************************
+         * 5. REAL-TIME 2D CHART ENGINE (HTML5 CANVAS)
+         ***********************************************************************/
+        let chartCtx = null;
+
+        function init2DChartCanvas() {
+            const canvas = document.getElementById('realtime-chart');
+            chartCtx = canvas.getContext('2d');
+            resize2DChartCanvas();
+        }
+
+        function resize2DChartCanvas() {
+            const canvas = document.getElementById('realtime-chart');
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = (rect.width - 12) * Math.min(window.devicePixelRatio, 2);
+            canvas.height = (rect.height - 12) * Math.min(window.devicePixelRatio, 2);
+        }
+
+        function clearChartHistory() {
+            state.chartHistory = [];
+        }
+
+        function pushChartPoint(t, y1, y2, y3) {
+            state.chartHistory.push({ t, y1, y2, y3 });
+            if (state.chartHistory.length > 180) {
+                state.chartHistory.shift();
+            }
+        }
+
+        function drawRealtimeChart() {
+            if (!chartCtx) return;
+            const canvas = chartCtx.canvas;
+            const w = canvas.width;
+            const h = canvas.height;
+            chartCtx.clearRect(0, 0, w, h);
+
+            // Subtle Grid Lines
+            chartCtx.strokeStyle = '#1e293b';
+            chartCtx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                const gy = (h / 4) * i;
+                chartCtx.beginPath();
+                chartCtx.moveTo(0, gy);
+                chartCtx.lineTo(w, gy);
+                chartCtx.stroke();
+            }
+
+            // Zero Axis Line
+            chartCtx.strokeStyle = '#334155';
+            chartCtx.beginPath();
+            chartCtx.moveTo(0, h * 0.65);
+            chartCtx.lineTo(w, h * 0.65);
+            chartCtx.stroke();
+
+            const pts = state.chartHistory;
+            if (pts.length < 2) return;
+
+            let maxAbs = 10;
+            for (let i = 0; i < pts.length; i++) {
+                maxAbs = Math.max(maxAbs, Math.abs(pts[i].y1), Math.abs(pts[i].y2), Math.abs(pts[i].y3));
+            }
+            const scaleY = (h * 0.52) / maxAbs;
+            const zeroY = h * 0.65;
+
+            const plotSeries = (key, colorHex) => {
+                chartCtx.strokeStyle = colorHex;
+                chartCtx.lineWidth = 2.4;
+                chartCtx.beginPath();
+                for (let i = 0; i < pts.length; i++) {
+                    const px = (i / (pts.length - 1)) * w;
+                    const py = zeroY - pts[i][key] * scaleY;
+                    if (i === 0) chartCtx.moveTo(px, py);
+                    else chartCtx.lineTo(px, py);
+                }
+                chartCtx.stroke();
+            };
+
+            plotSeries('y1', '#38bdf8');
+            plotSeries('y2', '#10b981');
+            plotSeries('y3', '#f59e0b');
+        }
+
+        function updateChartLegendForActiveLab() {
+            const legends = {
+                lab1A: ['Altura y(t)', 'Velocidade |v|', '|vᵧ(t)|'],
+                lab1B: ['Posição x(t)', 'Vel. Tangencial v', 'Acel. Centrípeta acp'],
+                lab2A: ['Velocidade v(t)', 'Aceleração a(t)', 'Força Elástica Fel'],
+                lab2B: ['Velocidade v(t)', 'Aceleração a', 'Tração T'],
+                lab3A: ['Momento +M₁', 'Momento -M₂', 'Torque Resultante ∑τ'],
+                lab3B: ['Rotação RPM₂', 'Força Motriz F', 'Torque de Saída τ₂'],
+                lab4A: ['Energia Cinética Ec', 'Potencial Grav. Epg', 'Energia Mecânica Emec'],
+                lab4B: ['Momento Q₁', 'Momento Q₂', 'Força Impulsiva F(t)']
+            };
+            const items = legends[state.currentLabId] || ['Curva 1', 'Curva 2', 'Curva 3'];
+            const colors = ['bg-sky-400', 'bg-emerald-400', 'bg-amber-400'];
+            document.getElementById('chart-legend').innerHTML = items.map((lbl, idx) => `
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full ${colors[idx]} inline-block"></span>
+                    <span class="text-slate-300">${lbl}</span>
+                </div>
+            `).join('');
+        }
+
+        /***********************************************************************
+         * 6. UI CONTROLLERS, NAVIGATION, SLIDERS & ENCYCLOPEDIA
+         ***********************************************************************/
+        function selectModule(moduleId) {
+            state.currentModule = moduleId;
+            // Highlight module button
+            document.querySelectorAll('.mod-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-800', 'text-white', 'border', 'border-sky-500/40');
+                btn.classList.add('text-slate-400');
+            });
+            const activeBtn = document.getElementById(`mod-btn-${moduleId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-slate-800', 'text-white', 'border', 'border-sky-500/40');
+                activeBtn.classList.remove('text-slate-400');
+            }
+
+            // Pick first lab of this module if current lab isn't in this module
+            const labsOfModule = Object.values(LABS_CONFIG).filter(l => l.module === moduleId);
+            if (labsOfModule.length > 0 && LABS_CONFIG[state.currentLabId].module !== moduleId) {
+                selectLab(labsOfModule[0].id);
+            } else {
+                renderExperimentSelectorBar();
+            }
+        }
+
+        function renderExperimentSelectorBar() {
+            const bar = document.getElementById('experiment-selector-bar');
+            const allLabs = Object.values(LABS_CONFIG);
+            bar.innerHTML = allLabs.map(lab => {
+                const isActive = lab.id === state.currentLabId;
+                return `
+                    <button onclick="selectLab('${lab.id}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                        isActive
+                            ? 'lab-tab-active'
+                            : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    }">
+                        <span>${lab.shortTitle}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectLab(labId, focusConceptId = null) {
+            state.currentLabId = labId;
+            const labCfg = LABS_CONFIG[labId];
+            state.currentModule = labCfg.module;
+            state.simTime = 0;
+            state.chartHistory = [];
+
+            // Sync module header highlight
+            document.querySelectorAll('.mod-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-800', 'text-white', 'border', 'border-sky-500/40');
+                btn.classList.add('text-slate-400');
+            });
+            const activeBtn = document.getElementById(`mod-btn-${state.currentModule}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-slate-800', 'text-white', 'border', 'border-sky-500/40');
+                activeBtn.classList.remove('text-slate-400');
+            }
+
+            // Update Cutaway Banner if active
+            if (state.cutawayMode) {
+                document.getElementById('cutaway-banner-title').textContent = labCfg.cutawayTitle;
+                document.getElementById('cutaway-banner-desc').textContent = labCfg.cutawayDesc;
+            }
+
+            document.getElementById('active-module-badge').textContent = labCfg.moduleName;
+            document.getElementById('active-lab-title').textContent = labCfg.fullTitle;
+            document.getElementById('active-lab-summary').textContent = labCfg.summary;
+
+            renderExperimentSelectorBar();
+            renderPresetsAndSliders();
+            renderConceptPillsForActiveLab(focusConceptId);
+            updateChartLegendForActiveLab();
+            setCameraPreset('iso');
+            rebuildActive3DLabScene();
+        }
+
+        function renderPresetsAndSliders() {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            const presetsDiv = document.getElementById('lab-presets-container');
+            presetsDiv.innerHTML = `
+                <span class="text-[10px] font-mono uppercase text-slate-400">Cenários Rápidos Clássicos:</span>
+                <div class="flex flex-wrap gap-1.5">
+                    ${labCfg.presets.map((pr, idx) => `
+                        <button onclick="applyLabPreset(${idx})" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-sky-500/20 hover:text-sky-300 border border-slate-700 text-[11px] font-medium text-slate-200 transition-all cursor-pointer">
+                            ${pr.label}
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+
+            const slidersDiv = document.getElementById('sliders-container');
+            const currParams = state.params[state.currentLabId];
+            slidersDiv.innerHTML = labCfg.sliders.map(s => `
+                <div class="flex flex-col gap-1 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-medium text-slate-300">${s.label}</span>
+                        <span id="val-${s.key}" class="font-mono font-bold text-sky-400">${currParams[s.key]} ${s.unit}</span>
+                    </div>
+                    <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${currParams[s.key]}"
+                        oninput="onSliderInput('${s.key}', this.value, '${s.unit}')">
+                </div>
+            `).join('');
+        }
+
+        function onSliderInput(key, val, unit) {
+            const num = parseFloat(val);
+            state.params[state.currentLabId][key] = num;
+            const span = document.getElementById(`val-${key}`);
+            if (span) span.textContent = `${num} ${unit}`;
+            state.simTime = 0;
+            state.chartHistory = [];
+            rebuildActive3DLabScene();
+        }
+
+        function applyLabPreset(presetIndex) {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            const preset = labCfg.presets[presetIndex];
+            if (!preset) return;
+            Object.keys(preset.values).forEach(k => {
+                state.params[state.currentLabId][k] = preset.values[k];
+            });
+            state.simTime = 0;
+            state.chartHistory = [];
+            renderPresetsAndSliders();
+            rebuildActive3DLabScene();
+        }
+
+        function resetCurrentLabParameters() {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            labCfg.sliders.forEach(s => {
+                state.params[state.currentLabId][s.key] = s.default;
+            });
+            state.simTime = 0;
+            state.chartHistory = [];
+            renderPresetsAndSliders();
+            rebuildActive3DLabScene();
+        }
+
+        function renderConceptPillsForActiveLab(focusConceptId = null) {
+            const concepts = CONCEPTS_DB.filter(c => c.labId === state.currentLabId);
+            document.getElementById('concepts-count-badge').textContent = `${concepts.length} tópicos`;
+
+            if (focusConceptId) {
+                state.selectedConceptId = focusConceptId;
+            } else if (!concepts.some(c => c.id === state.selectedConceptId) && concepts.length > 0) {
+                state.selectedConceptId = concepts[0].id;
+            }
+
+            const pillsContainer = document.getElementById('active-lab-concept-pills');
+            pillsContainer.innerHTML = concepts.map(c => {
+                const active = c.id === state.selectedConceptId;
+                return `
+                    <button onclick="selectConceptPill('${c.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer border ${
+                        active
+                            ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-sm'
+                            : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-500'
+                    }">
+                        ${c.title.split('(')[0].trim()}
+                    </button>
+                `;
+            }).join('');
+
+            const selectedObj = CONCEPTS_DB.find(c => c.id === state.selectedConceptId) || concepts[0];
+            if (selectedObj) {
+                document.getElementById('selected-concept-detail').innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="text-xs font-bold text-amber-300">${selectedObj.title}</h4>
+                        <span class="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">${selectedObj.unit}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">${selectedObj.definition}</p>
+                    <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-sky-300">
+                        <span class="text-slate-500">Equação: </span>${selectedObj.formula}
+                    </div>
+                    <p class="text-[11px] text-emerald-300/90 leading-snug">
+                        <i class="fa-solid fa-eye mr-1"></i><strong>Como observar no 3D:</strong> ${selectedObj.howToSeeIn3D}
+                    </p>
+                `;
+            }
+        }
+
+        function selectConceptPill(conceptId) {
+            state.selectedConceptId = conceptId;
+            renderConceptPillsForActiveLab(conceptId);
+        }
+
+        function setHUDMetrics(items) {
+            const container = document.getElementById('hud-live-metrics');
+            container.innerHTML = items.map(txt => `<div class="truncate">${txt}</div>`).join('');
+        }
+
+        function renderCalculationsHTML(blocks) {
+            const container = document.getElementById('live-calculations-container');
+            container.innerHTML = blocks.map(b => `
+                <div class="math-box p-2.5 rounded-r-xl flex flex-col gap-1">
+                    <span class="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">${b.title}</span>
+                    <div class="text-[11px] text-slate-300">${b.eq}</div>
+                    <div class="text-xs font-bold text-emerald-400">${b.val}</div>
+                </div>
+            `).join('');
+        }
+
+        // Simulation Playback Controls
+        function toggleSimulationPlay() {
+            state.isPlaying = !state.isPlaying;
+            const icon = document.getElementById('icon-play-pause');
+            const status = document.getElementById('hud-sim-status');
+            if (state.isPlaying) {
+                icon.className = 'fa-solid fa-pause';
+                status.textContent = 'SIMULAÇÃO EM EXECUÇÃO';
+            } else {
+                icon.className = 'fa-solid fa-play';
+                status.textContent = 'SIMULAÇÃO PAUSADA';
+            }
+        }
+
+        function restartSimulation() {
+            state.simTime = 0;
+            state.chartHistory = [];
+            rebuildActive3DLabScene();
+        }
+
+        function stepSimulationFrame() {
+            state.isPlaying = false;
+            document.getElementById('icon-play-pause').className = 'fa-solid fa-play';
+            document.getElementById('hud-sim-status').textContent = 'MODO PASSO A PASSO';
+            advancePhysicsStep(0.05);
+        }
+
+        function setSimSpeed(speed) {
+            state.simSpeed = speed;
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.className = 'speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800';
+            });
+            const idMap = { 0.25: 'speed-025', 0.5: 'speed-05', 1: 'speed-10', 2: 'speed-20' };
+            const active = document.getElementById(idMap[speed]);
+            if (active) {
+                active.className = 'speed-btn px-2 py-0.5 rounded text-[11px] font-mono bg-sky-500/20 text-sky-300 border border-sky-500/40';
+            }
+        }
+
+        // Encyclopedia Modal Functions
+        function toggleEncyclopediaModal(show) {
+            const modal = document.getElementById('encyclopedia-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+                renderEncyclopediaCards();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function setEncyclopediaFilter(filter) {
+            state.encyclopediaFilter = filter;
+            document.querySelectorAll('.enc-filter-btn').forEach(b => {
+                b.className = 'enc-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700';
+            });
+            const btn = document.getElementById(`enc-filter-${filter}`);
+            if (btn) {
+                btn.className = 'enc-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500 text-slate-950';
+            }
+            renderEncyclopediaCards();
+        }
+
+        function renderEncyclopediaCards() {
+            const query = (document.getElementById('encyclopedia-search').value || '').toLowerCase().trim();
+            const grid = document.getElementById('encyclopedia-grid');
+
+            const filtered = CONCEPTS_DB.filter(c => {
+                const matchCat = state.encyclopediaFilter === 'all' || c.module === state.encyclopediaFilter;
+                const matchText = !query || c.title.toLowerCase().includes(query) || c.definition.toLowerCase().includes(query) || c.example.toLowerCase().includes(query);
+                return matchCat && matchText;
+            });
+
+            const badgeColors = {
+                cinematica: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+                dinamica: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+                estatica: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+                energia: 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+            };
+
+            grid.innerHTML = filtered.map((c, idx) => `
+                <div class="bg-slate-950/90 border border-slate-800 hover:border-slate-600 rounded-xl p-4 flex flex-col justify-between gap-3 transition-all">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${badgeColors[c.module]}">
+                                ${c.module.toUpperCase()}
+                            </span>
+                            <span class="text-[10px] font-mono text-slate-400">SI: ${c.unit}</span>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">${c.title}</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">${c.definition}</p>
+                        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-sky-300">
+                            ${c.formula}
+                        </div>
+                        <p class="text-[11px] text-slate-400 italic">
+                            <strong>Exemplo real:</strong> ${c.example}
+                        </p>
+                    </div>
+                    <button onclick="openConceptIn3DLab('${c.labId}', '${c.id}')" class="w-full py-2 rounded-lg bg-sky-500/15 hover:bg-sky-500 hover:text-slate-950 text-sky-300 border border-sky-500/30 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-cube"></i>
+                        <span>Simular no Laboratório 3D (${LABS_CONFIG[c.labId].shortTitle.split('.')[0]})</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function openConceptIn3DLab(labId, conceptId) {
+            toggleEncyclopediaModal(false);
+            selectLab(labId, conceptId);
+        }
+
+        /***********************************************************************
+         * 7. MAIN ANIMATION & PHYSICS LOOP
+         ***********************************************************************/
+        let lastFrameTime = performance.now();
+
+        function advancePhysicsStep(dt) {
+            state.simTime += dt;
+            document.getElementById('hud-sim-time').textContent = `t = ${state.simTime.toFixed(2)} s`;
+
+            const id = state.currentLabId;
+            if (id === 'lab1A') updateLab1A(dt);
+            else if (id === 'lab1B') updateLab1B(dt);
+            else if (id === 'lab2A') updateLab2A(dt);
+            else if (id === 'lab2B') updateLab2B(dt);
+            else if (id === 'lab3A') updateLab3A(dt);
+            else if (id === 'lab3B') updateLab3B(dt);
+            else if (id === 'lab4A') updateLab4A(dt);
+            else if (id === 'lab4B') updateLab4B(dt);
+        }
+
+        function animateLoop(now) {
+            requestAnimationFrame(animateLoop);
+            const rawDt = Math.min(0.05, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+
+            if (state.isPlaying) {
+                advancePhysicsStep(rawDt * state.simSpeed);
+            }
+
+            updateCameraPositionFromSpherical();
+            renderer.render(scene, camera);
+            drawRealtimeChart();
+        }
+
+        window.onload = function () {
+            initThreeJS();
+            init2DChartCanvas();
+            selectLab('lab1A');
+            lastFrameTime = performance.now();
+            animateLoop(lastFrameTime);
+        };
+    </script>
+</body>
+</html>
