@@ -1,0 +1,2984 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhysiLab 3D — Hidrostática e Hidrodinâmica Interativa</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: #334155 #090d16;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        body {
+            background-color: #040711;
+            color: #f1f5f9;
+            overflow-x: hidden;
+            margin: 0;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 999px;
+            outline: none;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #10b981;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+            transition: transform 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #34d399;
+        }
+        .glass-panel {
+            background: rgba(11, 17, 32, 0.86);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.75);
+        }
+        .lab-btn-active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(56, 189, 248, 0.18));
+            border-color: #10b981 !important;
+            color: #6ee7b7 !important;
+            box-shadow: 0 0 18px rgba(16, 185, 129, 0.25);
+        }
+        .cutaway-btn-active {
+            background: linear-gradient(135deg, #10b981, #0ea5e9) !important;
+            color: #040711 !important;
+            border-color: #6ee7b7 !important;
+            font-weight: 700 !important;
+            box-shadow: 0 0 18px rgba(16, 185, 129, 0.5);
+        }
+        .math-card {
+            background: rgba(6, 10, 22, 0.9);
+            border-left: 3px solid #10b981;
+        }
+        #canvas3d-wrapper {
+            position: relative;
+            width: 100%;
+            height: 540px;
+        }
+        @media (min-width: 1024px) {
+            #canvas3d-wrapper {
+                height: 650px;
+            }
+        }
+        #canvas3d-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            inset: 0;
+        }
+        #canvas3d-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans select-none">
+
+    <!-- HEADER BAR -->
+    <header class="bg-slate-950/95 border-b border-slate-800 px-3 lg:px-6 py-2.5 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-sky-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 border border-emerald-400/30">
+                    <i class="fa-solid fa-water text-white text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base md:text-lg font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-sky-400 bg-clip-text text-transparent">
+                            PhysiLab 3D — 🟢 3. Hidrostática e Hidrodinâmica
+                        </h1>
+                        <span class="hidden sm:inline-block text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            6 Labs 3D • 16 Conceitos
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 hidden md:block">
+                        Mecânica dos Fluidos 3D com Corte Seccional, Vetores de Pressão/Empuxo, Linhas de Corrente, Gráficos e Cálculos em Tempo Real
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="toggleEncyclopediaModal(true)" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 border border-emerald-300/40 transition-all cursor-pointer">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>Enciclopédia (16 Conceitos)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- DIRECT 6 MAIN LABORATORIES NAVIGATION BAR -->
+    <nav class="bg-slate-900/90 border-b border-slate-800 px-3 lg:px-6 py-2 sticky top-[57px] z-30 backdrop-blur-md">
+        <div class="max-w-[1920px] mx-auto flex flex-col gap-1.5">
+            <div class="flex items-center gap-1.5 overflow-x-auto py-0.5" id="main-labs-nav">
+                <!-- Populated by JS with the 6 main fluid mechanics labs -->
+            </div>
+            <!-- Direct 16 Topics Quick-Access Bar -->
+            <div class="flex items-center gap-1.5 overflow-x-auto py-1 border-t border-slate-800/80" id="topics-quick-nav">
+                <!-- Populated by JS with all 16 concepts from Hidrostática & Hidrodinâmica -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN 3-COLUMN WORKSPACE -->
+    <main class="flex-1 max-w-[1920px] w-full mx-auto p-3 lg:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- LEFT COLUMN: CONTROLS, PRESETS & CONCEPT EXPLANATION (3 COLS) -->
+        <aside class="lg:col-span-3 flex flex-col gap-4 order-2 lg:order-1">
+            <!-- Interactive Parameters Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div>
+                        <span id="lab-badge" class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold">LABORATÓRIO 1 DE 6</span>
+                        <h2 id="lab-title" class="text-sm font-bold text-white leading-snug">Arquimedes, Empuxo, Densidade & Massa Específica</h2>
+                    </div>
+                    <button onclick="resetActiveLabParams()" title="Restaurar Padrão" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+
+                <!-- Presets -->
+                <div id="presets-container" class="flex flex-col gap-1.5"></div>
+
+                <!-- Sliders -->
+                <div id="sliders-container" class="flex flex-col gap-2.5"></div>
+            </div>
+
+            <!-- Detailed Concept & Structure Explanation Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col gap-3">
+                <div class="flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-graduation-cap text-emerald-400"></i>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">O Que É e Explicação dos Conceitos</h3>
+                </div>
+                <div id="concept-explanation-box" class="flex flex-col gap-2.5 text-xs text-slate-300 leading-relaxed">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <div class="border-t border-slate-800 pt-2.5 mt-1">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa-solid fa-layer-group text-sky-400 text-xs"></i>
+                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-sky-300">Anatomia 3D & Corte Seccional</h4>
+                    </div>
+                    <div id="structure-parts-list" class="flex flex-col gap-1.5 text-[11px] text-slate-300">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER COLUMN: 3D INTERACTIVE VIEWPORT (6 COLS) -->
+        <section class="lg:col-span-6 flex flex-col gap-3 order-1 lg:order-2">
+            <div id="canvas3d-wrapper" class="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+
+                <!-- TOP FLOATING HUD: CAMERA & CUTAWAY CONTROLS -->
+                <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <!-- Camera Presets -->
+                    <div class="glass-panel p-1.5 rounded-xl flex flex-wrap items-center gap-1 pointer-events-auto shadow-lg">
+                        <span class="text-[10px] font-mono uppercase text-slate-400 px-1.5 hidden sm:inline">Câmera:</span>
+                        <button onclick="setCameraView('iso')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-200 text-[11px] font-medium transition-all cursor-pointer">
+                            <i class="fa-solid fa-cube text-emerald-400 mr-1"></i>Livre 3D
+                        </button>
+                        <button onclick="setCameraView('top')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-200 text-[11px] font-medium transition-all cursor-pointer">
+                            <i class="fa-solid fa-arrow-down text-sky-400 mr-1"></i>Topo
+                        </button>
+                        <button onclick="setCameraView('side')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-200 text-[11px] font-medium transition-all cursor-pointer">
+                            <i class="fa-solid fa-eye text-amber-400 mr-1"></i>Lateral
+                        </button>
+                        <button onclick="setCameraView('front')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-emerald-500/20 hover:text-emerald-300 text-slate-200 text-[11px] font-medium transition-all cursor-pointer">
+                            <i class="fa-solid fa-compress text-purple-400 mr-1"></i>Frontal
+                        </button>
+                    </div>
+
+                    <!-- Cutaway & Vectors Toggles -->
+                    <div class="glass-panel p-1.5 rounded-xl flex items-center gap-1.5 pointer-events-auto shadow-lg">
+                        <button onclick="toggleCutaway()" id="btn-cutaway" class="px-3 py-1 rounded-lg bg-slate-800/90 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer">
+                            <i class="fa-solid fa-scissors"></i>
+                            <span>Cortar em Partes / Raio-X 3D</span>
+                        </button>
+                        <button onclick="toggleVectors()" id="btn-vectors" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer">
+                            <i class="fa-solid fa-location-arrow"></i>
+                            <span>Vetores 3D</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TELEMETRY OVERLAY (TOP LEFT) -->
+                <div class="absolute top-16 left-3 z-10 pointer-events-none flex flex-col gap-1.5 max-w-[340px]">
+                    <div class="glass-panel px-3 py-2 rounded-xl border border-slate-700/60 shadow-md">
+                        <div class="flex items-center gap-2 text-[11px] font-mono text-emerald-400 font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span id="hud-status">SIMULAÇÃO 3D EM EXECUÇÃO</span>
+                            <span class="ml-auto text-slate-300" id="hud-time">t = 0.0 s</span>
+                        </div>
+                        <div id="hud-telemetry" class="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-mono text-slate-200"></div>
+                    </div>
+
+                    <!-- Cutaway Active Banner -->
+                    <div id="cutaway-banner" class="hidden glass-panel px-3 py-2 rounded-xl border border-emerald-500/70 bg-emerald-950/60 text-emerald-100 text-[11px] leading-snug shadow-lg">
+                        <div class="font-bold text-emerald-400 flex items-center gap-1.5 mb-0.5">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <span id="cutaway-title">Corte Seccional 3D Ativo</span>
+                        </div>
+                        <p id="cutaway-desc" class="text-[10px] text-emerald-100/90"></p>
+                    </div>
+                </div>
+
+                <!-- VECTOR LEGEND (TOP RIGHT) -->
+                <div id="vector-legend" class="absolute top-16 right-3 z-10 glass-panel px-3 py-2 rounded-xl pointer-events-none hidden sm:flex flex-col gap-1 text-[10px] font-mono">
+                    <span class="text-slate-400 uppercase font-bold mb-0.5">Legenda de Vetores 3D</span>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-emerald-400 inline-block"></span><span class="text-slate-200">Empuxo (E) / Força F₂ / Velocidade v</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-rose-500 inline-block"></span><span class="text-slate-200">Peso Real (P) / Força Aplicada F₁</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-sky-400 inline-block"></span><span class="text-slate-200">Pressão Hidrostática / Fluxo Q</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-amber-400 inline-block"></span><span class="text-slate-200">Pressão Atmosférica (P_atm) / Tração</span></div>
+                </div>
+
+                <!-- THREE.JS RENDER CONTAINER -->
+                <div id="canvas3d-container" class="cursor-grab active:cursor-grabbing"></div>
+
+                <!-- BOTTOM FLOATING HUD: PLAYBACK & SPEED -->
+                <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <div class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-2 pointer-events-auto shadow-lg">
+                        <button onclick="togglePlay()" id="btn-play" class="w-8 h-8 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center font-bold transition-all cursor-pointer">
+                            <i class="fa-solid fa-pause" id="icon-play"></i>
+                        </button>
+                        <button onclick="restartSim()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer">
+                            <i class="fa-solid fa-rotate-right text-emerald-400"></i>
+                            <span>Reiniciar</span>
+                        </button>
+                        <span class="text-[11px] text-slate-400 hidden md:inline ml-2">
+                            <i class="fa-solid fa-computer-mouse text-emerald-400 mr-1"></i>Arraste para girar • Scroll para Zoom
+                        </span>
+                    </div>
+
+                    <div class="glass-panel px-2.5 py-1.5 rounded-xl flex items-center gap-1 pointer-events-auto shadow-lg">
+                        <span class="text-[10px] font-mono text-slate-400 mr-1">Velocidade:</span>
+                        <button onclick="setSpeed(0.25)" id="spd-025" class="spd-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">0.25x</button>
+                        <button onclick="setSpeed(0.5)" id="spd-05" class="spd-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">0.5x</button>
+                        <button onclick="setSpeed(1.0)" id="spd-10" class="spd-btn px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer">1x</button>
+                        <button onclick="setSpeed(2.0)" id="spd-20" class="spd-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">2x</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: REAL-TIME 2D GRAPH & STEP-BY-STEP CALCULATIONS (3 COLS) -->
+        <aside class="lg:col-span-3 flex flex-col gap-4 order-3">
+            <!-- Dynamic Graph Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-2.5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-emerald-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200" id="chart-title">Gráfico em Tempo Real</h3>
+                    </div>
+                    <span class="text-[10px] font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">Ao Vivo</span>
+                </div>
+                <div id="chart-legend" class="flex flex-wrap items-center gap-3 text-[11px] font-mono"></div>
+                <div class="relative w-full h-52 bg-slate-950 rounded-xl border border-slate-800/90 p-1.5 overflow-hidden">
+                    <canvas id="chart-canvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Formulas & Numerical Substitution Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-square-root-variable text-emerald-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Cálculos & Equações do Modelo</h3>
+                    </div>
+                    <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Unidades SI</span>
+                </div>
+                <div id="calculations-container" class="flex flex-col gap-2.5 font-mono text-xs overflow-y-auto">
+                    <!-- Populated dynamically on each frame -->
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- ENCYCLOPEDIA MODAL (ALL 16 CONCEPTS EXPLAINED INDIVIDUALLY) -->
+    <div id="encyclopedia-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-6">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-6xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-950/60">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                        <i class="fa-solid fa-book-atlas text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white">Enciclopédia Completa — 16 Conceitos de Hidrostática e Hidrodinâmica</h2>
+                        <p class="text-xs text-slate-400">Explicação detalhada do que é cada conceito, fórmulas, unidades no SI e acesso direto ao experimento 3D correspondente</p>
+                    </div>
+                </div>
+                <button onclick="toggleEncyclopediaModal(false)" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-300 flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="encyclopedia-grid" class="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1"></div>
+        </div>
+    </div>
+
+    <script>
+        /***********************************************************************
+         * 1. ENCYCLOPEDIA OF ALL 16 TOPICS & 6 NON-REPETITIVE 3D LABORATORIES
+         ***********************************************************************/
+        const ENCYCLOPEDIA_TOPICS = [
+            // HIDROSTÁTICA (10 TÓPICOS)
+            {
+                num: 1,
+                category: 'Hidrostática',
+                title: 'Densidade (d)',
+                formula: 'd = m / V_total',
+                unit: 'kg/m³ ou g/cm³',
+                labId: 'lab1',
+                desc: 'É a razão entre a massa (m) de um corpo e o seu volume externo total (V_total), incluindo eventuais partes ocas ou cavidades internas. É por isso que um navio feito de aço flutua: a cavidade cheia de ar reduz a densidade média do navio para um valor menor que o da água.'
+            },
+            {
+                num: 2,
+                category: 'Hidrostática',
+                title: 'Massa Específica (ρ)',
+                formula: 'ρ = m / V_maciço',
+                unit: 'kg/m³ (1 g/cm³ = 1000 kg/m³)',
+                labId: 'lab1',
+                desc: 'É uma propriedade exclusiva da substância ou material puro, calculada dividindo a massa apenas pelo volume efetivamente maciço (sem considerar buracos ou partes ocas). Se o corpo for totalmente maciço e homogêneo, sua densidade coincide com a massa específica (d = ρ).'
+            },
+            {
+                num: 3,
+                category: 'Hidrostática',
+                title: 'Pressão (P)',
+                formula: 'P = F_N / A',
+                unit: 'Pascal (1 Pa = 1 N/m²)',
+                labId: 'lab2',
+                desc: 'Grandeza escalar que mede a distribuição de uma força perpendicular (normal F_N) sobre uma área superficial (A). Para uma mesma força aplicada, quanto menor a área de contato, maior será a pressão exercida.'
+            },
+            {
+                num: 4,
+                category: 'Hidrostática',
+                title: 'Pressão Atmosférica (P_atm)',
+                formula: 'P_atm = ρ_Hg · g · h_Hg ≈ 1,013×10⁵ Pa',
+                unit: 'atm, Pa ou mmHg (1 atm = 760 mmHg)',
+                labId: 'lab2',
+                desc: 'É a pressão exercida pelo peso da camada de ar atmosférico sobre a superfície terrestre. Medida originalmente por Evangelista Torricelli usando uma coluna de mercúrio de 76 cm (760 mmHg) equilibrada ao nível do mar; diminui conforme a altitude aumenta.'
+            },
+            {
+                num: 5,
+                category: 'Hidrostática',
+                title: 'Pressão Hidrostática (Teorema de Stevin)',
+                formula: 'P_hid = ρ · g · h   |   P_abs = P_atm + ρ · g · h',
+                unit: 'Pascal (Pa) ou m.c.a.',
+                labId: 'lab2',
+                desc: 'Pressão exercida pelo peso de uma coluna de líquido em equilíbrio a uma profundidade h. Pelo Teorema de Stevin, a diferença de pressão entre dois pontos depende apenas da densidade do fluido (ρ), da gravidade (g) e do desnível vertical (Δh), formando superfícies horizontais isobáricas.'
+            },
+            {
+                num: 6,
+                category: 'Hidrostática',
+                title: 'Princípio de Pascal',
+                formula: 'ΔP_1 = ΔP_2 = ΔP (constante em todo o fluido)',
+                unit: 'Pascal (Pa)',
+                labId: 'lab3',
+                desc: 'Qualquer acréscimo de pressão (ΔP) produzido em um líquido incompressível e em equilíbrio, confinado em um recipiente fechado, é transmitido integralmente a todos os pontos do fluido e às paredes do recipiente.'
+            },
+            {
+                num: 7,
+                category: 'Hidrostática',
+                title: 'Princípio de Arquimedes',
+                formula: 'E = Peso do fluido deslocado = m_fluido · g',
+                unit: 'Newton (N)',
+                labId: 'lab1',
+                desc: 'Todo corpo total ou parcialmente imerso em um fluido em equilíbrio, sob ação da gravidade, recebe uma força vertical de baixo para cima (Empuxo) cuja intensidade é exatamente igual ao peso do volume de fluido deslocado pelo corpo.'
+            },
+            {
+                num: 8,
+                category: 'Hidrostática',
+                title: 'Empuxo (E) e Peso Aparente',
+                formula: 'E = ρ_fluido · V_imerso · g   |   P_ap = P - E',
+                unit: 'Newton (N)',
+                labId: 'lab1',
+                desc: 'Força resultante vertical para cima gerada pela diferença de pressão hidrostática entre a base inferior e o topo do corpo submerso. Se d_corpo < ρ_fluido o corpo flutua; se d_corpo = ρ_fluido fica em equilíbrio indiferente; se d_corpo > ρ_fluido afunda com peso aparente P_ap = P - E.'
+            },
+            {
+                num: 9,
+                category: 'Hidrostática',
+                title: 'Vasos Comunicantes',
+                formula: 'ρ_1 · h_1 = ρ_2 · h_2 (líquidos imiscíveis)',
+                unit: 'metros (m) e kg/m³',
+                labId: 'lab4',
+                desc: 'Em recipientes interligados pela base, um único líquido homogêneo atinge exatamente a mesma altura em todos os ramos, independentemente do formato ou inclinação dos vasos. Com dois líquidos imiscíveis em tubo em U, as alturas medidas acima da superfície de separação são inversamente proporcionais às densidades.'
+            },
+            {
+                num: 10,
+                category: 'Hidrostática',
+                title: 'Prensa Hidráulica',
+                formula: 'F_1 / A_1 = F_2 / A_2   e   A_1 · Δh_1 = A_2 · Δh_2',
+                unit: 'N, m² e Vantagem Mecânica (A₂/A₁)',
+                labId: 'lab3',
+                desc: 'Aplicação direta do Princípio de Pascal composta por dois cilindros de áreas diferentes interligados. Permite multiplicar a força aplicada pelo fator A₂/A₁ (ou r₂²/r₁²), conservando o trabalho mecânico (o êmbolo menor percorre uma distância Δh₁ proporcionalmente maior que Δh₂).'
+            },
+            // HIDRODINÂMICA (6 TÓPICOS)
+            {
+                num: 11,
+                category: 'Hidrodinâmica',
+                title: 'Vazão Volumétrica (Q)',
+                formula: 'Q = ΔV / Δt = A · v',
+                unit: 'm³/s ou L/s (1 m³/s = 1000 L/s)',
+                labId: 'lab5',
+                desc: 'Volume de fluido (ΔV) que atravessa uma seção transversal de área A de uma tubulação por unidade de tempo (Δt). Equivale ao produto da área da seção transversal pela velocidade média de escoamento (v).'
+            },
+            {
+                num: 12,
+                category: 'Hidrodinâmica',
+                title: 'Equação da Continuidade',
+                formula: 'Q_1 = Q_2   ⇒   A_1 · v_1 = A_2 · v_2',
+                unit: 'm³/s (Conservação da Massa)',
+                labId: 'lab5',
+                desc: 'Expressa a conservação da massa para um fluido incompressível em regime permanente: a vazão volumétrica é constante ao longo de todo o tubo. Assim, onde o tubo estreita (menor área A), a velocidade do líquido aumenta inversamente (v ∝ 1/D²).'
+            },
+            {
+                num: 13,
+                category: 'Hidrodinâmica',
+                title: 'Equação de Bernoulli',
+                formula: 'P_1 + ½ρv_1² + ρgy_1 = P_2 + ½ρv_2² + ρgy_2 = cte',
+                unit: 'Pascal (J/m³ — Energia por Volume)',
+                labId: 'lab6',
+                desc: 'Expressa a conservação da energia mecânica para um fluido ideal (incompressível e não viscoso) em escoamento laminar: a soma da pressão estática (P), da pressão dinâmica cinética (½ρv²) e da pressão potencial gravitacional (ρgy) permanece constante ao longo de uma linha de corrente.'
+            },
+            {
+                num: 14,
+                category: 'Hidrodinâmica',
+                title: 'Fluxo de Líquidos (Laminar vs Turbulento)',
+                formula: 'Re = (ρ · v · D) / η',
+                unit: 'Adimensional (Número de Reynolds)',
+                labId: 'lab5',
+                desc: 'No escoamento laminar (estacionário), as partículas de fluido seguem linhas de corrente suaves sem se cruzar. Quando a velocidade ultrapassa um valor crítico (alto Número de Reynolds), surgem vórtices e redemoinhos caracterizando o regime turbulento.'
+            },
+            {
+                num: 15,
+                category: 'Hidrodinâmica',
+                title: 'Tubos e Condutos Hidráulicos',
+                formula: 'h_total = P/(ρg) + v²/(2g) + y',
+                unit: 'metros de carga hidráulica (m)',
+                labId: 'lab6',
+                desc: 'Estudo do escoamento interno em tubulações com variações combinadas de diâmetro (D₁ → D₂) e cota altimétrica (y₁ → y₂), permitindo determinar a Linha Piezométrica (P/ρg + y) e a Linha de Energia Total em redes hidráulicas e sifões.'
+            },
+            {
+                num: 16,
+                category: 'Hidrodinâmica',
+                title: 'Efeito Venturi',
+                formula: 'P_1 - P_2 = ½ · ρ · (v_2² - v_1²) = ρ · g · Δh',
+                unit: 'Pascal (Pa)',
+                labId: 'lab5',
+                desc: 'Caso particular horizontal (y₁ = y₂) da Equação de Bernoulli combinada com a Continuidade: ao passar pelo estrangulamento (garganta) de um Tubo de Venturi, o fluido acelera (v₂ > v₁) e sua pressão estática cai drasticamente (P₂ < P₁), criando sucção usada em medidores de vazão, carburadores e nebulizadores.'
+            }
+        ];
+
+        const LABS_DATA = {
+            lab1: {
+                id: 'lab1',
+                index: 1,
+                icon: 'fa-anchor',
+                shortTitle: '1. Arquimedes, Empuxo & Densidade',
+                fullTitle: 'Densidade (d) vs Massa Específica (ρ), Princípio de Arquimedes e Empuxo',
+                cutawayTitle: 'Corte 3D da Esfera Oca: Massa Específica da Casca (ρ) vs Densidade do Corpo (d)',
+                cutawayDesc: 'Secciona a esfera ao meio revelando a casca metálica maciça (ρ_mat) e a cavidade interna de ar que reduz a densidade média do corpo (d = m / V_total)!',
+                conceptText: `
+                    <p><strong>Diferença entre Massa Específica (&rho;) e Densidade (d):</strong> A <strong>Massa Específica (&rho; = m / V<sub>maciço</sub>)</strong> é uma propriedade exclusiva da substância pura que compõe a casca. Já a <strong>Densidade do Corpo (d = m / V<sub>total</sub>)</strong> divide a massa pelo volume externo total, incluindo cavidades ocas internas! Ajuste a cavidade oca e ative o <strong>Corte 3D</strong> para visualizar como uma esfera metálica (&rho; &gt; 1 g/cm³) flutua na água quando sua cavidade interna reduz sua densidade média (d &lt; &rho;<sub>fluido</sub>).</p>
+                    <p><strong>Princípio de Arquimedes e Empuxo (E):</strong> Todo corpo imerso em um fluido recebe uma força vertical para cima igual ao peso do fluido deslocado (<strong>E = &rho;<sub>fluido</sub> &middot; V<sub>imerso</sub> &middot; g</strong>). Quando submerso, o dinamômetro registra o <strong>Peso Aparente (P<sub>ap</sub> = P &minus; E)</strong>.</p>
+                `,
+                structureParts: [
+                    '⚙️ Esfera Seccionável no Corte 3D (Casca Maciça ρ_mat + Cavidade Oca Interna)',
+                    '🧪 Tanque Graduado 3D com subida real do nível do líquido deslocado (ΔV)',
+                    '⚖️ Dinamômetro de Mola Superior medindo a Tração / Peso Aparente (P_ap = P - E)',
+                    '⬆️ Vetor Empuxo (verde p/ cima) vs ⬇️ Vetor Peso Real (vermelho p/ baixo)'
+                ],
+                chartTitle: 'Balanço de Forças (Peso, Empuxo e Peso Aparente) e Densidades',
+                chartLegend: [
+                    { label: 'Empuxo E (N)', color: '#10b981' },
+                    { label: 'Peso Real P (N)', color: '#f43f5e' },
+                    { label: 'Peso Aparente P_ap (N)', color: '#f59e0b' }
+                ],
+                presets: [
+                    { label: 'Aço Maciço na Água (Afunda: d = ρ = 3.0)', values: { rhoMaterial: 3.0, hollowPct: 0, rhoFluid: 1.0, bodyVolume: 2.0 } },
+                    { label: 'Navio / Esfera Oca de Aço (Flutua: Cavidade 75%)', values: { rhoMaterial: 3.0, hollowPct: 75, rhoFluid: 1.0, bodyVolume: 2.2 } },
+                    { label: 'Equilíbrio Indiferente (Submarino d = ρ_fluido)', values: { rhoMaterial: 2.5, hollowPct: 60, rhoFluid: 1.0, bodyVolume: 2.0 } },
+                    { label: 'Ferro Flutuando no Mercúrio (ρ_f = 2.5)', values: { rhoMaterial: 2.0, hollowPct: 0, rhoFluid: 2.5, bodyVolume: 1.8 } }
+                ],
+                sliders: [
+                    { key: 'rhoMaterial', label: 'Massa Específica do Material (ρ_mat)', min: 0.6, max: 4.0, step: 0.1, unit: 'g/cm³', default: 2.8 },
+                    { key: 'hollowPct', label: 'Fração de Cavidade Oca Interna', min: 0, max: 85, step: 5, unit: '%', default: 40 },
+                    { key: 'rhoFluid', label: 'Massa Específica do Fluido (ρ_f)', min: 0.7, max: 2.5, step: 0.1, unit: 'g/cm³', default: 1.0 },
+                    { key: 'bodyVolume', label: 'Volume Externo Total do Corpo (V_ext)', min: 1.0, max: 3.0, step: 0.2, unit: 'L (dm³)', default: 2.0 }
+                ]
+            },
+
+            lab2: {
+                id: 'lab2',
+                index: 2,
+                icon: 'fa-gauge-high',
+                shortTitle: '2. Pressão, Stevin & Torricelli',
+                fullTitle: 'Pressão (P = F/A), Pressão Atmosférica (Torricelli) e Hidrostática (Stevin)',
+                cutawayTitle: 'Corte da Represa, Vácuo de Torricelli (760 mmHg) e Planos Isobáricos',
+                cutawayDesc: 'Abre o reservatório e o Barômetro de Mercúrio revelando a Câmara de Vácuo de Torricelli, os planos isobáricos e os vetores F = P·A na janela da sonda.',
+                conceptText: `
+                    <p><strong>Pressão (P = F<sub>N</sub> / A) e Pressão Atmosférica (P<sub>atm</sub>):</strong> Na superfície livre do líquido, o peso da camada de ar exerce P<sub>atm</sub> (equilibrando uma coluna de <strong>760 mmHg &approx; 101,3 kPa</strong> ao nível do mar no <strong>Barômetro de Torricelli</strong> à direita).</p>
+                    <p><strong>Pressão Hidrostática e Teorema de Stevin:</strong> A uma profundidade <em>h</em>, a pressão absoluta soma a pressão atmosférica com o peso da coluna de líquido: <strong>P<sub>abs</sub> = P<sub>atm</sub> + &rho; &middot; g &middot; h</strong>. Observe os 3 orifícios laterais na represa: quanto maior a profundidade <em>h</em>, maior a pressão hidrostática e maior o alcance do jato!</p>
+                `,
+                structureParts: [
+                    '🌡️ Barômetro de Mercúrio de Torricelli 3D (com Câmara de Vácuo no topo)',
+                    '🤿 Sonda Submarina com Janela de Área A (sofrendo força compressiva F = P·A)',
+                    '💦 3 Jatos Parabólicos Laterais demonstrando o aumento de P_hid com a profundidade h',
+                    '📏 Planos Isobáricos Horizontais no Corte Seccional 3D (Teorema de Stevin)'
+                ],
+                chartTitle: 'Diagrama de Stevin: Pressão Absoluta P(h) = P_atm + ρ·g·h',
+                chartLegend: [
+                    { label: 'Curva P_abs(h) (kPa)', color: '#38bdf8' },
+                    { label: 'Patamar P_atm', color: '#f59e0b' },
+                    { label: 'Profundidade da Sonda (h)', color: '#f43f5e' }
+                ],
+                presets: [
+                    { label: 'Água ao Nível do Mar (1 atm, h = 6 m)', values: { depthH: 6.0, patmAtm: 1.0, fluidRho: 1000, windowArea: 0.5 } },
+                    { label: 'Fundo do Reservatório (10 m = +1 atm hidrostática)', values: { depthH: 10.0, patmAtm: 1.0, fluidRho: 1000, windowArea: 0.8 } },
+                    { label: 'Lago em Alta Montanha (P_atm = 0.70 atm)', values: { depthH: 5.0, patmAtm: 0.7, fluidRho: 1000, windowArea: 0.5 } },
+                    { label: 'Salmoura Densa (ρ = 1250 kg/m³)', values: { depthH: 8.0, patmAtm: 1.0, fluidRho: 1250, windowArea: 0.6 } }
+                ],
+                sliders: [
+                    { key: 'depthH', label: 'Profundidade da Sonda (h)', min: 0.5, max: 10.0, step: 0.5, unit: 'm', default: 6.0 },
+                    { key: 'patmAtm', label: 'Pressão Atmosférica Local (P_atm)', min: 0.5, max: 1.2, step: 0.05, unit: 'atm', default: 1.0 },
+                    { key: 'fluidRho', label: 'Massa Específica do Líquido (ρ)', min: 800, max: 1400, step: 50, unit: 'kg/m³', default: 1000 },
+                    { key: 'windowArea', label: 'Área da Escotilha da Sonda (A)', min: 0.2, max: 1.5, step: 0.1, unit: 'm²', default: 0.5 }
+                ]
+            },
+
+            lab3: {
+                id: 'lab3',
+                index: 3,
+                icon: 'fa-car-burst',
+                shortTitle: '3. Pascal & Prensa Hidráulica',
+                fullTitle: 'Princípio de Pascal e Prensa Hidráulica Multiplicadora de Força 3D',
+                cutawayTitle: 'Corte Longitudinal dos Cilindros Hidráulicos & Transmissão Isotrópica de ΔP',
+                cutawayDesc: 'Corta os cilindros e o duto inferior revelando os pistões internos, o óleo hidráulico pressurizado e os vetores de ΔP iguais em todas as paredes.',
+                conceptText: `
+                    <p><strong>Princípio de Pascal:</strong> O acréscimo de pressão <strong>&Delta;P = F<sub>1</sub> / A<sub>1</sub></strong> aplicado ao êmbolo menor é transmitido integralmente por todo o fluido incompressível confinado até a base do êmbolo maior.</p>
+                    <p><strong>Prensa Hidráulica e Vantagem Mecânica:</strong> Como &Delta;P<sub>1</sub> = &Delta;P<sub>2</sub>, temos <strong>F<sub>1</sub> / A<sub>1</sub> = F<sub>2</sub> / A<sub>2</sub> &rArr; F<sub>2</sub> = F<sub>1</sub> &middot; (R<sub>2</sub> / R<sub>1</sub>)²</strong>. A força é multiplicada pela razão entre as áreas, enquanto o volume deslocado se conserva (<strong>A<sub>1</sub> &middot; &Delta;h<sub>1</sub> = A<sub>2</sub> &middot; &Delta;h<sub>2</sub></strong>).</p>
+                `,
+                structureParts: [
+                    '🔴 Êmbolo Menor de Raio R₁ (recebendo Força Aplicada F₁ e descendo Δh₁)',
+                    '🟢 Êmbolo Maior de Raio R₂ erguendo um Veículo 3D com Força Multiplicada F₂',
+                    '🟡 Fluido Hidráulico Incompressível com Partículas Indicadoras de Pressão ΔP',
+                    '✂️ Corte 3D exibindo os Anéis de Vedação e Vetores Internos de Pascal'
+                ],
+                chartTitle: 'Multiplicação de Força (F₂ vs F₁) e Deslocamentos (Δh₁ vs Δh₂)',
+                chartLegend: [
+                    { label: 'Força Multiplicada F₂ (×10² N)', color: '#10b981' },
+                    { label: 'Força Aplicada F₁ (×10² N)', color: '#f43f5e' },
+                    { label: 'Pressão Transmitida ΔP (kPa)', color: '#38bdf8' }
+                ],
+                presets: [
+                    { label: 'Elevador de Oficina Padrão (R₂/R₁ = 3 → VM = 9x)', values: { forceF1: 250, radiusR1: 1.0, radiusR2: 3.0, strokeH1: 3.0 } },
+                    { label: 'Prensa Industrial Pesada (R₂/R₁ = 4.5 → VM = 20.25x)', values: { forceF1: 400, radiusR1: 0.8, radiusR2: 3.6, strokeH1: 3.5 } },
+                    { label: 'Cilindros Iguais Sem Ganho (R₁ = R₂ = 2.0 → VM = 1x)', values: { forceF1: 300, radiusR1: 2.0, radiusR2: 2.0, strokeH1: 2.5 } }
+                ],
+                sliders: [
+                    { key: 'forceF1', label: 'Força Aplicada no Êmbolo 1 (F₁)', min: 100, max: 600, step: 25, unit: 'N', default: 250 },
+                    { key: 'radiusR1', label: 'Raio do Êmbolo Menor (R₁)', min: 0.8, max: 2.0, step: 0.2, unit: 'dm', default: 1.0 },
+                    { key: 'radiusR2', label: 'Raio do Êmbolo Maior (R₂)', min: 1.6, max: 4.0, step: 0.2, unit: 'dm', default: 3.0 },
+                    { key: 'strokeH1', label: 'Curso do Êmbolo Menor (Δh₁)', min: 1.0, max: 4.0, step: 0.5, unit: 'dm', default: 3.0 }
+                ]
+            },
+
+            lab4: {
+                id: 'lab4',
+                index: 4,
+                icon: 'fa-flask-vial',
+                shortTitle: '4. Vasos Comunicantes',
+                fullTitle: 'Vasos Comunicantes Multimorfos e Tubo em U com Líquidos Imiscíveis',
+                cutawayTitle: 'Corte Longitudinal dos Vasos & Plano Isobárico na Interface (P_A = P_B)',
+                cutawayDesc: 'Abre os vasos comunicantes e o Tubo em U destacando o plano horizontal isobárico na interface de separação entre os dois líquidos imiscíveis.',
+                conceptText: `
+                    <p><strong>Vasos Comunicantes Homogêneos (Esquerda):</strong> Como a pressão hidrostática depende exclusivamente da profundidade vertical (P = &rho; &middot; g &middot; h) e não da geometria do recipiente, um líquido homogêneo atinge exatamente o <strong>mesmo nível horizontal</strong> em ramos cilíndricos, cônicos ou inclinados.</p>
+                    <p><strong>Tubo em U com Dois Líquidos Imiscíveis (Direita):</strong> Para dois líquidos que não se misturam (&rho;<sub>1</sub> e &rho;<sub>2</sub>), as pressões no plano horizontal da interface de separação são iguais (P<sub>A</sub> = P<sub>B</sub>), resultando em <strong>&rho;<sub>1</sub> &middot; h<sub>1</sub> = &rho;<sub>2</sub> &middot; h<sub>2</sub></strong>.</p>
+                `,
+                structureParts: [
+                    '🧪 Galeria 3D de 4 Vasos de Formatos Diferentes no mesmo nível (Esquerda)',
+                    '♊ Tubo em U Duplo com 2 Líquidos Imiscíveis de densidades ρ₁ e ρ₂ (Direita)',
+                    '📏 Plano Horizontal Isobárico tracejado na Interface de Separação (P_A = P_B)',
+                    '🔍 Corte 3D expondo as colunas internas h₁ e h₂ e cotas manométricas'
+                ],
+                chartTitle: 'Relação de Alturas nos Ramos do Tubo em U (h₁ vs h₂)',
+                chartLegend: [
+                    { label: 'Altura Coluna 1 (h₁ cm)', color: '#38bdf8' },
+                    { label: 'Altura Coluna 2 (h₂ cm)', color: '#f59e0b' },
+                    { label: 'Razão ρ₁/ρ₂ (×10)', color: '#10b981' }
+                ],
+                presets: [
+                    { label: 'Água (1.0) e Óleo (0.8) → Óleo sobe mais', values: { rho1: 1.0, rho2: 0.8, h1Column: 20, multiVesselLevel: 7.0 } },
+                    { label: 'Água (1.0) e Mercúrio (2.5 esc) → Água sobe mais', values: { rho1: 1.0, rho2: 2.5, h1Column: 25, multiVesselLevel: 7.5 } },
+                    { label: 'Líquidos de Mesma Densidade (h₁ = h₂)', values: { rho1: 1.2, rho2: 1.2, h1Column: 18, multiVesselLevel: 6.5 } }
+                ],
+                sliders: [
+                    { key: 'rho1', label: 'Densidade do Líquido 1 Azul (ρ₁)', min: 0.6, max: 2.5, step: 0.1, unit: 'g/cm³', default: 1.0 },
+                    { key: 'rho2', label: 'Densidade do Líquido 2 Âmbar (ρ₂)', min: 0.6, max: 2.5, step: 0.1, unit: 'g/cm³', default: 0.8 },
+                    { key: 'h1Column', label: 'Altura da Coluna 1 Acima da Interface (h₁)', min: 10, max: 28, step: 1, unit: 'cm', default: 20 },
+                    { key: 'multiVesselLevel', label: 'Nível nos 4 Vasos Homogêneos', min: 4.0, max: 9.0, step: 0.5, unit: 'dm', default: 7.0 }
+                ]
+            },
+
+            lab5: {
+                id: 'lab5',
+                index: 5,
+                icon: 'fa-wind',
+                shortTitle: '5. Vazão, Continuidade & Venturi',
+                fullTitle: 'Vazão (Q), Equação da Continuidade, Fluxo de Líquidos e Efeito Venturi 3D',
+                cutawayTitle: 'Corte Longitudinal do Tubo de Venturi, Anéis A₁/A₂ e Linhas de Corrente',
+                cutawayDesc: 'Abre a parede superior do Tubo de Venturi para mostrar o estreitamento da garganta, as linhas de corrente e a queda na coluna piezométrica central.',
+                conceptText: `
+                    <p><strong>Vazão (Q = A &middot; v) e Equação da Continuidade (A<sub>1</sub> &middot; v<sub>1</sub> = A<sub>2</sub> &middot; v<sub>2</sub>):</strong> Em um líquido incompressível, a vazão volumétrica Q é constante ao longo de todo o tubo. Assim, ao passar pelo estrangulamento de menor área A<sub>2</sub>, o fluido acelera (<strong>v<sub>2</sub> = v<sub>1</sub> &middot; A<sub>1</sub>/A<sub>2</sub></strong>).</p>
+                    <p><strong>Efeito Venturi e Regime de Fluxo:</strong> Onde a velocidade aumenta na garganta estreita, a <strong>pressão estática cai drasticamente (P<sub>2</sub> &lt; P<sub>1</sub>)</strong>, reduzindo a altura da coluna no tubo piezométrico central. Alterne também entre fluxo <strong>Laminar</strong> e <strong>Turbulento</strong>!</p>
+                `,
+                structureParts: [
+                    '🌊 Tubo de Venturi Horizontal 3D com Entrada Larga (D₁) e Garganta Estreita (D₂)',
+                    '📊 3 Tubos Piezométricos Verticais medindo P₁ (alta), P₂ (baixa na garganta) e P₃',
+                    '✨ Partículas Tracer 3D e Linhas de Corrente acelerando no estrangulamento',
+                    '🌀 Alternância Visual entre Escoamento Laminar e Regime Turbulento'
+                ],
+                chartTitle: 'Perfil Longitudinal no Venturi: Velocidade v(x) vs Pressão P(x)',
+                chartLegend: [
+                    { label: 'Pressão Estática P(x)', color: '#38bdf8' },
+                    { label: 'Velocidade do Fluido v(x)', color: '#10b981' }
+                ],
+                presets: [
+                    { label: 'Efeito Venturi Clássico Laminar (D₁=6, D₂=3)', values: { diamD1: 6.0, diamD2: 3.0, velV1: 2.0, flowMode: 1 } },
+                    { label: 'Estrangulamento Forte (Sucção Máxima D₂=2.2)', values: { diamD1: 6.4, diamD2: 2.2, velV1: 2.2, flowMode: 1 } },
+                    { label: 'Tubo Uniforme Sem Estreitamento (D₁ = D₂)', values: { diamD1: 5.0, diamD2: 5.0, velV1: 2.5, flowMode: 1 } },
+                    { label: 'Escoamento em Regime Turbulento (Vórtices)', values: { diamD1: 6.0, diamD2: 3.0, velV1: 3.2, flowMode: 2 } }
+                ],
+                sliders: [
+                    { key: 'diamD1', label: 'Diâmetro da Seção Larga (D₁)', min: 4.5, max: 7.0, step: 0.5, unit: 'cm', default: 6.0 },
+                    { key: 'diamD2', label: 'Diâmetro da Garganta Estreita (D₂)', min: 2.0, max: 5.0, step: 0.2, unit: 'cm', default: 3.0 },
+                    { key: 'velV1', label: 'Velocidade de Entrada (v₁)', min: 1.0, max: 3.5, step: 0.2, unit: 'm/s', default: 2.0 },
+                    { key: 'flowMode', label: 'Regime de Fluxo (1=Laminar, 2=Turbulento)', min: 1, max: 2, step: 1, unit: '', default: 1 }
+                ]
+            },
+
+            lab6: {
+                id: 'lab6',
+                index: 6,
+                icon: 'fa-diagram-project',
+                shortTitle: '6. Bernoulli & Tubos com Desnível',
+                fullTitle: 'Equação Geral de Bernoulli e Tubos Hidráulicos com Desnível Altimétrico (y₁ ≠ y₂)',
+                cutawayTitle: 'Corte em Meia-Cana do Conduto Sifão 3D + Linha de Energia Total (LET)',
+                cutawayDesc: 'Secciona toda a tubulação em curva S mostrando o escoamento interno entre as cotas y₁ e y₂, os manômetros e a conservação da Energia Total.',
+                conceptText: `
+                    <p><strong>Equação Geral de Bernoulli em Tubos e Condutos:</strong> Quando uma tubulação varia simultaneamente de <strong>cota altimétrica (y<sub>1</sub> &rarr; y<sub>2</sub>)</strong> e de <strong>seção transversal (A<sub>1</sub> &rarr; A<sub>2</sub>)</strong>, a densidade de energia mecânica total do fluido permanece constante:</p>
+                    <p class="font-mono text-emerald-300 bg-slate-950/90 px-2.5 py-1.5 rounded-lg border border-slate-800">P<sub>1</sub> + &frac12;&rho;v<sub>1</sub>² + &rho;gy<sub>1</sub> = P<sub>2</sub> + &frac12;&rho;v<sub>2</sub>² + &rho;gy<sub>2</sub> = constante</p>
+                    <p>No gráfico ao lado, compare em tempo real as 3 parcelas de energia por volume (Pressão Estática <em>P</em>, Pressão Dinâmica Cinética <em>&frac12;&rho;v²</em> e Potencial Gravitacional <em>&rho;gy</em>) entre a entrada e a saída do conduto.</p>
+                `,
+                structureParts: [
+                    '🛠️ Tubulação Curva 3D variando de Cota (y₁ → y₂) e de Diâmetro (D₁ → D₂)',
+                    '⏲️ Manômetros Verticais na Seção 1 e na Seção 2 indicando P₁ e P₂',
+                    '📏 Cotas Verticais de Referência (y₁ e y₂) acima do Plano Horizontal z = 0',
+                    '⚡ Linha de Energia Total (LET) constante no Corte 3D'
+                ],
+                chartTitle: 'Balanço Energético de Bernoulli: Seção 1 vs Seção 2 (kPa)',
+                chartLegend: [
+                    { label: 'Pressão Estática P', color: '#38bdf8' },
+                    { label: 'Cinética ½ρv²', color: '#10b981' },
+                    { label: 'Potencial ρgy', color: '#f59e0b' }
+                ],
+                presets: [
+                    { label: 'Conduto Elevatório Clássico (Sobe e Estreita)', values: { heightY1: 1.5, heightY2: 5.5, ratioA1A2: 2.0, pressP1: 180 } },
+                    { label: 'Conduto Descendente de Usina (Desce para Turbina)', values: { heightY1: 7.0, heightY2: 1.5, ratioA1A2: 1.8, pressP1: 140 } },
+                    { label: 'Mesma Cota Horizontal (Reduz ao Efeito Venturi)', values: { heightY1: 3.5, heightY2: 3.5, ratioA1A2: 2.2, pressP1: 160 } }
+                ],
+                sliders: [
+                    { key: 'heightY1', label: 'Altura da Seção 1 Entrada (y₁)', min: 1.0, max: 7.5, step: 0.5, unit: 'm', default: 1.5 },
+                    { key: 'heightY2', label: 'Altura da Seção 2 Saída (y₂)', min: 1.0, max: 7.5, step: 0.5, unit: 'm', default: 5.5 },
+                    { key: 'ratioA1A2', label: 'Razão de Áreas (A₁ / A₂ = v₂ / v₁)', min: 1.0, max: 3.0, step: 0.2, unit: 'x', default: 2.0 },
+                    { key: 'pressP1', label: 'Pressão Estática na Entrada (P₁)', min: 120, max: 240, step: 10, unit: 'kPa', default: 180 }
+                ]
+            }
+        };
+
+        /***********************************************************************
+         * 2. APPLICATION STATE & BUILT-IN ORBITAL CAMERA CONTROLLER
+         ***********************************************************************/
+        const state = {
+            activeLabId: 'lab1',
+            activeTopicNum: 1,
+            isPlaying: true,
+            simTime: 0,
+            simSpeed: 1.0,
+            cutawayMode: false,
+            showVectors: true,
+            params: {},
+            chartSeries: [],
+            runtime: {}
+        };
+
+        Object.keys(LABS_DATA).forEach(labId => {
+            state.params[labId] = {};
+            LABS_DATA[labId].sliders.forEach(s => {
+                state.params[labId][s.key] = s.default;
+            });
+        });
+
+        let scene, camera, renderer, labGroup;
+        const camControl = {
+            theta: 0.48,
+            phi: 1.15,
+            radius: 38,
+            target: new THREE.Vector3(0, 0, 0),
+            isDragging: false,
+            isPanning: false,
+            prevX: 0,
+            prevY: 0
+        };
+
+        function updateCameraFromSpherical() {
+            if (!camera) return;
+            camControl.phi = Math.max(0.08, Math.min(Math.PI - 0.08, camControl.phi));
+            camControl.radius = Math.max(10, Math.min(110, camControl.radius));
+            const x = camControl.target.x + camControl.radius * Math.sin(camControl.phi) * Math.sin(camControl.theta);
+            const y = camControl.target.y + camControl.radius * Math.cos(camControl.phi);
+            const z = camControl.target.z + camControl.radius * Math.sin(camControl.phi) * Math.cos(camControl.theta);
+            camera.position.set(x, y, z);
+            camera.lookAt(camControl.target);
+        }
+
+        function attachCustomOrbitControls(domElem) {
+            domElem.addEventListener('contextmenu', e => e.preventDefault());
+            domElem.addEventListener('mousedown', e => {
+                camControl.isDragging = true;
+                camControl.isPanning = (e.button === 2 || e.shiftKey);
+                camControl.prevX = e.clientX;
+                camControl.prevY = e.clientY;
+            });
+            window.addEventListener('mousemove', e => {
+                if (!camControl.isDragging) return;
+                const dx = e.clientX - camControl.prevX;
+                const dy = e.clientY - camControl.prevY;
+                camControl.prevX = e.clientX;
+                camControl.prevY = e.clientY;
+
+                if (camControl.isPanning) {
+                    const panFactor = camControl.radius * 0.0015;
+                    camControl.target.x -= dx * panFactor;
+                    camControl.target.y += dy * panFactor;
+                } else {
+                    camControl.theta -= dx * 0.007;
+                    camControl.phi -= dy * 0.007;
+                }
+                updateCameraFromSpherical();
+            });
+            window.addEventListener('mouseup', () => {
+                camControl.isDragging = false;
+            });
+            domElem.addEventListener('wheel', e => {
+                e.preventDefault();
+                camControl.radius += e.deltaY * 0.025;
+                updateCameraFromSpherical();
+            }, { passive: false });
+
+            domElem.addEventListener('touchstart', e => {
+                if (e.touches.length === 1) {
+                    camControl.isDragging = true;
+                    camControl.isPanning = false;
+                    camControl.prevX = e.touches[0].clientX;
+                    camControl.prevY = e.touches[0].clientY;
+                }
+            }, { passive: true });
+            domElem.addEventListener('touchmove', e => {
+                if (!camControl.isDragging || e.touches.length !== 1) return;
+                const dx = e.touches[0].clientX - camControl.prevX;
+                const dy = e.touches[0].clientY - camControl.prevY;
+                camControl.prevX = e.touches[0].clientX;
+                camControl.prevY = e.touches[0].clientY;
+                camControl.theta -= dx * 0.007;
+                camControl.phi -= dy * 0.007;
+                updateCameraFromSpherical();
+            }, { passive: true });
+            domElem.addEventListener('touchend', () => {
+                camControl.isDragging = false;
+            });
+        }
+
+        function setCameraView(mode) {
+            camControl.target.set(0, 0, 0);
+            if (mode === 'iso') {
+                camControl.theta = 0.45;
+                camControl.phi = 1.15;
+                camControl.radius = 38;
+            } else if (mode === 'top') {
+                camControl.theta = 0;
+                camControl.phi = 0.1;
+                camControl.radius = 44;
+            } else if (mode === 'side') {
+                camControl.theta = Math.PI / 2;
+                camControl.phi = Math.PI / 2;
+                camControl.radius = 38;
+            } else if (mode === 'front') {
+                camControl.theta = 0;
+                camControl.phi = Math.PI / 2;
+                camControl.radius = 36;
+            }
+            updateCameraFromSpherical();
+        }
+
+        /***********************************************************************
+         * 3. THREE.JS REALISTIC PBR ENGINE, PROCEDURAL HDR & 3D SPRITE LABELS
+         ***********************************************************************/
+        let sharedTextures = {};
+
+        function createProceduralEnvMap(rendererInstance) {
+            const pmremGenerator = new THREE.PMREMGenerator(rendererInstance);
+            pmremGenerator.compileEquirectangularShader();
+
+            const envCanvas = document.createElement('canvas');
+            envCanvas.width = 512;
+            envCanvas.height = 256;
+            const ctx = envCanvas.getContext('2d');
+
+            // Studio HDR-like gradient skybox for realistic glass & metal reflections
+            const grad = ctx.createLinearGradient(0, 0, 0, 256);
+            grad.addColorStop(0.0, '#0f172a');
+            grad.addColorStop(0.25, '#1e293b');
+            grad.addColorStop(0.48, '#38bdf8');
+            grad.addColorStop(0.52, '#090d16');
+            grad.addColorStop(1.0, '#020617');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 512, 256);
+
+            // Studio softbox highlights
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(80, 25, 110, 45);
+            ctx.fillStyle = '#6ee7b7';
+            ctx.fillRect(320, 35, 95, 40);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(210, 95, 90, 25);
+
+            const eqTex = new THREE.CanvasTexture(envCanvas);
+            eqTex.mapping = THREE.EquirectangularReflectionMapping;
+            const envMap = pmremGenerator.fromEquirectangular(eqTex).texture;
+            eqTex.dispose();
+            pmremGenerator.dispose();
+            return envMap;
+        }
+
+        function createRulerTexture(minVal, maxVal, stepVal, unitText, bgHex = 'rgba(15,23,42,0.85)') {
+            const c = document.createElement('canvas');
+            c.width = 128;
+            c.height = 512;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = bgHex;
+            ctx.fillRect(0, 0, 128, 512);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 18px JetBrains Mono, monospace';
+
+            const steps = Math.round((maxVal - minVal) / stepVal);
+            for (let i = 0; i <= steps; i++) {
+                const y = 480 - (i / steps) * 440;
+                const isMajor = i % 2 === 0;
+                ctx.lineWidth = isMajor ? 3 : 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(isMajor ? 42 : 24, y);
+                ctx.stroke();
+                if (isMajor) {
+                    const val = minVal + i * stepVal;
+                    ctx.fillText(`${val}${unitText}`, 48, y + 6);
+                }
+            }
+            const tex = new THREE.CanvasTexture(c);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        function makeTextSprite(text, borderColor = '#10b981', textColor = '#f8fafc', scale = 4.2) {
+            const c = document.createElement('canvas');
+            c.width = 512;
+            c.height = 128;
+            const ctx = c.getContext('2d');
+
+            ctx.fillStyle = 'rgba(7, 12, 26, 0.88)';
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 6;
+            const r = 24;
+            ctx.beginPath();
+            ctx.moveTo(12 + r, 16);
+            ctx.lineTo(500 - r, 16);
+            ctx.quadraticCurveTo(500, 16, 500, 16 + r);
+            ctx.lineTo(500, 112 - r);
+            ctx.quadraticCurveTo(500, 112, 500 - r, 112);
+            ctx.lineTo(12 + r, 112);
+            ctx.quadraticCurveTo(12, 112, 12, 112 - r);
+            ctx.lineTo(12, 16 + r);
+            ctx.quadraticCurveTo(12, 16, 12 + r, 16);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.font = 'bold 34px JetBrains Mono, monospace';
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 256, 64);
+
+            const tex = new THREE.CanvasTexture(c);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(scale, scale * 0.25, 1);
+            sprite.renderOrder = 999;
+            return sprite;
+        }
+
+        function createPressureGauge(radius = 1.25, normalizedVal = 0.5, labelText = 'P') {
+            const gGroup = new THREE.Group();
+            const casing = new THREE.Mesh(
+                new THREE.CylinderGeometry(radius, radius, 0.35, 32),
+                new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.2 })
+            );
+            casing.rotation.x = Math.PI / 2;
+            gGroup.add(casing);
+
+            // Dial canvas
+            const c = document.createElement('canvas');
+            c.width = 256; c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath(); ctx.arc(128, 128, 118, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 6;
+            for (let i = 0; i <= 10; i++) {
+                const ang = Math.PI * 0.75 + (i / 10) * Math.PI * 1.5;
+                ctx.beginPath();
+                ctx.moveTo(128 + Math.cos(ang) * 88, 128 + Math.sin(ang) * 88);
+                ctx.lineTo(128 + Math.cos(ang) * 108, 128 + Math.sin(ang) * 108);
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 32px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(labelText, 128, 185);
+
+            // Needle
+            const needleAng = Math.PI * 0.75 + Math.max(0, Math.min(1, normalizedVal)) * Math.PI * 1.5;
+            ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(128, 128);
+            ctx.lineTo(128 + Math.cos(needleAng) * 82, 128 + Math.sin(needleAng) * 82);
+            ctx.stroke();
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath(); ctx.arc(128, 128, 14, 0, Math.PI * 2); ctx.fill();
+
+            const face = new THREE.Mesh(
+                new THREE.CircleGeometry(radius * 0.88, 32),
+                new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) })
+            );
+            face.position.z = 0.19;
+            gGroup.add(face);
+            return gGroup;
+        }
+
+        function createHelicalSpring(radius, height, turns, colorHex = 0xe2e8f0) {
+            const pts = [];
+            const totalPts = turns * 20;
+            for (let i = 0; i <= totalPts; i++) {
+                const t = i / totalPts;
+                const ang = t * turns * Math.PI * 2;
+                pts.push(new THREE.Vector3(Math.cos(ang) * radius, -t * height, Math.sin(ang) * radius));
+            }
+            const curve = new THREE.CatmullRomCurve3(pts);
+            const geo = new THREE.TubeGeometry(curve, totalPts, 0.08, 8, false);
+            const mat = new THREE.MeshStandardMaterial({ color: colorHex, metalness: 0.9, roughness: 0.15 });
+            return new THREE.Mesh(geo, mat);
+        }
+
+        function initThreeScene() {
+            const container = document.getElementById('canvas3d-container');
+            const w = container.clientWidth || 800;
+            const h = container.clientHeight || 600;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050914);
+            scene.fog = new THREE.FogExp2(0x050914, 0.0065);
+
+            camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 1000);
+            updateCameraFromSpherical();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            // Apply Procedural Studio Environment Map for metallic & glass reflections
+            scene.environment = createProceduralEnvMap(renderer);
+
+            attachCustomOrbitControls(renderer.domElement);
+
+            // Realistic Multi-Point Studio Illumination
+            scene.add(new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 0.65));
+
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
+            keyLight.position.set(18, 32, 24);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            keyLight.shadow.camera.near = 5;
+            keyLight.shadow.camera.far = 90;
+            const d = 24;
+            keyLight.shadow.camera.left = -d;
+            keyLight.shadow.camera.right = d;
+            keyLight.shadow.camera.top = d;
+            keyLight.shadow.camera.bottom = -d;
+            keyLight.shadow.bias = -0.0005;
+            scene.add(keyLight);
+
+            const rimLight = new THREE.SpotLight(0x38bdf8, 1.1, 120, Math.PI / 3, 0.5);
+            rimLight.position.set(-24, 22, -18);
+            scene.add(rimLight);
+
+            const fillLight = new THREE.PointLight(0x10b981, 0.55, 80);
+            fillLight.position.set(0, -4, 20);
+            scene.add(fillLight);
+
+            // Realistic Laboratory Bench / Floor Pedestal + Grid
+            const floorMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(34, 36, 1.2, 64),
+                new THREE.MeshStandardMaterial({
+                    color: 0x0b1324,
+                    metalness: 0.35,
+                    roughness: 0.45
+                })
+            );
+            floorMesh.position.y = -12.15;
+            floorMesh.receiveShadow = true;
+            scene.add(floorMesh);
+
+            const grid = new THREE.GridHelper(56, 28, 0x1e293b, 0x0f172a);
+            grid.position.y = -11.52;
+            scene.add(grid);
+
+            labGroup = new THREE.Group();
+            scene.add(labGroup);
+
+            window.addEventListener('resize', onResize);
+        }
+
+        function onResize() {
+            const container = document.getElementById('canvas3d-container');
+            if (!container || !renderer) return;
+            const w = container.clientWidth || 800;
+            const h = container.clientHeight || 600;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            resizeChartCanvas();
+        }
+
+        function makeArrow(origin, dir, len, hex) {
+            const d = dir.clone();
+            if (d.lengthSq() < 0.0001) d.set(0, 1, 0);
+            d.normalize();
+            const safeLen = Math.max(0.25, len);
+            return new THREE.ArrowHelper(d, origin, safeLen, hex, Math.min(1.4, safeLen * 0.28), Math.min(0.85, safeLen * 0.18));
+        }
+
+        function updateArrow(arrow, origin, dir, len) {
+            if (!arrow) return;
+            arrow.visible = state.showVectors && len > 0.15;
+            if (!arrow.visible) return;
+            arrow.position.copy(origin);
+            const d = dir.clone();
+            if (d.lengthSq() < 0.0001) d.set(0, 1, 0);
+            d.normalize();
+            arrow.setDirection(d);
+            const safeLen = Math.max(0.25, len);
+            arrow.setLength(safeLen, Math.min(1.35, safeLen * 0.28), Math.min(0.8, safeLen * 0.18));
+        }
+
+        /***********************************************************************
+         * 4. BUILDERS & UPDATERS FOR ALL 6 FLUID MECHANICS 3D LABORATORIES
+         ***********************************************************************/
+        function clearLabGroup() {
+            while (labGroup.children.length > 0) {
+                labGroup.remove(labGroup.children[0]);
+            }
+        }
+
+        function rebuildScene() {
+            clearLabGroup();
+            const id = state.activeLabId;
+            if (id === 'lab1') buildLab1();
+            else if (id === 'lab2') buildLab2();
+            else if (id === 'lab3') buildLab3();
+            else if (id === 'lab4') buildLab4();
+            else if (id === 'lab5') buildLab5();
+            else if (id === 'lab6') buildLab6();
+        }
+
+        /* --- LAB 1: ARQUIMEDES, EMPUXO, DENSIDADE (d) vs MASSA ESPECÍFICA (ρ) --- */
+        function buildLab1() {
+            const p = state.params.lab1;
+            const rt = {};
+            const g = 9.8;
+
+            const hollowFrac = p.hollowPct / 100;
+            const dBody = p.rhoMaterial * (1 - hollowFrac);
+            const massKg = dBody * p.bodyVolume;
+            const weightN = massKg * g;
+
+            const subFrac = Math.min(1.0, dBody / p.rhoFluid);
+            const vImmersed = p.bodyVolume * subFrac;
+            const buoyancyN = p.rhoFluid * vImmersed * g;
+            const apparentWeightN = Math.max(0, weightN - buoyancyN);
+
+            rt.dBody = dBody;
+            rt.massKg = massKg;
+            rt.weightN = weightN;
+            rt.vImmersed = vImmersed;
+            rt.buoyancyN = buoyancyN;
+            rt.apparentWeightN = apparentWeightN;
+            rt.subFrac = subFrac;
+
+            const tankRadius = 6.8;
+            const tankHeight = 14.8;
+            const phiArc = state.cutawayMode ? Math.PI * 1.42 : Math.PI * 2;
+
+            // Brushed Steel Base Pedestal
+            const baseMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(tankRadius + 0.65, tankRadius + 0.85, 0.9, 48),
+                new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.25 })
+            );
+            baseMesh.position.y = -9.85;
+            baseMesh.receiveShadow = true;
+            labGroup.add(baseMesh);
+
+            // Realistic Borosilicate Glass Beaker + Top Rim
+            const glassMat = new THREE.MeshPhysicalMaterial({
+                color: 0xe0f2fe,
+                transparent: true,
+                opacity: 0.24,
+                roughness: 0.05,
+                metalness: 0.05,
+                reflectivity: 0.95,
+                side: THREE.DoubleSide
+            });
+            const tankMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(tankRadius, tankRadius, tankHeight, 48, 1, true, 0, phiArc),
+                glassMat
+            );
+            tankMesh.position.y = -2.0;
+            labGroup.add(tankMesh);
+
+            const topRim = new THREE.Mesh(
+                new THREE.TorusGeometry(tankRadius, 0.16, 16, 48, phiArc),
+                new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.4, roughness: 0.15 })
+            );
+            topRim.rotation.x = Math.PI / 2;
+            topRim.position.y = -2.0 + tankHeight / 2;
+            labGroup.add(topRim);
+
+            // Graduated Volumetric Scale Board on the side of the Beaker
+            const scalePlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(2.2, 13.0),
+                new THREE.MeshBasicMaterial({
+                    map: createRulerTexture(0, 12, 2, ' L'),
+                    transparent: true,
+                    side: THREE.DoubleSide
+                })
+            );
+            scalePlane.position.set(tankRadius + 1.4, -2.5, 0);
+            labGroup.add(scalePlane);
+
+            // Liquid Column inside tank (rises with displaced volume vImmersed)
+            const baseFluidH = 8.8;
+            const displacedRise = vImmersed * 0.55;
+            const fluidH = baseFluidH + displacedRise;
+            const fluidSurfaceY = -9.4 + fluidH;
+            rt.fluidSurfaceY = fluidSurfaceY;
+
+            const isMercury = p.rhoFluid > 1.8;
+            const fluidColor = isMercury ? 0xcbd5e1 : (p.rhoFluid < 0.9 ? 0xf59e0b : 0x0284c7);
+            const fluidMat = new THREE.MeshStandardMaterial({
+                color: fluidColor,
+                transparent: !isMercury,
+                opacity: isMercury ? 0.95 : 0.62,
+                metalness: isMercury ? 0.92 : 0.15,
+                roughness: isMercury ? 0.08 : 0.12,
+                side: THREE.DoubleSide
+            });
+            const fluidMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(tankRadius - 0.08, tankRadius - 0.08, fluidH, 48, 1, false, 0, phiArc),
+                fluidMat
+            );
+            fluidMesh.position.y = -9.4 + fluidH / 2;
+            labGroup.add(fluidMesh);
+
+            // Glowing Meniscus Ring & Animated Surface Ripple Ring
+            const meniscus = new THREE.Mesh(
+                new THREE.TorusGeometry(tankRadius - 0.1, 0.08, 12, 48, phiArc),
+                new THREE.MeshBasicMaterial({ color: isMercury ? 0xffffff : 0x7dd3fc })
+            );
+            meniscus.rotation.x = Math.PI / 2;
+            meniscus.position.y = fluidSurfaceY;
+            labGroup.add(meniscus);
+
+            const rippleRing = new THREE.Mesh(
+                new THREE.RingGeometry(1.8, 2.05, 40),
+                new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+            );
+            rippleRing.rotation.x = Math.PI / 2;
+            rippleRing.position.y = fluidSurfaceY + 0.03;
+            labGroup.add(rippleRing);
+            rt.rippleRing = rippleRing;
+
+            // Metallic Laboratory Gantry Frame & Helical Spring Dynamometer
+            const pillarL = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 22, 16), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.25 }));
+            pillarL.position.set(-9.5, 1.0, 0);
+            const crossBar = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 11.5, 16), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.25 }));
+            crossBar.rotation.z = Math.PI / 2;
+            crossBar.position.set(-4.2, 11.5, 0);
+            labGroup.add(pillarL, crossBar);
+
+            // Transparent Dynamometer Cylinder with internal Helical Spring
+            const dynCasing = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.85, 0.85, 3.8, 24, 1, true),
+                new THREE.MeshStandardMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.35, metalness: 0.3 })
+            );
+            dynCasing.position.set(0, 9.2, 0);
+            labGroup.add(dynCasing);
+
+            const springStretch = 1.4 + Math.min(1.8, apparentWeightN * 0.04);
+            const springMesh = createHelicalSpring(0.48, springStretch, 9, 0xfacc15);
+            springMesh.position.set(0, 10.9, 0);
+            labGroup.add(springMesh);
+            rt.springMesh = springMesh;
+
+            // Realistic Metallic Sphere with Equatorial Flange, Bolts & Hollow Cavity
+            const sphereGroup = new THREE.Group();
+            const extRadius = 1.75 * Math.pow(p.bodyVolume / 2.0, 1 / 3);
+            const cavRadius = extRadius * Math.pow(hollowFrac, 1 / 3);
+            rt.extRadius = extRadius;
+
+            const spherePhi = state.cutawayMode ? Math.PI * 1.32 : Math.PI * 2;
+            const outerShell = new THREE.Mesh(
+                new THREE.SphereGeometry(extRadius, 48, 32, 0, spherePhi, 0, Math.PI),
+                new THREE.MeshStandardMaterial({
+                    color: p.rhoMaterial > 2.2 ? 0x94a3b8 : 0xd97706,
+                    metalness: 0.88,
+                    roughness: 0.18,
+                    side: THREE.DoubleSide
+                })
+            );
+            outerShell.castShadow = true;
+            sphereGroup.add(outerShell);
+
+            // Equatorial seam ring on the sphere
+            const seamRing = new THREE.Mesh(
+                new THREE.TorusGeometry(extRadius * 1.005, 0.055, 10, 40, spherePhi),
+                new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.2 })
+            );
+            seamRing.rotation.x = Math.PI / 2;
+            sphereGroup.add(seamRing);
+
+            // Inner Cavity Chamber when hollowPct > 0
+            if (hollowFrac > 0.01) {
+                const innerWall = new THREE.Mesh(
+                    new THREE.SphereGeometry(cavRadius, 36, 24, 0, spherePhi, 0, Math.PI),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x10b981,
+                        metalness: 0.4,
+                        roughness: 0.3,
+                        transparent: !state.cutawayMode,
+                        opacity: state.cutawayMode ? 0.95 : 0.28,
+                        side: THREE.DoubleSide
+                    })
+                );
+                sphereGroup.add(innerWall);
+
+                if (state.cutawayMode) {
+                    // Highlight cross-section wall thickness between cavRadius and extRadius
+                    const crossSectionRing = new THREE.Mesh(
+                        new THREE.RingGeometry(cavRadius, extRadius, 32),
+                        new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide })
+                    );
+                    sphereGroup.add(crossSectionRing);
+                }
+            }
+
+            let eqY;
+            if (dBody < p.rhoFluid) {
+                eqY = fluidSurfaceY + extRadius * (1 - 2 * subFrac);
+            } else if (Math.abs(dBody - p.rhoFluid) < 0.05) {
+                eqY = fluidSurfaceY - extRadius * 1.75;
+            } else {
+                eqY = -5.2;
+            }
+            rt.eqY = eqY;
+            sphereGroup.position.y = eqY;
+            labGroup.add(sphereGroup);
+            rt.sphereGroup = sphereGroup;
+
+            // Hook & Steel Cable from Dynamometer to Sphere
+            rt.cableLine = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 10.9 - springStretch, 0), new THREE.Vector3(0, eqY + extRadius, 0)]),
+                new THREE.LineBasicMaterial({ color: 0xfef08a })
+            );
+            labGroup.add(rt.cableLine);
+            rt.springStretch = springStretch;
+
+            // Rising Micro-Bubbles around submerged sphere
+            const bubbleGeo = new THREE.BufferGeometry();
+            const bubblePts = new Float32Array(35 * 3);
+            for (let i = 0; i < 35; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const rad = extRadius * (0.6 + Math.random() * 1.1);
+                bubblePts[i * 3] = Math.cos(ang) * rad;
+                bubblePts[i * 3 + 1] = -8.5 + Math.random() * (fluidSurfaceY + 8.5);
+                bubblePts[i * 3 + 2] = Math.sin(ang) * rad;
+            }
+            bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePts, 3));
+            const bubbles = new THREE.Points(
+                bubbleGeo,
+                new THREE.PointsMaterial({ color: 0xe0f2fe, size: 0.22, transparent: true, opacity: 0.7 })
+            );
+            labGroup.add(bubbles);
+            rt.bubbles = bubbles;
+
+            // 3D Floating Telemetry Labels in Scene
+            const lblDin = makeTextSprite(`P_ap = ${apparentWeightN.toFixed(1)} N`, '#f59e0b');
+            lblDin.position.set(3.8, 9.2, 0);
+            const lblDisp = makeTextSprite(`ΔV = ${vImmersed.toFixed(2)} L`, '#38bdf8');
+            lblDisp.position.set(-4.6, fluidSurfaceY + 0.9, 2.0);
+            labGroup.add(lblDin, lblDisp);
+
+            // Force Vectors: Weight P (Red), Buoyancy E (Green), Tension T = P_ap (Amber)
+            rt.arrowP = makeArrow(new THREE.Vector3(0, eqY, 0), new THREE.Vector3(0, -1, 0), Math.max(1.2, weightN * 0.14), 0xf43f5e);
+            rt.arrowE = makeArrow(new THREE.Vector3(0.85, eqY, 0), new THREE.Vector3(0, 1, 0), Math.max(1.0, buoyancyN * 0.14), 0x10b981);
+            rt.arrowT = makeArrow(new THREE.Vector3(-0.85, eqY + extRadius, 0), new THREE.Vector3(0, 1, 0), apparentWeightN * 0.14, 0xf59e0b);
+            labGroup.add(rt.arrowP, rt.arrowE, rt.arrowT);
+
+            state.runtime = rt;
+        }
+
+        function updateLab1(dt) {
+            const p = state.params.lab1;
+            const rt = state.runtime;
+            if (!rt.sphereGroup) return;
+
+            const bob = Math.sin(state.simTime * 2.5) * 0.2;
+            const curY = rt.eqY + bob;
+            rt.sphereGroup.position.y = curY;
+            rt.sphereGroup.rotation.y += dt * 0.35;
+
+            if (rt.rippleRing) {
+                const s = 1.0 + ((state.simTime * 0.8) % 1.0) * 1.8;
+                rt.rippleRing.scale.set(s, s, 1);
+                rt.rippleRing.material.opacity = Math.max(0, 0.65 * (1 - ((state.simTime * 0.8) % 1.0)));
+            }
+
+            if (rt.bubbles) {
+                const pos = rt.bubbles.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    let y = pos.getY(i) + dt * 1.8;
+                    if (y > rt.fluidSurfaceY) y = -8.8;
+                    pos.setY(i, y);
+                }
+                pos.needsUpdate = true;
+            }
+
+            rt.cableLine.geometry.setFromPoints([
+                new THREE.Vector3(0, 10.9 - rt.springStretch, 0),
+                new THREE.Vector3(0, curY + rt.extRadius, 0)
+            ]);
+
+            updateArrow(rt.arrowP, new THREE.Vector3(0, curY, 0), new THREE.Vector3(0, -1, 0), rt.weightN * 0.13);
+            updateArrow(rt.arrowE, new THREE.Vector3(0.85, curY, 0), new THREE.Vector3(0, 1, 0), rt.buoyancyN * 0.13);
+            updateArrow(rt.arrowT, new THREE.Vector3(-0.85, curY + rt.extRadius, 0), new THREE.Vector3(0, 1, 0), rt.apparentWeightN * 0.13);
+
+            pushChart(rt.buoyancyN, rt.weightN, rt.apparentWeightN);
+
+            const statusStr = rt.dBody < p.rhoFluid ? 'Flutuando (d < ρ_f)' : (Math.abs(rt.dBody - p.rhoFluid) < 0.02 ? 'Equilíbrio Indiferente' : 'Submerso (d > ρ_f)');
+            setTelemetry([
+                `ρ_mat: ${p.rhoMaterial.toFixed(2)} g/cm³`,
+                `d_corpo: ${rt.dBody.toFixed(2)} g/cm³`,
+                `Empuxo E: ${rt.buoyancyN.toFixed(1)} N`,
+                `P_aparente: ${rt.apparentWeightN.toFixed(1)} N`
+            ]);
+
+            setCalculations([
+                {
+                    title: 'Massa Específica (ρ) vs Densidade do Corpo (d)',
+                    eq: 'ρ_mat = m / V_maciço   |   d_corpo = m / V_total = ρ_mat · (1 - f_oca)',
+                    val: `ρ_mat = ${p.rhoMaterial.toFixed(2)} g/cm³  ⇒  d_corpo = ${rt.dBody.toFixed(2)} g/cm³ (${statusStr})`
+                },
+                {
+                    title: 'Princípio de Arquimedes & Força de Empuxo (E)',
+                    eq: 'E = ρ_fluido · V_imerso · g',
+                    val: `V_imerso = ${rt.vImmersed.toFixed(2)} L (${(rt.subFrac * 100).toFixed(0)}%)  ⇒  E = ${rt.buoyancyN.toFixed(2)} N`
+                },
+                {
+                    title: 'Peso Real (P) e Peso Aparente no Dinamômetro',
+                    eq: 'P_ap = P - E = m·g - E',
+                    val: `P = ${rt.weightN.toFixed(2)} N  |  P_ap = ${rt.apparentWeightN.toFixed(2)} N`
+                }
+            ]);
+        }
+
+        /* --- LAB 2: PRESSÃO (P=F/A), PRESSÃO ATMOSFÉRICA (TORRICELLI) E STEVIN --- */
+        function buildLab2() {
+            const p = state.params.lab2;
+            const rt = {};
+
+            const tankW = 11.5, tankH = 14.2, tankD = 8.4;
+            const waterTopY = 4.5;
+            const waterBotY = -8.5;
+            const totalWaterH = waterTopY - waterBotY;
+
+            // Reinforced Concrete Dam Wall with Structural Buttresses & Brass Nozzles
+            const damWall = new THREE.Mesh(
+                new THREE.BoxGeometry(1.3, tankH, tankD),
+                new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7, metalness: 0.2 })
+            );
+            damWall.position.set(1.5, -2.0, 0);
+            damWall.castShadow = true;
+            damWall.receiveShadow = true;
+            labGroup.add(damWall);
+
+            // Reservoir Back & Bottom Basin Walls
+            const reservoirFloor = new THREE.Mesh(
+                new THREE.BoxGeometry(20.5, 0.7, tankD + 0.6),
+                new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.4, roughness: 0.6 })
+            );
+            reservoirFloor.position.set(-0.5, -9.2, 0);
+            labGroup.add(reservoirFloor);
+
+            // Deep Water Volume with Realistic Transparency
+            const waterMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(tankW, totalWaterH, state.cutawayMode ? tankD * 0.55 : tankD),
+                new THREE.MeshStandardMaterial({
+                    color: 0x0284c7,
+                    transparent: true,
+                    opacity: 0.54,
+                    roughness: 0.1,
+                    metalness: 0.15,
+                    side: THREE.DoubleSide
+                })
+            );
+            waterMesh.position.set(-4.8, -2.0, state.cutawayMode ? -tankD * 0.22 : 0);
+            labGroup.add(waterMesh);
+
+            // Depth Ruler on Dam Face (0 m to 10 m)
+            const depthRuler = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.8, totalWaterH),
+                new THREE.MeshBasicMaterial({ map: createRulerTexture(0, 10, 2, 'm'), side: THREE.DoubleSide })
+            );
+            depthRuler.position.set(0.82, -2.0, tankD / 2 + 0.05);
+            labGroup.add(depthRuler);
+
+            if (state.cutawayMode) {
+                [2.0, -1.0, -4.0, -7.0].forEach((yIso, idx) => {
+                    const isoPlane = new THREE.Mesh(
+                        new THREE.PlaneGeometry(tankW - 0.2, tankD * 0.55),
+                        new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.18, side: THREE.DoubleSide })
+                    );
+                    isoPlane.rotation.x = Math.PI / 2;
+                    isoPlane.position.set(-4.8, yIso, -tankD * 0.22);
+                    labGroup.add(isoPlane);
+                });
+            }
+
+            if (state.showVectors) {
+                [-8.5, -5.0, -1.5].forEach(xAtm => {
+                    labGroup.add(makeArrow(
+                        new THREE.Vector3(xAtm, waterTopY + 2.4, 0),
+                        new THREE.Vector3(0, -1, 0),
+                        2.2 * p.patmAtm,
+                        0xf59e0b
+                    ));
+                });
+            }
+
+            // Detailed Submarine Bathyscaphe at depth h
+            const probeY = waterTopY - (p.depthH / 10.0) * (totalWaterH - 1.5);
+            const probeGroup = new THREE.Group();
+            const winRadius = 0.78 * Math.sqrt(p.windowArea / 0.5);
+
+            const hull = new THREE.Mesh(
+                new THREE.CylinderGeometry(winRadius, winRadius, 2.5, 32),
+                new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.65, roughness: 0.25 })
+            );
+            hull.rotation.z = Math.PI / 2;
+            probeGroup.add(hull);
+
+            // Conning tower & glass porthole window of area A
+            const tower = new THREE.Mesh(
+                new THREE.CylinderGeometry(winRadius * 0.42, winRadius * 0.48, 0.75, 20),
+                new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.65, roughness: 0.25 })
+            );
+            tower.position.y = winRadius * 0.95;
+            probeGroup.add(tower);
+
+            const porthole = new THREE.Mesh(
+                new THREE.SphereGeometry(winRadius * 0.96, 24, 24),
+                new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.9, roughness: 0.05 })
+            );
+            porthole.position.x = 1.2;
+            probeGroup.add(porthole);
+
+            const propeller = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, winRadius * 1.4, 0.35),
+                new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9 })
+            );
+            propeller.position.x = -1.38;
+            probeGroup.add(propeller);
+            rt.propeller = propeller;
+
+            if (state.showVectors) {
+                const fScale = Math.min(3.5, 1.0 + (p.depthH / 10) * 2.2);
+                probeGroup.add(
+                    makeArrow(new THREE.Vector3(0, winRadius + fScale + 0.4, 0), new THREE.Vector3(0, -1, 0), fScale, 0x38bdf8),
+                    makeArrow(new THREE.Vector3(0, -winRadius - fScale, 0), new THREE.Vector3(0, 1, 0), fScale, 0x38bdf8),
+                    makeArrow(new THREE.Vector3(-1.4 - fScale, 0, 0), new THREE.Vector3(1, 0, 0), fScale, 0xf43f5e),
+                    makeArrow(new THREE.Vector3(1.5 + fScale, 0, 0), new THREE.Vector3(-1, 0, 0), fScale, 0xf43f5e)
+                );
+            }
+            probeGroup.position.set(-4.8, probeY, 0);
+            labGroup.add(probeGroup);
+
+            // 3 Spouting Volumetric Parabolic Water Jets + Animated Droplets (Stevin's Law)
+            const orificeY = [1.5, -2.0, -5.5];
+            const dropPositions = [];
+            const dropMeta = [];
+            orificeY.forEach((oy, idx) => {
+                const zPos = (idx - 1) * 1.9;
+                // Brass Nozzle on Dam Wall
+                const nozzle = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.24, 0.28, 0.65, 16),
+                    new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.9, roughness: 0.2 })
+                );
+                nozzle.rotation.z = Math.PI / 2;
+                nozzle.position.set(2.15, oy, zPos);
+                labGroup.add(nozzle);
+
+                const hOrifice = waterTopY - oy;
+                const vJet = Math.sqrt(2 * 9.8 * hOrifice) * 0.44;
+                const curvePts = [];
+                for (let t = 0; t <= 1.75; t += 0.06) {
+                    const jx = 2.3 + vJet * t;
+                    const jy = oy - 0.5 * 5.2 * t * t;
+                    if (jy < -8.8) {
+                        curvePts.push(new THREE.Vector3(jx, -8.8, zPos));
+                        break;
+                    }
+                    curvePts.push(new THREE.Vector3(jx, jy, zPos));
+                }
+                const jetCurve = new THREE.CatmullRomCurve3(curvePts);
+                const jetTube = new THREE.Mesh(
+                    new THREE.TubeGeometry(jetCurve, 28, 0.14, 12, false),
+                    new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.78, roughness: 0.08 })
+                );
+                labGroup.add(jetTube);
+
+                // Animated Droplets along each parabolic jet
+                for (let d = 0; d < 18; d++) {
+                    dropPositions.push(2.3, oy, zPos);
+                    dropMeta.push({ oy, zPos, vJet, phase: d / 18 });
+                }
+            });
+
+            const dropGeo = new THREE.BufferGeometry();
+            dropGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(dropPositions), 3));
+            const dropPoints = new THREE.Points(
+                dropGeo,
+                new THREE.PointsMaterial({ color: 0xe0f2fe, size: 0.32, transparent: true, opacity: 0.9 })
+            );
+            labGroup.add(dropPoints);
+            rt.dropPoints = dropPoints;
+            rt.dropMeta = dropMeta;
+
+            // 2. High-Detail Torricelli Mercury Barometer on the Right (x = +12.0)
+            const baroX = 12.0;
+            const backBoard = new THREE.Mesh(
+                new THREE.BoxGeometry(3.4, 16.2, 0.35),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.3, roughness: 0.6 })
+            );
+            backBoard.position.set(baroX, -0.8, -1.3);
+            labGroup.add(backBoard);
+
+            const mmHgScale = new THREE.Mesh(
+                new THREE.PlaneGeometry(2.1, 14.0),
+                new THREE.MeshBasicMaterial({ map: createRulerTexture(0, 900, 150, '') })
+            );
+            mmHgScale.position.set(baroX + 1.15, -1.0, -1.08);
+            labGroup.add(mmHgScale);
+
+            const bowl = new THREE.Mesh(
+                new THREE.CylinderGeometry(2.5, 2.2, 2.2, 32),
+                new THREE.MeshStandardMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.38 })
+            );
+            bowl.position.set(baroX, -8.2, 0);
+            labGroup.add(bowl);
+
+            const bowlMercury = new THREE.Mesh(
+                new THREE.CylinderGeometry(2.35, 2.1, 1.35, 32),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.98, roughness: 0.04 })
+            );
+            bowlMercury.position.set(baroX, -8.45, 0);
+            labGroup.add(bowlMercury);
+
+            const glassTube = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.68, 0.68, 14.6, 32, 1, true),
+                new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.26, side: THREE.DoubleSide })
+            );
+            glassTube.position.set(baroX, -1.2, 0);
+            labGroup.add(glassTube);
+
+            // Mirror-like Liquid Mercury Column (760 mmHg at 1 atm)
+            const hgHeight = 9.5 * p.patmAtm;
+            const hgCol = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.55, 0.55, hgHeight, 32),
+                new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.98, roughness: 0.03 })
+            );
+            hgCol.position.set(baroX, -8.2 + hgHeight / 2, 0);
+            labGroup.add(hgCol);
+
+            const lblBaro = makeTextSprite(`${(p.patmAtm * 760).toFixed(0)} mmHg`, '#10b981');
+            lblBaro.position.set(baroX, -8.2 + hgHeight + 1.5, 1.2);
+            labGroup.add(lblBaro);
+
+            if (state.cutawayMode) {
+                const vacH = Math.max(0.8, 13.5 - hgHeight);
+                const vacMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.5, 0.5, vacH, 20),
+                    new THREE.MeshBasicMaterial({ color: 0xf43f5e, wireframe: true, transparent: true, opacity: 0.55 })
+                );
+                vacMesh.position.set(baroX, -8.2 + hgHeight + vacH / 2, 0);
+                labGroup.add(vacMesh);
+            }
+
+            state.runtime = rt;
+        }
+
+        function updateLab2(dt) {
+            const p = state.params.lab2;
+            const rt = state.runtime;
+            const g = 9.8;
+            const patmPa = p.patmAtm * 101325;
+            const phidPa = p.fluidRho * g * p.depthH;
+            const pabsPa = patmPa + phidPa;
+            const forceWindowN = pabsPa * p.windowArea;
+            const mmHg = p.patmAtm * 760;
+
+            if (rt.propeller) {
+                rt.propeller.rotation.x += dt * 9.0;
+            }
+
+            if (rt.dropPoints && rt.dropMeta) {
+                const pos = rt.dropPoints.geometry.attributes.position;
+                for (let i = 0; i < rt.dropMeta.length; i++) {
+                    const dm = rt.dropMeta[i];
+                    const t = ((state.simTime * 0.95 + dm.phase) % 1.0) * 1.45;
+                    const jx = 2.3 + dm.vJet * t;
+                    const jy = Math.max(-8.8, dm.oy - 0.5 * 5.2 * t * t);
+                    pos.setXYZ(i, jx, jy, dm.zPos);
+                }
+                pos.needsUpdate = true;
+            }
+
+            setTelemetry([
+                `P_atm: ${(patmPa / 1000).toFixed(1)} kPa (${mmHg.toFixed(0)} mmHg)`,
+                `P_hid: ${(phidPa / 1000).toFixed(1)} kPa`,
+                `P_abs: ${(pabsPa / 1000).toFixed(1)} kPa`,
+                `Força F: ${(forceWindowN / 1000).toFixed(1)} kN`
+            ]);
+
+            setCalculations([
+                {
+                    title: 'Pressão Atmosférica (Experimento de Torricelli)',
+                    eq: 'P_atm = ρ_Hg · g · h_Hg',
+                    val: `Coluna = ${mmHg.toFixed(0)} mmHg  ⇒  P_atm = ${(patmPa / 1000).toFixed(2)} kPa (${p.patmAtm.toFixed(2)} atm)`
+                },
+                {
+                    title: 'Pressão Hidrostática e Teorema de Stevin',
+                    eq: 'P_abs = P_atm + ρ_fluido · g · h',
+                    val: `P_hid = ${(phidPa / 1000).toFixed(2)} kPa  ⇒  P_abs = ${(pabsPa / 1000).toFixed(2)} kPa`
+                },
+                {
+                    title: 'Definição de Pressão Normal na Escotilha (P = F_N / A)',
+                    eq: 'F_N = P_abs · A',
+                    val: `Para A = ${p.windowArea.toFixed(1)} m²  ⇒  F_N = ${(forceWindowN / 1000).toFixed(2)} kN`
+                }
+            ]);
+        }
+
+        /* --- LAB 3: PRINCÍPIO DE PASCAL E PRENSA HIDRÁULICA 3D --- */
+        function buildLab3() {
+            const p = state.params.lab3;
+            const rt = {};
+
+            const r1 = p.radiusR1 * 1.15;
+            const r2 = p.radiusR2 * 1.15;
+            const areaRatio = Math.pow(p.radiusR2 / p.radiusR1, 2);
+            const forceF2 = p.forceF1 * areaRatio;
+            const strokeH2 = p.strokeH1 / areaRatio;
+            const area1_m2 = Math.PI * Math.pow(p.radiusR1 * 0.1, 2);
+            const deltaP_kPa = (p.forceF1 / area1_m2) / 1000;
+
+            rt.r1 = r1; rt.r2 = r2;
+            rt.areaRatio = areaRatio;
+            rt.forceF2 = forceF2;
+            rt.strokeH2 = strokeH2;
+            rt.deltaP_kPa = deltaP_kPa;
+
+            const x1 = -8.5, x2 = 6.5;
+            const cylPhi = state.cutawayMode ? Math.PI * 1.35 : Math.PI * 2;
+            const wallMat = new THREE.MeshStandardMaterial({
+                color: 0xcbd5e1, transparent: true, opacity: 0.34, metalness: 0.6, roughness: 0.15, side: THREE.DoubleSide
+            });
+            const oilMat = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b, transparent: true, opacity: 0.78, metalness: 0.2, roughness: 0.12, side: THREE.DoubleSide
+            });
+            const flangeMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.25 });
+
+            // Left Cylinder 1 & Right Cylinder 2 + Industrial Flanges
+            const c1 = new THREE.Mesh(new THREE.CylinderGeometry(r1 + 0.18, r1 + 0.18, 11, 36, 1, true, 0, cylPhi), wallMat);
+            c1.position.set(x1, -1.5, 0);
+            const c2 = new THREE.Mesh(new THREE.CylinderGeometry(r2 + 0.18, r2 + 0.18, 11, 36, 1, true, 0, cylPhi), wallMat);
+            c2.position.set(x2, -1.5, 0);
+            labGroup.add(c1, c2);
+
+            [-7.0, 4.0].forEach(fy => {
+                const fl1 = new THREE.Mesh(new THREE.TorusGeometry(r1 + 0.28, 0.18, 12, 32, cylPhi), flangeMat);
+                fl1.rotation.x = Math.PI / 2; fl1.position.set(x1, fy, 0);
+                const fl2 = new THREE.Mesh(new THREE.TorusGeometry(r2 + 0.28, 0.22, 12, 36, cylPhi), flangeMat);
+                fl2.rotation.x = Math.PI / 2; fl2.position.set(x2, fy, 0);
+                labGroup.add(fl1, fl2);
+            });
+
+            // Connecting Bottom U-Channel Manifold + Analog Pressure Gauge
+            const conn = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.2, 1.2, x2 - x1, 28, 1, false, 0, cylPhi),
+                oilMat
+            );
+            conn.rotation.z = Math.PI / 2;
+            conn.position.set((x1 + x2) / 2, -6.5, 0);
+            labGroup.add(conn);
+
+            const gauge = createPressureGauge(1.35, Math.min(1, deltaP_kPa / 250), 'ΔP');
+            gauge.position.set((x1 + x2) / 2, -4.6, 1.35);
+            labGroup.add(gauge);
+
+            const lblPascal = makeTextSprite(`ΔP = ${deltaP_kPa.toFixed(1)} kPa`, '#38bdf8');
+            lblPascal.position.set((x1 + x2) / 2, -2.5, 1.5);
+            labGroup.add(lblPascal);
+
+            // Oil Columns inside both cylinders
+            const oil1 = new THREE.Mesh(new THREE.CylinderGeometry(r1, r1, 7, 32, 1, false, 0, cylPhi), oilMat);
+            oil1.position.set(x1, -3.5, 0);
+            const oil2 = new THREE.Mesh(new THREE.CylinderGeometry(r2, r2, 7, 32, 1, false, 0, cylPhi), oilMat);
+            oil2.position.set(x2, -3.5, 0);
+            labGroup.add(oil1, oil2);
+
+            // Piston 1 (Left, Small) with Rubber O-Rings
+            const pist1Group = new THREE.Group();
+            const p1Disk = new THREE.Mesh(new THREE.CylinderGeometry(r1, r1, 0.9, 32), new THREE.MeshStandardMaterial({ color: 0xf43f5e, metalness: 0.75, roughness: 0.2 }));
+            const oRing1 = new THREE.Mesh(new THREE.TorusGeometry(r1, 0.08, 10, 32), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 }));
+            oRing1.rotation.x = Math.PI / 2;
+            const p1Rod = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 4.5, 20), new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.92, roughness: 0.1 }));
+            p1Rod.position.y = 2.4;
+            pist1Group.add(p1Disk, oRing1, p1Rod);
+            pist1Group.position.set(x1, 0, 0);
+            labGroup.add(pist1Group);
+            rt.pist1Group = pist1Group;
+
+            // Piston 2 (Right, Large) + Detailed 3D Vehicle on Hydraulic Lift Platform
+            const pist2Group = new THREE.Group();
+            const p2Disk = new THREE.Mesh(new THREE.CylinderGeometry(r2, r2, 1.0, 36), new THREE.MeshStandardMaterial({ color: 0x10b981, metalness: 0.75, roughness: 0.2 }));
+            const oRing2 = new THREE.Mesh(new THREE.TorusGeometry(r2, 0.1, 10, 36), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 }));
+            oRing2.rotation.x = Math.PI / 2;
+            const p2Rod = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 3.6, 24), new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.92, roughness: 0.1 }));
+            p2Rod.position.y = 1.8;
+            const plat = new THREE.Mesh(new THREE.BoxGeometry(Math.max(6.8, r2 * 2.2), 0.48, 4.4), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 }));
+            plat.position.y = 3.6;
+
+            // Realistic 3D Car (Chassis, Cabin, 4 Wheels with Alloy Rims, Headlights)
+            const carGroup = new THREE.Group();
+            const chassis = new THREE.Mesh(new THREE.BoxGeometry(5.6, 1.15, 2.7), new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.75, roughness: 0.2 }));
+            chassis.position.y = 4.65;
+            const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.05, 2.35), new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.85, roughness: 0.1 }));
+            cabin.position.set(-0.2, 5.65, 0);
+            carGroup.add(chassis, cabin);
+
+            const wheelPositions = [[-1.7, 4.1, 1.38], [1.7, 4.1, 1.38], [-1.7, 4.1, -1.38], [1.7, 4.1, -1.38]];
+            wheelPositions.forEach(wp => {
+                const tire = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.62, 0.62, 0.38, 24),
+                    new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 })
+                );
+                tire.rotation.x = Math.PI / 2;
+                tire.position.set(wp[0], wp[1], wp[2]);
+                const rim = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.36, 0.36, 0.4, 16),
+                    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 })
+                );
+                rim.rotation.x = Math.PI / 2;
+                rim.position.set(wp[0], wp[1], wp[2]);
+                carGroup.add(tire, rim);
+            });
+
+            pist2Group.add(p2Disk, oRing2, p2Rod, plat, carGroup);
+            pist2Group.position.set(x2, 0, 0);
+            labGroup.add(pist2Group);
+            rt.pist2Group = pist2Group;
+
+            if (state.showVectors) {
+                [-5, -1, 3].forEach(px => {
+                    labGroup.add(
+                        makeArrow(new THREE.Vector3(px, -6.5, 0), new THREE.Vector3(0, 1, 0), 1.3, 0x38bdf8),
+                        makeArrow(new THREE.Vector3(px, -6.5, 0), new THREE.Vector3(0, -1, 0), 1.3, 0x38bdf8)
+                    );
+                });
+            }
+
+            rt.arrowF1 = makeArrow(new THREE.Vector3(x1, 5.5, 0), new THREE.Vector3(0, -1, 0), 3.0, 0xf43f5e);
+            rt.arrowF2 = makeArrow(new THREE.Vector3(x2, 6.8, 0), new THREE.Vector3(0, 1, 0), Math.min(6.5, 2.2 * Math.sqrt(areaRatio)), 0x10b981);
+            labGroup.add(rt.arrowF1, rt.arrowF2);
+            rt.x1 = x1; rt.x2 = x2;
+
+            state.runtime = rt;
+        }
+
+        function updateLab3(dt) {
+            const p = state.params.lab3;
+            const rt = state.runtime;
+            if (!rt.pist1Group) return;
+
+            const cyc = 0.5 * (1 - Math.cos(state.simTime * 2.0));
+            const dy1 = -cyc * p.strokeH1 * 0.85;
+            const dy2 = cyc * rt.strokeH2 * 0.85 * 2.2;
+
+            rt.pist1Group.position.y = dy1;
+            rt.pist2Group.position.y = dy2;
+
+            updateArrow(rt.arrowF1, new THREE.Vector3(rt.x1, 5.0 + dy1, 0), new THREE.Vector3(0, -1, 0), 2.8);
+            updateArrow(rt.arrowF2, new THREE.Vector3(rt.x2, 6.5 + dy2, 0), new THREE.Vector3(0, 1, 0), Math.min(6.2, 2.0 * Math.sqrt(rt.areaRatio)));
+
+            pushChart(rt.forceF2 / 100, p.forceF1 / 100, rt.deltaP_kPa);
+
+            setTelemetry([
+                `VM (A₂/A₁): ${rt.areaRatio.toFixed(2)}x`,
+                `F₁: ${p.forceF1.toFixed(0)} N`,
+                `F₂: ${rt.forceF2.toFixed(0)} N`,
+                `Δh₂: ${rt.strokeH2.toFixed(2)} dm`
+            ]);
+
+            setCalculations([
+                {
+                    title: 'Princípio de Pascal (Transmissão Integral de ΔP)',
+                    eq: 'ΔP = F₁ / A₁ = F₂ / A₂',
+                    val: `ΔP = ${rt.deltaP_kPa.toFixed(2)} kPa transmitido igualmente em todo o fluido`
+                },
+                {
+                    title: 'Multiplicação de Força na Prensa Hidráulica',
+                    eq: 'F₂ = F₁ · (A₂ / A₁) = F₁ · (R₂ / R₁)²',
+                    val: `Vantagem Mecânica = ${rt.areaRatio.toFixed(2)}x  ⇒  F₂ = ${rt.forceF2.toFixed(1)} N`
+                },
+                {
+                    title: 'Conservação do Volume e Trabalho Mecânico',
+                    eq: 'A₁ · Δh₁ = A₂ · Δh₂   ⇒   Δh₂ = Δh₁ / (A₂/A₁)',
+                    val: `Δh₁ = ${p.strokeH1.toFixed(2)} dm  ⇒  Δh₂ = ${rt.strokeH2.toFixed(3)} dm (τ₁ = τ₂)`
+                }
+            ]);
+        }
+
+        /* --- LAB 4: VASOS COMUNICANTES MULTIMORFOS & TUBO EM U IMISCÍVEL --- */
+        function buildLab4() {
+            const p = state.params.lab4;
+            const rt = {};
+            const phiArc = state.cutawayMode ? Math.PI * 1.4 : Math.PI * 2;
+
+            // PART A (LEFT): Laboratory Rack with 4 Multi-Shape Communicating Vessels
+            const levelH = p.multiVesselLevel;
+            const rackBase = new THREE.Mesh(
+                new THREE.BoxGeometry(14.8, 0.7, 3.8),
+                new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 })
+            );
+            rackBase.position.set(-8.6, -8.5, 0);
+            labGroup.add(rackBase);
+
+            const baseManifold = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.7, 0.7, 13.2, 24),
+                new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.8, roughness: 0.1 })
+            );
+            baseManifold.rotation.z = Math.PI / 2;
+            baseManifold.position.set(-8.6, -7.5, 0);
+            labGroup.add(baseManifold);
+
+            const vesselSpecs = [
+                { x: -14.0, rTop: 0.85, rBot: 0.85, tilt: 0 },
+                { x: -10.5, rTop: 1.95, rBot: 0.72, tilt: 0 },
+                { x: -7.0,  rTop: 0.72, rBot: 1.80, tilt: 0 },
+                { x: -3.5,  rTop: 0.90, rBot: 0.90, tilt: 0.24 }
+            ];
+
+            vesselSpecs.forEach(vs => {
+                // Brass Stopcock Valve at Base
+                const valve = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.45, 0.45, 0.9, 16),
+                    new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.88, roughness: 0.2 })
+                );
+                valve.position.set(vs.x, -7.5, 0.65);
+                valve.rotation.x = Math.PI / 2;
+                labGroup.add(valve);
+
+                const glass = new THREE.Mesh(
+                    new THREE.CylinderGeometry(vs.rTop + 0.1, vs.rBot + 0.1, 10.5, 32, 1, true, 0, phiArc),
+                    new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.25, roughness: 0.08, side: THREE.DoubleSide })
+                );
+                glass.position.set(vs.x, -2.2, 0);
+                glass.rotation.z = vs.tilt;
+                labGroup.add(glass);
+
+                const liq = new THREE.Mesh(
+                    new THREE.CylinderGeometry(vs.rTop, vs.rBot, levelH, 32, 1, false, 0, phiArc),
+                    new THREE.MeshStandardMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.76, roughness: 0.12, side: THREE.DoubleSide })
+                );
+                liq.position.set(vs.x - Math.sin(vs.tilt) * (levelH / 2), -7.5 + levelH / 2, 0);
+                liq.rotation.z = vs.tilt;
+                labGroup.add(liq);
+            });
+
+            const levelY = -7.5 + levelH;
+            labGroup.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-15.8, levelY, 1.5), new THREE.Vector3(-1.5, levelY, 1.5)]),
+                new THREE.LineBasicMaterial({ color: 0x10b981 })
+            ));
+            const lblIso = makeTextSprite(`Nível h = ${levelH.toFixed(1)} dm`, '#10b981');
+            lblIso.position.set(-8.6, levelY + 1.3, 1.5);
+            labGroup.add(lblIso);
+
+            // PART B (RIGHT): Graduated U-Tube with 2 Immiscible Liquids (rho1 * h1 = rho2 * h2)
+            const h1 = p.h1Column * 0.35;
+            const h2 = h1 * (p.rho1 / p.rho2);
+            const h2Cm = p.h1Column * (p.rho1 / p.rho2);
+            rt.h2Cm = h2Cm;
+
+            const uLeftX = 5.0, uRightX = 12.0;
+            const interfaceY = -4.5;
+
+            // Backboard with Graduated Scale
+            const uBoard = new THREE.Mesh(
+                new THREE.PlaneGeometry(10.8, 15.5),
+                new THREE.MeshBasicMaterial({ map: createRulerTexture(0, 35, 5, 'cm') })
+            );
+            uBoard.position.set((uLeftX + uRightX) / 2, -0.8, -1.4);
+            labGroup.add(uBoard);
+
+            // Outer Glass Walls for U-Tube Arms
+            [uLeftX, uRightX].forEach(ux => {
+                const armGlass = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.22, 1.22, 14.5, 32, 1, true, 0, phiArc),
+                    new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.25, roughness: 0.08, side: THREE.DoubleSide })
+                );
+                armGlass.position.set(ux, -0.8, 0);
+                labGroup.add(armGlass);
+            });
+
+            const uBottom = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.1, 1.1, uRightX - uLeftX + 2.2, 28, 1, false, 0, phiArc),
+                new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.82 })
+            );
+            uBottom.rotation.z = Math.PI / 2;
+            uBottom.position.set((uLeftX + uRightX) / 2, -7.5, 0);
+            labGroup.add(uBottom);
+
+            const subH = interfaceY - (-7.5);
+            const subLeft = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, subH, 28, 1, false, 0, phiArc), new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.82 }));
+            subLeft.position.set(uLeftX, -7.5 + subH / 2, 0);
+            const subRight = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, subH, 28, 1, false, 0, phiArc), new THREE.MeshStandardMaterial({ color: 0x0284c7, transparent: true, opacity: 0.82 }));
+            subRight.position.set(uRightX, -7.5 + subH / 2, 0);
+            labGroup.add(subLeft, subRight);
+
+            // Column 1 (Blue, height h1 above interface)
+            const col1 = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.1, 1.1, h1, 28, 1, false, 0, phiArc),
+                new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.84, roughness: 0.1, side: THREE.DoubleSide })
+            );
+            col1.position.set(uLeftX, interfaceY + h1 / 2, 0);
+            labGroup.add(col1);
+
+            // Column 2 (Amber, height h2 above interface)
+            const clampedH2 = Math.min(12.5, h2);
+            const col2 = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.1, 1.1, clampedH2, 28, 1, false, 0, phiArc),
+                new THREE.MeshStandardMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.86, roughness: 0.1, side: THREE.DoubleSide })
+            );
+            col2.position.set(uRightX, interfaceY + clampedH2 / 2, 0);
+            labGroup.add(col2);
+
+            // Isobaric Interface Plane (P_A = P_B) & 3D Labels
+            labGroup.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(uLeftX - 2.2, interfaceY, 1.4), new THREE.Vector3(uRightX + 2.2, interfaceY, 1.4)]),
+                new THREE.LineBasicMaterial({ color: 0xf43f5e })
+            ));
+
+            const lblH1 = makeTextSprite(`h₁ = ${p.h1Column.toFixed(0)} cm`, '#38bdf8', '#f8fafc', 3.6);
+            lblH1.position.set(uLeftX, interfaceY + h1 + 1.2, 1.4);
+            const lblH2 = makeTextSprite(`h₂ = ${h2Cm.toFixed(1)} cm`, '#f59e0b', '#f8fafc', 3.6);
+            lblH2.position.set(uRightX, interfaceY + clampedH2 + 1.2, 1.4);
+            labGroup.add(lblH1, lblH2);
+
+            state.runtime = rt;
+        }
+
+        function updateLab4(dt) {
+            const p = state.params.lab4;
+            const rt = state.runtime;
+            const h2Cm = rt.h2Cm || (p.h1Column * p.rho1 / p.rho2);
+            const pInterfaceHid = p.rho1 * 1000 * 9.8 * (p.h1Column / 100);
+
+            pushChart(p.h1Column, h2Cm, (p.rho1 / p.rho2) * 10);
+
+            setTelemetry([
+                `h₁ (Azul): ${p.h1Column.toFixed(1)} cm`,
+                `h₂ (Âmbar): ${h2Cm.toFixed(1)} cm`,
+                `ρ₁/ρ₂: ${(p.rho1 / p.rho2).toFixed(2)}`,
+                `ΔP_int: ${(pInterfaceHid / 1000).toFixed(2)} kPa`
+            ]);
+
+            setCalculations([
+                {
+                    title: 'Paradoxo Hidrostático (Vasos Comunicantes Homogêneos)',
+                    eq: 'P_fundo = P_atm + ρ · g · h  (Independe da forma do vaso)',
+                    val: `Todos os 4 vasos atingem exatamente h = ${p.multiVesselLevel.toFixed(1)} dm`
+                },
+                {
+                    title: 'Tubo em U com Líquidos Imiscíveis (Plano Isobárico P_A = P_B)',
+                    eq: 'P_atm + ρ₁·g·h₁ = P_atm + ρ₂·g·h₂   ⇒   ρ₁ · h₁ = ρ₂ · h₂',
+                    val: `${p.rho1.toFixed(2)} · ${p.h1Column} = ${p.rho2.toFixed(2)} · h₂  ⇒  h₂ = ${h2Cm.toFixed(2)} cm`
+                },
+                {
+                    title: 'Proporção Inversa entre Altura e Densidade',
+                    eq: 'h₂ / h₁ = ρ₁ / ρ₂',
+                    val: `Razão das alturas = ${(h2Cm / p.h1Column).toFixed(2)}x`
+                }
+            ]);
+        }
+
+        /* --- LAB 5: VAZÃO (Q), EQUAÇÃO DA CONTINUIDADE E TUBO DE VENTURI 3D --- */
+        function buildLab5() {
+            const p = state.params.lab5;
+            const rt = {};
+
+            const r1 = p.diamD1 * 0.42;
+            const r2 = p.diamD2 * 0.42;
+            const areaRatio = Math.pow(p.diamD1 / p.diamD2, 2);
+            const v2 = p.velV1 * areaRatio;
+
+            const a1_m2 = Math.PI * Math.pow((p.diamD1 / 100) / 2, 2);
+            const flowQ_Ls = a1_m2 * p.velV1 * 1000;
+
+            const rho = 1000;
+            const dP_Pa = 0.5 * rho * (v2 * v2 - p.velV1 * p.velV1);
+            const p1_kPa = 150;
+            const p2_kPa = Math.max(20, p1_kPa - dP_Pa / 1000);
+
+            rt.r1 = r1; rt.r2 = r2;
+            rt.v1 = p.velV1; rt.v2 = v2;
+            rt.flowQ_Ls = flowQ_Ls;
+            rt.dP_kPa = dP_Pa / 1000;
+            rt.p1_kPa = p1_kPa;
+            rt.p2_kPa = p2_kPa;
+
+            const radiusAtX = x => {
+                const factor = Math.exp(-(x * x) / 28);
+                return r1 - (r1 - r2) * factor;
+            };
+            rt.radiusAtX = radiusAtX;
+
+            // Seamless Single-Piece LatheGeometry Glass Venturi Tube
+            const lathePts = [];
+            const steps = 64;
+            for (let i = 0; i <= steps; i++) {
+                const x = -16 + (i / steps) * 32;
+                lathePts.push(new THREE.Vector2(radiusAtX(x), x));
+            }
+            const phiArc = state.cutawayMode ? Math.PI * 1.35 : Math.PI * 2;
+            const venturiGeo = new THREE.LatheGeometry(lathePts, 48, 0, phiArc);
+            const venturiMesh = new THREE.Mesh(
+                venturiGeo,
+                new THREE.MeshStandardMaterial({
+                    color: 0x38bdf8,
+                    transparent: true,
+                    opacity: 0.3,
+                    metalness: 0.25,
+                    roughness: 0.08,
+                    side: THREE.DoubleSide
+                })
+            );
+            venturiMesh.rotation.z = -Math.PI / 2;
+            labGroup.add(venturiMesh);
+
+            // Industrial Bolted Steel Flanges at Inlet (-16) and Outlet (+16)
+            [-16, 16].forEach(fx => {
+                const flange = new THREE.Mesh(
+                    new THREE.CylinderGeometry(r1 + 0.65, r1 + 0.65, 0.55, 32),
+                    new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.22 })
+                );
+                flange.rotation.z = Math.PI / 2;
+                flange.position.x = fx;
+                labGroup.add(flange);
+            });
+
+            // 3D Streamline Filaments inside Venturi Tube
+            [-0.65, -0.32, 0, 0.32, 0.65].forEach(frac => {
+                const sPts = [];
+                for (let x = -15.8; x <= 15.8; x += 0.8) {
+                    const rLoc = radiusAtX(x);
+                    const turbWave = p.flowMode === 2 ? Math.sin(x * 1.8 + frac * 10) * 0.22 : 0;
+                    sPts.push(new THREE.Vector3(x, rLoc * frac + turbWave, 0));
+                }
+                const sLine = new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(sPts),
+                    new THREE.LineBasicMaterial({ color: p.flowMode === 2 ? 0xf59e0b : 0x38bdf8, transparent: true, opacity: 0.45 })
+                );
+                labGroup.add(sLine);
+            });
+
+            // Cross-section highlight rings at A1 (x = -11), Throat A2 (x = 0) and Outlet (x = +11)
+            [-11, 0, 11].forEach((rx, idx) => {
+                const rr = radiusAtX(rx);
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(rr + 0.05, 0.1, 14, 36),
+                    new THREE.MeshStandardMaterial({ color: idx === 1 ? 0x10b981 : 0xf59e0b, metalness: 0.8, roughness: 0.2 })
+                );
+                ring.rotation.y = Math.PI / 2;
+                ring.position.x = rx;
+                labGroup.add(ring);
+            });
+
+            // 3 Vertical Piezometric Manometer Tubes with Brass Collars & Live Labels
+            const piezoHeights = [7.5, Math.max(1.2, 7.5 - (rt.dP_kPa / 18)), 7.2];
+            const piezoLabels = [`P₁=${p1_kPa.toFixed(0)}kPa`, `P₂=${p2_kPa.toFixed(0)}kPa`, `P₃=${(p1_kPa - 3).toFixed(0)}kPa`];
+            [-11, 0, 11].forEach((px, idx) => {
+                const rBase = radiusAtX(px);
+                const tubeH = 8.8;
+                const glass = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.48, 0.48, tubeH, 24, 1, true),
+                    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.32 })
+                );
+                glass.position.set(px, rBase + tubeH / 2, 0);
+                labGroup.add(glass);
+
+                const colH = piezoHeights[idx];
+                const liq = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.38, 0.38, colH, 24),
+                    new THREE.MeshStandardMaterial({ color: idx === 1 ? 0x10b981 : 0x0ea5e9, roughness: 0.1 })
+                );
+                liq.position.set(px, rBase + colH / 2, 0);
+                labGroup.add(liq);
+
+                const lbl = makeTextSprite(piezoLabels[idx], idx === 1 ? '#10b981' : '#38bdf8', '#f8fafc', 3.5);
+                lbl.position.set(px, rBase + tubeH + 1.0, 0);
+                labGroup.add(lbl);
+            });
+
+            // 220 3D Fluid Tracer Particles
+            const pCount = 220;
+            const pGeo = new THREE.BufferGeometry();
+            const pPos = new Float32Array(pCount * 3);
+            const pData = [];
+            for (let i = 0; i < pCount; i++) {
+                const x = -16 + Math.random() * 32;
+                const radialFrac = Math.random() * 0.8;
+                const ang = Math.random() * Math.PI * 2;
+                const rLocal = radiusAtX(x) * radialFrac;
+                pPos[i * 3] = x;
+                pPos[i * 3 + 1] = rLocal * Math.cos(ang);
+                pPos[i * 3 + 2] = rLocal * Math.sin(ang);
+                pData.push({ x, radialFrac, ang });
+            }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            const particles = new THREE.Points(
+                pGeo,
+                new THREE.PointsMaterial({ color: p.flowMode === 2 ? 0xf59e0b : 0x6ee7b7, size: 0.44 })
+            );
+            labGroup.add(particles);
+            rt.particles = particles;
+            rt.pData = pData;
+
+            if (state.showVectors) {
+                labGroup.add(
+                    makeArrow(new THREE.Vector3(-12, 0, 0), new THREE.Vector3(1, 0, 0), Math.min(4.5, p.velV1 * 1.1), 0x10b981),
+                    makeArrow(new THREE.Vector3(-1.8, 0, 0), new THREE.Vector3(1, 0, 0), Math.min(7.5, v2 * 0.75), 0x10b981)
+                );
+            }
+
+            state.runtime = rt;
+        }
+
+        function updateLab5(dt) {
+            const p = state.params.lab5;
+            const rt = state.runtime;
+            if (!rt.particles) return;
+
+            const posAttr = rt.particles.geometry.attributes.position;
+            for (let i = 0; i < rt.pData.length; i++) {
+                const pd = rt.pData[i];
+                const rNow = rt.radiusAtX(pd.x);
+                const localSpeed = rt.v1 * Math.pow(rt.r1 / rNow, 2);
+                pd.x += localSpeed * dt * 3.2;
+                if (pd.x > 16) pd.x = -16;
+
+                if (p.flowMode === 2) {
+                    pd.ang += dt * 7.5 * (rt.r1 / rNow);
+                }
+                const rParticle = rt.radiusAtX(pd.x) * pd.radialFrac;
+                posAttr.setX(i, pd.x);
+                posAttr.setY(i, rParticle * Math.cos(pd.ang));
+                posAttr.setZ(i, rParticle * Math.sin(pd.ang));
+            }
+            posAttr.needsUpdate = true;
+
+            setTelemetry([
+                `Vazão Q: ${rt.flowQ_Ls.toFixed(2)} L/s`,
+                `v₁: ${rt.v1.toFixed(1)} m/s → v₂: ${rt.v2.toFixed(1)} m/s`,
+                `P₁: ${rt.p1_kPa.toFixed(0)} kPa → P₂: ${rt.p2_kPa.toFixed(1)} kPa`,
+                `ΔP_Venturi: -${rt.dP_kPa.toFixed(1)} kPa`
+            ]);
+
+            setCalculations([
+                {
+                    title: 'Vazão Volumétrica (Q) e Equação da Continuidade',
+                    eq: 'Q = A₁ · v₁ = A₂ · v₂   ⇒   v₂ = v₁ · (D₁ / D₂)²',
+                    val: `Q = ${rt.flowQ_Ls.toFixed(2)} L/s  |  v₂ = ${rt.v2.toFixed(2)} m/s (${Math.pow(p.diamD1 / p.diamD2, 2).toFixed(2)}x mais rápido)`
+                },
+                {
+                    title: 'Efeito Venturi (Queda de Pressão na Garganta)',
+                    eq: 'P₁ - P₂ = ½ · ρ · (v₂² - v₁²)',
+                    val: `ΔP = ${rt.dP_kPa.toFixed(2)} kPa  ⇒  P₂ cai para ${rt.p2_kPa.toFixed(1)} kPa`
+                },
+                {
+                    title: 'Diferença de Altura Manométrica nos Piezômetros',
+                    eq: 'Δh = (P₁ - P₂) / (ρ · g)',
+                    val: `Δh = ${(rt.dP_kPa * 1000 / 9800).toFixed(2)} m de coluna d'água | Fluxo: ${p.flowMode === 1 ? 'Laminar' : 'Turbulento'}`
+                }
+            ]);
+        }
+
+        /* --- LAB 6: EQUAÇÃO GERAL DE BERNOULLI E TUBOS COM DESNÍVEL (y₁ ≠ y₂) --- */
+        function buildLab6() {
+            const p = state.params.lab6;
+            const rt = {};
+
+            const rho = 1000, g = 9.8;
+            const v1 = 2.0;
+            const v2 = v1 * p.ratioA1A2;
+
+            const p1_kPa = p.pressP1;
+            const kin1_kPa = (0.5 * rho * v1 * v1) / 1000;
+            const pot1_kPa = (rho * g * p.heightY1) / 1000;
+            const totalE_kPa = p1_kPa + kin1_kPa + pot1_kPa;
+
+            const kin2_kPa = (0.5 * rho * v2 * v2) / 1000;
+            const pot2_kPa = (rho * g * p.heightY2) / 1000;
+            const p2_kPa = Math.max(10, totalE_kPa - kin2_kPa - pot2_kPa);
+
+            rt.v1 = v1; rt.v2 = v2;
+            rt.p1_kPa = p1_kPa; rt.p2_kPa = p2_kPa;
+            rt.kin1_kPa = kin1_kPa; rt.kin2_kPa = kin2_kPa;
+            rt.pot1_kPa = pot1_kPa; rt.pot2_kPa = pot2_kPa;
+            rt.totalE_kPa = totalE_kPa;
+
+            const y1Vis = -7.5 + p.heightY1 * 1.45;
+            const y2Vis = -7.5 + p.heightY2 * 1.45;
+            const r1Vis = 2.25;
+            const r2Vis = r1Vis / Math.sqrt(p.ratioA1A2);
+
+            const centerAtS = s => {
+                const x = -15 + s * 30;
+                const smooth = s * s * (3 - 2 * s);
+                const y = y1Vis + (y2Vis - y1Vis) * smooth;
+                const r = r1Vis + (r2Vis - r1Vis) * smooth;
+                return { x, y, r };
+            };
+            rt.centerAtS = centerAtS;
+
+            const segs = 56;
+            const phiArc = state.cutawayMode ? Math.PI * 1.35 : Math.PI * 2;
+            for (let i = 0; i < segs; i++) {
+                const cA = centerAtS(i / segs);
+                const cB = centerAtS((i + 1) / segs);
+                const dx = cB.x - cA.x;
+                const dy = cB.y - cA.y;
+                const len = Math.hypot(dx, dy);
+                const angle = Math.atan2(dy, dx);
+
+                const seg = new THREE.Mesh(
+                    new THREE.CylinderGeometry(cB.r, cA.r, len + 0.08, 28, 1, true, 0, phiArc),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x0ea5e9,
+                        transparent: true,
+                        opacity: 0.36,
+                        metalness: 0.25,
+                        roughness: 0.1,
+                        side: THREE.DoubleSide
+                    })
+                );
+                seg.position.set((cA.x + cB.x) / 2, (cA.y + cB.y) / 2, 0);
+                seg.rotation.z = angle - Math.PI / 2;
+                labGroup.add(seg);
+            }
+
+            // Structural Support Pillars & Pipe Clamps at Section 1 (-12) and Section 2 (+12)
+            [0.1, 0.9].forEach((sPos, idx) => {
+                const c = centerAtS(sPos);
+                const pillarH = Math.max(0.5, c.y - (-9.5));
+                const pillar = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.28, 0.35, pillarH, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.3 })
+                );
+                pillar.position.set(c.x, -9.5 + pillarH / 2, 0);
+                const clamp = new THREE.Mesh(
+                    new THREE.TorusGeometry(c.r + 0.12, 0.14, 12, 32),
+                    new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.2 })
+                );
+                clamp.rotation.y = Math.PI / 2;
+                clamp.position.set(c.x, c.y, 0);
+                labGroup.add(pillar, clamp);
+            });
+
+            // Analog Bourdon Pressure Gauges & 3D Labels at Inlet (Section 1) and Outlet (Section 2)
+            const cIn = centerAtS(0.08);
+            const cOut = centerAtS(0.92);
+            const g1 = createPressureGauge(1.2, p1_kPa / 250, 'P₁');
+            g1.position.set(cIn.x, cIn.y + cIn.r + 1.4, 0);
+            const g2 = createPressureGauge(1.2, p2_kPa / 250, 'P₂');
+            g2.position.set(cOut.x, cOut.y + cOut.r + 1.4, 0);
+            labGroup.add(g1, g2);
+
+            const lbl1 = makeTextSprite(`y₁=${p.heightY1.toFixed(1)}m | P₁=${p1_kPa.toFixed(0)}kPa`, '#38bdf8', '#f8fafc', 4.4);
+            lbl1.position.set(cIn.x, cIn.y + cIn.r + 3.1, 0);
+            const lbl2 = makeTextSprite(`y₂=${p.heightY2.toFixed(1)}m | P₂=${p2_kPa.toFixed(0)}kPa`, '#10b981', '#f8fafc', 4.4);
+            lbl2.position.set(cOut.x, cOut.y + cOut.r + 3.1, 0);
+            labGroup.add(lbl1, lbl2);
+
+            // Total Energy Line (LET) when Cutaway is active
+            if (state.cutawayMode) {
+                const letY = 8.4;
+                labGroup.add(new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-15, letY, 0), new THREE.Vector3(15, letY, 0)]),
+                    new THREE.LineBasicMaterial({ color: 0x10b981 })
+                ));
+                const lblLet = makeTextSprite(`Linha de Energia Total = ${totalE_kPa.toFixed(1)} kJ/m³`, '#10b981', '#f8fafc', 4.8);
+                lblLet.position.set(0, letY + 1.0, 0);
+                labGroup.add(lblLet);
+            }
+
+            // 180 Flowing Tracer Particles along the S-Pipe
+            const pCount = 180;
+            const pGeo = new THREE.BufferGeometry();
+            const pPos = new Float32Array(pCount * 3);
+            const pData = [];
+            for (let i = 0; i < pCount; i++) {
+                const s = Math.random();
+                const offset = (Math.random() - 0.5) * 1.15;
+                const zOff = (Math.random() - 0.5) * 1.15;
+                const c = centerAtS(s);
+                pPos[i * 3] = c.x;
+                pPos[i * 3 + 1] = c.y + offset * (c.r / r1Vis);
+                pPos[i * 3 + 2] = zOff * (c.r / r1Vis);
+                pData.push({ s, offset, zOff });
+            }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x6ee7b7, size: 0.45 }));
+            labGroup.add(particles);
+            rt.particles = particles;
+            rt.pData = pData;
+            rt.r1Vis = r1Vis;
+
+            state.runtime = rt;
+        }
+
+        function updateLab6(dt) {
+            const p = state.params.lab6;
+            const rt = state.runtime;
+            if (!rt.particles) return;
+
+            const posAttr = rt.particles.geometry.attributes.position;
+            for (let i = 0; i < rt.pData.length; i++) {
+                const pd = rt.pData[i];
+                const cNow = rt.centerAtS(pd.s);
+                const speedFactor = Math.pow(rt.r1Vis / cNow.r, 2);
+                pd.s += 0.14 * speedFactor * dt;
+                if (pd.s > 1.0) pd.s -= 1.0;
+
+                const cNext = rt.centerAtS(pd.s);
+                const scaleR = cNext.r / rt.r1Vis;
+                posAttr.setX(i, cNext.x);
+                posAttr.setY(i, cNext.y + pd.offset * scaleR);
+                posAttr.setZ(i, pd.zOff * scaleR);
+            }
+            posAttr.needsUpdate = true;
+
+            setTelemetry([
+                `P₁: ${rt.p1_kPa.toFixed(1)} kPa`,
+                `P₂: ${rt.p2_kPa.toFixed(1)} kPa`,
+                `y₁: ${p.heightY1.toFixed(1)}m → y₂: ${p.heightY2.toFixed(1)}m`,
+                `E_total: ${rt.totalE_kPa.toFixed(1)} kJ/m³`
+            ]);
+
+            setCalculations([
+                {
+                    title: 'Equação de Bernoulli (Conservação de Energia/Volume)',
+                    eq: 'P₁ + ½ρv₁² + ρgy₁ = P₂ + ½ρv₂² + ρgy₂ = E_total',
+                    val: `E_total = ${rt.totalE_kPa.toFixed(2)} kPa (constante em toda a tubulação)`
+                },
+                {
+                    title: 'Parcelas na Seção 1 (Entrada)',
+                    eq: 'P₁ (Estática) + ½ρv₁² (Cinética) + ρgy₁ (Potencial)',
+                    val: `${rt.p1_kPa.toFixed(1)} + ${rt.kin1_kPa.toFixed(1)} + ${rt.pot1_kPa.toFixed(1)} = ${rt.totalE_kPa.toFixed(1)} kPa`
+                },
+                {
+                    title: 'Parcelas na Seção 2 (Saída em Cota y₂)',
+                    eq: 'P₂ = E_total - ½ρv₂² - ρgy₂',
+                    val: `P₂ = ${rt.p2_kPa.toFixed(1)} kPa  (Cinética: ${rt.kin2_kPa.toFixed(1)} | Potencial: ${rt.pot2_kPa.toFixed(1)} kPa)`
+                }
+            ]);
+        }
+
+        /***********************************************************************
+         * 5. REAL-TIME 2D CHART ENGINE (HTML5 CANVAS)
+         ***********************************************************************/
+        let chartCtx;
+
+        function initChartCanvas() {
+            const canvas = document.getElementById('chart-canvas');
+            chartCtx = canvas.getContext('2d');
+            resizeChartCanvas();
+        }
+
+        function resizeChartCanvas() {
+            const canvas = document.getElementById('chart-canvas');
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = Math.max(240, (rect.width - 12)) * Math.min(window.devicePixelRatio, 2);
+            canvas.height = Math.max(150, (rect.height - 12)) * Math.min(window.devicePixelRatio, 2);
+        }
+
+        function pushChart(y1, y2, y3) {
+            state.chartSeries.push({ y1, y2, y3 });
+            if (state.chartSeries.length > 140) state.chartSeries.shift();
+        }
+
+        function drawChart() {
+            if (!chartCtx) return;
+            const c = chartCtx.canvas;
+            const w = c.width, h = c.height;
+            chartCtx.clearRect(0, 0, w, h);
+
+            // Background Grid
+            chartCtx.strokeStyle = '#1e293b';
+            chartCtx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                chartCtx.beginPath();
+                chartCtx.moveTo(0, (h / 4) * i);
+                chartCtx.lineTo(w, (h / 4) * i);
+                chartCtx.stroke();
+            }
+
+            const id = state.activeLabId;
+
+            if (id === 'lab2') {
+                // Stevin Diagram: P_abs(h) = P_atm + rho * g * h
+                const p = state.params.lab2;
+                const patmKPa = p.patmAtm * 101.325;
+                const maxPKPa = 260;
+
+                const yAtm = h * 0.88 - (patmKPa / maxPKPa) * (h * 0.75);
+                chartCtx.strokeStyle = '#f59e0b';
+                chartCtx.setLineDash([5, 4]);
+                chartCtx.beginPath(); chartCtx.moveTo(0, yAtm); chartCtx.lineTo(w, yAtm); chartCtx.stroke();
+                chartCtx.setLineDash([]);
+
+                chartCtx.strokeStyle = '#38bdf8';
+                chartCtx.lineWidth = 2.6;
+                chartCtx.beginPath();
+                for (let x = 0; x <= w; x += 4) {
+                    const depth = (x / w) * 10.0;
+                    const pTot = patmKPa + (p.fluidRho * 9.8 * depth) / 1000;
+                    const py = h * 0.88 - (pTot / maxPKPa) * (h * 0.75);
+                    if (x === 0) chartCtx.moveTo(x, py); else chartCtx.lineTo(x, py);
+                }
+                chartCtx.stroke();
+
+                const curX = (p.depthH / 10.0) * w;
+                const curP = patmKPa + (p.fluidRho * 9.8 * p.depthH) / 1000;
+                const curY = h * 0.88 - (curP / maxPKPa) * (h * 0.75);
+                chartCtx.fillStyle = '#f43f5e';
+                chartCtx.beginPath(); chartCtx.arc(curX, curY, 6, 0, Math.PI * 2); chartCtx.fill();
+                return;
+            }
+
+            if (id === 'lab5') {
+                // Venturi Longitudinal Profile: v(x) rises at center while P(x) drops at center
+                const rt = state.runtime;
+                if (!rt.radiusAtX) return;
+
+                // Velocity curve (green)
+                chartCtx.strokeStyle = '#10b981';
+                chartCtx.lineWidth = 2.5;
+                chartCtx.beginPath();
+                for (let px = 0; px <= w; px += 4) {
+                    const x3d = -16 + (px / w) * 32;
+                    const rLoc = rt.radiusAtX(x3d);
+                    const vLoc = rt.v1 * Math.pow(rt.r1 / rLoc, 2);
+                    const py = h * 0.86 - Math.min(h * 0.76, (vLoc / 18) * (h * 0.72));
+                    if (px === 0) chartCtx.moveTo(px, py); else chartCtx.lineTo(px, py);
+                }
+                chartCtx.stroke();
+
+                // Static Pressure curve (blue)
+                chartCtx.strokeStyle = '#38bdf8';
+                chartCtx.lineWidth = 2.5;
+                chartCtx.beginPath();
+                for (let px = 0; px <= w; px += 4) {
+                    const x3d = -16 + (px / w) * 32;
+                    const rLoc = rt.radiusAtX(x3d);
+                    const vLoc = rt.v1 * Math.pow(rt.r1 / rLoc, 2);
+                    const dP = 0.5 * (vLoc * vLoc - rt.v1 * rt.v1);
+                    const pLoc = Math.max(15, rt.p1_kPa - dP);
+                    const py = h * 0.86 - (pLoc / 180) * (h * 0.72);
+                    if (px === 0) chartCtx.moveTo(px, py); else chartCtx.lineTo(px, py);
+                }
+                chartCtx.stroke();
+                return;
+            }
+
+            if (id === 'lab6') {
+                // Bernoulli Stacked Bar Comparison: Section 1 vs Section 2
+                const rt = state.runtime;
+                if (!rt.totalE_kPa) return;
+                const scale = (h * 0.75) / Math.max(220, rt.totalE_kPa);
+                const barW = w * 0.22;
+
+                const drawStack = (bx, pEst, pKin, pPot) => {
+                    let yCur = h * 0.88;
+                    const hP = pEst * scale;
+                    chartCtx.fillStyle = '#38bdf8';
+                    chartCtx.fillRect(bx, yCur - hP, barW, hP);
+                    yCur -= hP;
+
+                    const hK = pKin * scale;
+                    chartCtx.fillStyle = '#10b981';
+                    chartCtx.fillRect(bx, yCur - hK, barW, hK);
+                    yCur -= hK;
+
+                    const hU = pPot * scale;
+                    chartCtx.fillStyle = '#f59e0b';
+                    chartCtx.fillRect(bx, yCur - hU, barW, hU);
+                };
+
+                drawStack(w * 0.18, rt.p1_kPa, rt.kin1_kPa, rt.pot1_kPa);
+                drawStack(w * 0.60, rt.p2_kPa, rt.kin2_kPa, rt.pot2_kPa);
+                return;
+            }
+
+            // Time-series plot for Labs 1, 3, 4
+            const pts = state.chartSeries;
+            if (pts.length < 2) return;
+            let maxV = 25;
+            pts.forEach(pt => { maxV = Math.max(maxV, Math.abs(pt.y1), Math.abs(pt.y2), Math.abs(pt.y3)); });
+            const zeroY = h * 0.86;
+            const scaleY = (h * 0.72) / maxV;
+
+            const drawKey = (k, col) => {
+                chartCtx.strokeStyle = col;
+                chartCtx.lineWidth = 2.4;
+                chartCtx.beginPath();
+                pts.forEach((pt, i) => {
+                    const px = (i / (pts.length - 1)) * w;
+                    const py = zeroY - pt[k] * scaleY;
+                    if (i === 0) chartCtx.moveTo(px, py); else chartCtx.lineTo(px, py);
+                });
+                chartCtx.stroke();
+            };
+            drawKey('y1', '#10b981');
+            drawKey('y2', '#f43f5e');
+            drawKey('y3', '#f59e0b');
+        }
+
+        /***********************************************************************
+         * 6. UI CONTROLLERS & ENCYCLOPEDIA OF 16 CONCEPTS
+         ***********************************************************************/
+        function renderTopNav() {
+            const nav = document.getElementById('main-labs-nav');
+            nav.innerHTML = Object.values(LABS_DATA).map(lab => {
+                const active = lab.id === state.activeLabId;
+                return `
+                    <button onclick="selectLab('${lab.id}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-800 bg-slate-950/80 text-slate-300 hover:text-emerald-300 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${active ? 'lab-btn-active' : ''}">
+                        <i class="fa-solid ${lab.icon} text-emerald-400"></i>
+                        <span>${lab.shortTitle}</span>
+                    </button>
+                `;
+            }).join('');
+
+            const topicsNav = document.getElementById('topics-quick-nav');
+            if (topicsNav) {
+                topicsNav.innerHTML = `<span class="text-[10px] font-mono uppercase text-slate-400 mr-1 shrink-0"><i class="fa-solid fa-tags text-emerald-400 mr-1"></i>16 Tópicos:</span>` +
+                    ENCYCLOPEDIA_TOPICS.map(t => {
+                        const isTopicActive = state.activeTopicNum === t.num;
+                        const badgeClass = isTopicActive
+                            ? 'bg-emerald-500 text-slate-950 font-bold border-emerald-300 shadow-sm shadow-emerald-500/30'
+                            : (t.labId === state.activeLabId
+                                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25'
+                                : 'bg-slate-950/70 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700');
+                        return `
+                            <button onclick="selectTopicChip(${t.num})" class="px-2 py-0.5 rounded-lg text-[11px] border transition-all whitespace-nowrap cursor-pointer ${badgeClass}">
+                                ${t.num}. ${t.title.split(' (')[0]}
+                            </button>
+                        `;
+                    }).join('');
+            }
+        }
+
+        function selectTopicChip(topicNum) {
+            const topic = ENCYCLOPEDIA_TOPICS.find(t => t.num === topicNum);
+            if (!topic) return;
+            state.activeTopicNum = topicNum;
+
+            // Switch to the corresponding 3D laboratory if needed
+            if (state.activeLabId !== topic.labId) {
+                selectLab(topic.labId, true);
+            }
+
+            // Configure specialized 3D view/preset for the chosen concept
+            if (topicNum === 1) {
+                // Densidade (corpo oco flutuando)
+                state.cutawayMode = true;
+                applyPreset(1);
+            } else if (topicNum === 2) {
+                // Massa específica (material maciço)
+                state.cutawayMode = false;
+                applyPreset(0);
+            } else if (topicNum === 14) {
+                // Fluxo de líquidos (mostrar turbulência vs laminar)
+                applyPreset(3);
+            } else if (topicNum === 16) {
+                // Efeito Venturi (sucção máxima na garganta)
+                applyPreset(1);
+            }
+
+            // Update Cutaway button UI state
+            const btnCut = document.getElementById('btn-cutaway');
+            const banner = document.getElementById('cutaway-banner');
+            const lab = LABS_DATA[state.activeLabId];
+            if (state.cutawayMode) {
+                btnCut.classList.add('cutaway-btn-active');
+                banner.classList.remove('hidden');
+                document.getElementById('cutaway-title').textContent = lab.cutawayTitle;
+                document.getElementById('cutaway-desc').textContent = lab.cutawayDesc;
+            } else {
+                btnCut.classList.remove('cutaway-btn-active');
+                banner.classList.add('hidden');
+            }
+
+            // Prepend highlighted topic card inside the explanation panel
+            const expBox = document.getElementById('concept-explanation-box');
+            expBox.innerHTML = `
+                <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/40 mb-1">
+                    <div class="flex items-center justify-between text-[10px] font-mono text-emerald-300 uppercase mb-0.5">
+                        <span> Conceito Selecionado #${topic.num} (${topic.category})</span>
+                        <span>${topic.unit}</span>
+                    </div>
+                    <div class="text-xs font-bold text-white mb-1">${topic.title}</div>
+                    <div class="font-mono text-[11px] text-amber-300 bg-slate-950/80 px-2 py-1 rounded border border-slate-800 mb-1.5">${topic.formula}</div>
+                    <p class="text-[11px] text-slate-200 leading-relaxed">${topic.desc}</p>
+                </div>
+                ${lab.conceptText}
+            `;
+
+            renderTopNav();
+            rebuildScene();
+        }
+
+        function selectLab(labId, keepTopic = false) {
+            state.activeLabId = labId;
+            if (!keepTopic) {
+                const firstTopic = ENCYCLOPEDIA_TOPICS.find(t => t.labId === labId);
+                if (firstTopic) state.activeTopicNum = firstTopic.num;
+            }
+            state.simTime = 0;
+            state.chartSeries = [];
+            const lab = LABS_DATA[labId];
+
+            document.getElementById('lab-badge').textContent = `LABORATÓRIO ${lab.index} DE 6`;
+            document.getElementById('lab-title').textContent = lab.fullTitle;
+            document.getElementById('concept-explanation-box').innerHTML = lab.conceptText;
+            document.getElementById('structure-parts-list').innerHTML = lab.structureParts.map(item => `
+                <div class="bg-slate-950/80 border border-slate-800/80 rounded-lg px-2.5 py-1.5">${item}</div>
+            `).join('');
+
+            document.getElementById('chart-title').textContent = lab.chartTitle;
+            document.getElementById('chart-legend').innerHTML = lab.chartLegend.map(l => `
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${l.color}"></span>
+                    <span class="text-slate-300">${l.label}</span>
+                </div>
+            `).join('');
+
+            if (state.cutawayMode) {
+                document.getElementById('cutaway-title').textContent = lab.cutawayTitle;
+                document.getElementById('cutaway-desc').textContent = lab.cutawayDesc;
+            }
+
+            renderTopNav();
+            renderControls();
+            setCameraView('iso');
+            rebuildScene();
+        }
+
+        function renderControls() {
+            const lab = LABS_DATA[state.activeLabId];
+            const pValues = state.params[state.activeLabId];
+
+            document.getElementById('presets-container').innerHTML = `
+                <span class="text-[10px] font-mono uppercase text-slate-400">Cenários Rápidos:</span>
+                <div class="flex flex-wrap gap-1.5">
+                    ${lab.presets.map((pr, idx) => `
+                        <button onclick="applyPreset(${idx})" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-emerald-500/20 hover:text-emerald-300 border border-slate-700 text-[11px] font-medium text-slate-200 transition-all cursor-pointer">
+                            ${pr.label}
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+
+            document.getElementById('sliders-container').innerHTML = lab.sliders.map(s => `
+                <div class="flex flex-col gap-1 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-medium text-slate-300">${s.label}</span>
+                        <span id="val-${s.key}" class="font-mono font-bold text-emerald-400">${pValues[s.key]} ${s.unit}</span>
+                    </div>
+                    <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${pValues[s.key]}"
+                        oninput="onSliderChange('${s.key}', this.value, '${s.unit}')">
+                </div>
+            `).join('');
+        }
+
+        function onSliderChange(key, val, unit) {
+            const num = parseFloat(val);
+            state.params[state.activeLabId][key] = num;
+            const el = document.getElementById(`val-${key}`);
+            if (el) el.textContent = `${num} ${unit}`;
+            state.chartSeries = [];
+            rebuildScene();
+        }
+
+        function applyPreset(idx) {
+            const lab = LABS_DATA[state.activeLabId];
+            const pr = lab.presets[idx];
+            if (!pr) return;
+            Object.keys(pr.values).forEach(k => {
+                state.params[state.activeLabId][k] = pr.values[k];
+            });
+            state.chartSeries = [];
+            renderControls();
+            rebuildScene();
+        }
+
+        function resetActiveLabParams() {
+            const lab = LABS_DATA[state.activeLabId];
+            lab.sliders.forEach(s => {
+                state.params[state.activeLabId][s.key] = s.default;
+            });
+            state.chartSeries = [];
+            renderControls();
+            rebuildScene();
+        }
+
+        function toggleCutaway() {
+            state.cutawayMode = !state.cutawayMode;
+            const btn = document.getElementById('btn-cutaway');
+            const banner = document.getElementById('cutaway-banner');
+            const lab = LABS_DATA[state.activeLabId];
+            if (state.cutawayMode) {
+                btn.classList.add('cutaway-btn-active');
+                banner.classList.remove('hidden');
+                document.getElementById('cutaway-title').textContent = lab.cutawayTitle;
+                document.getElementById('cutaway-desc').textContent = lab.cutawayDesc;
+            } else {
+                btn.classList.remove('cutaway-btn-active');
+                banner.classList.add('hidden');
+            }
+            rebuildScene();
+        }
+
+        function toggleVectors() {
+            state.showVectors = !state.showVectors;
+            const btn = document.getElementById('btn-vectors');
+            if (state.showVectors) {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800/90 text-slate-400 border border-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer';
+            }
+            rebuildScene();
+        }
+
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            document.getElementById('icon-play').className = state.isPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+            document.getElementById('hud-status').textContent = state.isPlaying ? 'SIMULAÇÃO 3D EM EXECUÇÃO' : 'SIMULAÇÃO PAUSADA';
+        }
+
+        function restartSim() {
+            state.simTime = 0;
+            state.chartSeries = [];
+            rebuildScene();
+        }
+
+        function setSpeed(spd) {
+            state.simSpeed = spd;
+            document.querySelectorAll('.spd-btn').forEach(b => {
+                b.className = 'spd-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer';
+            });
+            const map = { 0.25: 'spd-025', 0.5: 'spd-05', 1: 'spd-10', 2: 'spd-20' };
+            const active = document.getElementById(map[spd]);
+            if (active) active.className = 'spd-btn px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer';
+        }
+
+        function setTelemetry(items) {
+            document.getElementById('hud-telemetry').innerHTML = items.map(i => `<div class="truncate">${i}</div>`).join('');
+        }
+
+        function setCalculations(items) {
+            document.getElementById('calculations-container').innerHTML = items.map(c => `
+                <div class="math-card p-2.5 rounded-r-xl flex flex-col gap-1">
+                    <span class="text-[10px] font-sans font-bold uppercase tracking-wider text-slate-400">${c.title}</span>
+                    <div class="text-[11px] text-sky-300">${c.eq}</div>
+                    <div class="text-xs font-bold text-emerald-400">${c.val}</div>
+                </div>
+            `).join('');
+        }
+
+        function toggleEncyclopediaModal(show) {
+            const modal = document.getElementById('encyclopedia-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+                const grid = document.getElementById('encyclopedia-grid');
+                grid.innerHTML = ENCYCLOPEDIA_TOPICS.map(t => `
+                    <div class="bg-slate-950/90 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-4 flex flex-col justify-between gap-3">
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded ${t.category === 'Hidrostática' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">
+                                    #${t.num} • ${t.category}
+                                </span>
+                                <span class="text-[10px] font-mono text-slate-400">${t.unit}</span>
+                            </div>
+                            <h3 class="text-sm font-bold text-white">${t.title}</h3>
+                            <div class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-amber-300">
+                                ${t.formula}
+                            </div>
+                            <p class="text-xs text-slate-300 leading-relaxed">${t.desc}</p>
+                        </div>
+                        <button onclick="toggleEncyclopediaModal(false); selectTopicChip(${t.num})" class="w-full py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all cursor-pointer">
+                            <i class="fa-solid fa-cube mr-1"></i>Ver Experimento 3D (${LABS_DATA[t.labId].shortTitle})
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        /***********************************************************************
+         * 7. MAIN ANIMATION LOOP
+         ***********************************************************************/
+        let lastTime = performance.now();
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+            const rawDt = Math.min(0.05, (now - lastTime) / 1000);
+            lastTime = now;
+
+            if (state.isPlaying) {
+                const dt = rawDt * state.simSpeed;
+                state.simTime += dt;
+                document.getElementById('hud-time').textContent = `t = ${state.simTime.toFixed(1)} s`;
+
+                const id = state.activeLabId;
+                if (id === 'lab1') updateLab1(dt);
+                else if (id === 'lab2') updateLab2(dt);
+                else if (id === 'lab3') updateLab3(dt);
+                else if (id === 'lab4') updateLab4(dt);
+                else if (id === 'lab5') updateLab5(dt);
+                else if (id === 'lab6') updateLab6(dt);
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+            drawChart();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initThreeScene();
+            initChartCanvas();
+            selectLab('lab1');
+            lastTime = performance.now();
+            animate(lastTime);
+        });
+    </script>
+</body>
+</html>
