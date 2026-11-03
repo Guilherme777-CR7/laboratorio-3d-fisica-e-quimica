@@ -1,0 +1,3227 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhysiLab 3D — Ondulatória & Acústica Musical</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cosmos: {
+                            bg: '#040711',
+                            panel: '#0b1120',
+                            card: '#131c31',
+                            border: '#263554',
+                            yellow: '#eab308',
+                            amber: '#f59e0b',
+                            sky: '#38bdf8',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            violet: '#a855f7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: #334155 #0b1120;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b1120;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        body {
+            background-color: #040711;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 999px;
+            outline: none;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #eab308;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(234, 179, 8, 0.85);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #fde047;
+        }
+        .glass-panel {
+            background: rgba(11, 17, 32, 0.84);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.7);
+        }
+        .lab-tab-active {
+            background: linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(56, 189, 248, 0.14));
+            border-color: #eab308;
+            color: #fef08a;
+            box-shadow: 0 0 18px rgba(234, 179, 8, 0.22);
+        }
+        .math-box {
+            background: rgba(4, 7, 17, 0.85);
+            border-left: 3px solid #eab308;
+        }
+        #canvas3d-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+        }
+        @keyframes pulseCutaway {
+            0%, 100% { opacity: 0.92; }
+            50% { opacity: 1; box-shadow: 0 0 20px rgba(234, 179, 8, 0.55); }
+        }
+        .cutaway-active {
+            background: linear-gradient(135deg, #eab308, #f59e0b) !important;
+            color: #040711 !important;
+            border-color: #fef08a !important;
+            font-weight: 700 !important;
+            animation: pulseCutaway 2s infinite;
+        }
+        .audio-active {
+            background: linear-gradient(135deg, #10b981, #059669) !important;
+            color: #ffffff !important;
+            border-color: #6ee7b7 !important;
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans select-none">
+
+    <!-- TOP NAVIGATION HEADER -->
+    <header class="bg-slate-950/90 border-b border-slate-800/90 px-3 lg:px-6 py-2.5 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 via-amber-500 to-sky-500 flex items-center justify-center shadow-lg shadow-yellow-500/25 border border-yellow-300/40">
+                    <i class="fa-solid fa-wave-square text-slate-950 text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base md:text-lg font-extrabold tracking-tight bg-gradient-to-r from-yellow-300 via-amber-400 to-sky-400 bg-clip-text text-transparent">
+                            PhysiLab 3D — Ondulatória & Acústica Musical
+                        </h1>
+                        <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+                            🟡 28 Conceitos • 8 Labs 3D + Áudio Real
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">
+                        Ondas Mecânicas & EM, Reflexão, Refração, Difração, Interferência, Harmônicos, Efeito Doppler, Eco, Tubos Sonoros e Timbre Musical
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Topic Group Filter Pills -->
+            <nav class="hidden 2xl:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                <button onclick="selectLab('lab1')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-yellow-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-water text-yellow-400 mr-1"></i>Fundamentos
+                </button>
+                <button onclick="selectLab('lab2')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-sky-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-arrows-left-right text-sky-400 mr-1"></i>Transv vs Long
+                </button>
+                <button onclick="selectLab('lab3')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-emerald-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-right-left text-emerald-400 mr-1"></i>Reflexão & Refração
+                </button>
+                <button onclick="selectLab('lab4')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-cyan-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-bullseye text-cyan-400 mr-1"></i>Difração & Interf
+                </button>
+                <button onclick="selectLab('lab5')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-rose-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-guitar text-rose-400 mr-1"></i>Cordas & Harmônicos
+                </button>
+                <button onclick="selectLab('lab6')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-amber-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-jet-fighter text-amber-400 mr-1"></i>Efeito Doppler
+                </button>
+                <button onclick="selectLab('lab7')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-purple-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-volume-high text-purple-400 mr-1"></i>Som, dB & Eco
+                </button>
+                <button onclick="selectLab('lab8')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-pink-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-music text-pink-400 mr-1"></i>Tubos & Timbre
+                </button>
+            </nav>
+
+            <!-- Action Buttons: Audio Synth Toggle, Wave Injector & Encyclopedia Modal -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleWebAudioSynth()" id="btn-audio-synth" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-emerald-600/30 text-emerald-300 font-bold text-xs flex items-center gap-2 border border-emerald-500/40 transition-all cursor-pointer" title="Ativar/Desativar Sintetizador Sonoro Real (Web Audio API)">
+                    <i class="fa-solid fa-volume-xmark" id="icon-audio-synth"></i>
+                    <span id="lbl-audio-synth">Ouvir Som Real (Off)</span>
+                </button>
+                <button onclick="toggleLauncherModal(true)" class="px-3 py-2 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-sky-500/20 border border-sky-400/40 transition-all cursor-pointer">
+                    <i class="fa-solid fa-tower-broadcast text-yellow-300"></i>
+                    <span>Injetar Pulso / Som 3D</span>
+                </button>
+                <button onclick="toggleEncyclopediaModal(true)" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-yellow-500/25 border border-yellow-300/50 transition-all cursor-pointer">
+                    <i class="fa-solid fa-book-open-reader"></i>
+                    <span>Enciclopédia (28 Conceitos)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- SUB-HEADER: 8 EXCLUSIVE 3D LABORATORIES BAR -->
+    <div class="bg-slate-900/80 border-b border-slate-800/80 px-3 lg:px-6 py-2">
+        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 overflow-x-auto py-0.5" id="experiment-selector-bar">
+                <!-- Populated dynamically with the 8 3D labs -->
+            </div>
+            <div class="hidden 2xl:flex items-center gap-3 text-[11px] text-slate-400">
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-computer-mouse text-yellow-400"></i> Arraste: Girar Câmera 3D</span>
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-magnifying-glass-plus text-sky-400"></i> Scroll: Zoom Acústico</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN WORKSPACE GRID -->
+    <main class="flex-1 max-w-[1920px] w-full mx-auto p-3 lg:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- LEFT COLUMN: PARAMETERS, PRESETS & CONCEPT GUIDE (3 COLS) -->
+        <aside class="lg:col-span-3 flex flex-col gap-4 order-2 lg:order-1">
+            <!-- Experiment Controls Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3.5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div>
+                        <span id="active-module-badge" class="text-[10px] font-mono uppercase tracking-wider text-yellow-400 font-semibold">LABORATÓRIO 1 DE 8</span>
+                        <h2 id="active-lab-title" class="text-sm font-bold text-white leading-snug">Fundamentos da Onda & Pulso 3D</h2>
+                    </div>
+                    <button onclick="resetCurrentLabParameters()" title="Restaurar Valores Padrão" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+
+                <!-- Quick Scenario Presets for Current Lab -->
+                <div id="lab-presets-container" class="flex flex-col gap-1.5">
+                    <!-- Dynamic scenario buttons -->
+                </div>
+
+                <!-- Sliders Container -->
+                <div id="sliders-container" class="flex flex-col gap-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    <!-- Populated dynamically per experiment -->
+                </div>
+            </div>
+
+            <!-- Interactive Concept Explainer for Active Experiment -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-yellow-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Conceitos Explicados Neste Lab</h3>
+                    </div>
+                    <span id="concepts-count-badge" class="text-[10px] font-mono bg-yellow-500/15 text-yellow-300 px-2 py-0.5 rounded-full border border-yellow-500/30">
+                        Conceitos
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed" id="active-lab-summary">
+                    Selecione um tópico abaixo para ler a explicação teórica completa, sua equação e como observá-lo no modelo 3D:
+                </p>
+                <!-- Concept Pills -->
+                <div id="active-lab-concept-pills" class="flex flex-wrap gap-1.5">
+                    <!-- Populated dynamically -->
+                </div>
+                <!-- Selected Concept Detailed Box -->
+                <div id="selected-concept-detail" class="mt-1 bg-slate-950/90 border border-slate-800/90 rounded-xl p-3 flex flex-col gap-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER COLUMN: 3D INTERACTIVE VIEWPORT & FLOATING HUD (6 COLS) -->
+        <section class="lg:col-span-6 flex flex-col gap-3 order-1 lg:order-2">
+            <div class="relative w-full h-[500px] sm:h-[580px] lg:h-[690px] bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col">
+
+                <!-- TOP FLOATING HUD: CAMERA PRESETS, CUTAWAY/X-RAY, BENCH & VECTORS -->
+                <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <!-- Camera View Buttons -->
+                    <div class="glass-panel p-1.5 rounded-xl flex flex-wrap items-center gap-1 pointer-events-auto shadow-lg">
+                        <span class="text-[10px] font-mono uppercase text-slate-400 px-2 hidden sm:inline">Câmera:</span>
+                        <button onclick="setCameraPreset('iso')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-yellow-500/20 hover:text-yellow-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer" title="Perspectiva Isométrica 3D">
+                            <i class="fa-solid fa-cube text-yellow-400"></i> <span>3D Isométrico</span>
+                        </button>
+                        <button onclick="setCameraPreset('top')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-yellow-500/20 hover:text-yellow-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer" title="Vista Superior (Tanque de Ondas / Planta)">
+                            <i class="fa-solid fa-compass text-sky-400"></i> <span>Superior</span>
+                        </button>
+                        <button onclick="setCameraPreset('front')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-yellow-500/20 hover:text-yellow-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer" title="Vista de Perfil Lateral da Onda">
+                            <i class="fa-solid fa-eye text-emerald-400"></i> <span>Perfil Lateral</span>
+                        </button>
+                        <button onclick="playQuickAudioDemo()" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer" title="Tocar Pulso Acústico deste Experimento">
+                            <i class="fa-solid fa-ear-listen text-emerald-400"></i> <span>Testar Áudio</span>
+                        </button>
+                    </div>
+
+                    <!-- Cutaway / Exploded View, Grid & Vector Toggle -->
+                    <div class="glass-panel p-1.5 rounded-xl flex items-center gap-1.5 pointer-events-auto shadow-lg">
+                        <button onclick="toggleCutawayMode()" id="btn-cutaway" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <span>Corte 3D / Raio-X</span>
+                        </button>
+                        <button onclick="toggleBenchGrid()" id="btn-bench" class="px-2.5 py-1 rounded-lg bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer" title="Malha de Referência Espacial">
+                            <i class="fa-solid fa-border-all"></i>
+                            <span>Malha Acústica</span>
+                        </button>
+                        <button onclick="toggleVectorsVisibility()" id="btn-vectors" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer">
+                            <i class="fa-solid fa-ruler-horizontal"></i>
+                            <span>Cotas & Vetores</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LIVE TELEMETRY OVERLAY (TOP LEFT UNDER CAMERA BAR) -->
+                <div class="absolute top-16 left-3 z-10 pointer-events-none flex flex-col gap-1.5 max-w-[340px]">
+                    <div class="glass-panel px-3 py-2 rounded-xl border border-slate-700/60 shadow-md">
+                        <div class="flex items-center gap-2 text-[11px] font-mono text-yellow-400 font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping" id="hud-status-dot"></span>
+                            <span id="hud-sim-status">OSCILADOR 3D ATIVO</span>
+                            <span class="ml-auto text-slate-300" id="hud-sim-time">t = 0.0s</span>
+                        </div>
+                        <div id="hud-live-metrics" class="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-mono text-slate-200">
+                            <!-- Live metrics populated on each frame -->
+                        </div>
+                        <div class="mt-1.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-400">
+                            <span>Equação: <strong id="hud-wave-eq" class="text-yellow-400">v = λ · f</strong></span>
+                            <span>Elementos 3D: <strong id="hud-particles-count" class="text-sky-400">8.000</strong></span>
+                        </div>
+                    </div>
+                    <!-- Cutaway Mode Banner Explanation -->
+                    <div id="cutaway-info-banner" class="hidden glass-panel px-3 py-2 rounded-xl border border-yellow-500/60 bg-yellow-950/50 text-yellow-100 text-[11px] leading-snug shadow-lg">
+                        <div class="font-bold text-yellow-300 flex items-center gap-1.5 mb-0.5">
+                            <i class="fa-solid fa-scissors"></i>
+                            <span id="cutaway-banner-title">Corte Seccional / Raio-X Ondulatório Ativo</span>
+                        </div>
+                        <p id="cutaway-banner-desc" class="text-[10px] text-yellow-100/90"></p>
+                    </div>
+                </div>
+
+                <!-- VECTOR COLOR LEGEND OVERLAY (TOP RIGHT) -->
+                <div id="vector-legend-box" class="absolute top-16 right-3 z-10 glass-panel px-3 py-2 rounded-xl pointer-events-none hidden sm:flex flex-col gap-1 text-[10px] font-mono">
+                    <span class="text-slate-400 uppercase font-bold mb-0.5">Legenda Ondulatória 3D</span>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-yellow-400 inline-block"></span><span class="text-slate-200">Crista (+A) / Ventre (V)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-sky-400 inline-block"></span><span class="text-slate-200">Vale (-A) / Rarefação</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-rose-500 inline-block"></span><span class="text-slate-200">Nó Estacionário (N = 0)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-emerald-400 inline-block"></span><span class="text-slate-200">Propagação (v) / Eco</span></div>
+                </div>
+
+                <!-- THREE.JS 3D CANVAS CONTAINER -->
+                <div id="canvas3d-container" class="w-full h-full flex-1 cursor-grab active:cursor-grabbing"></div>
+
+                <!-- BOTTOM FLOATING HUD: PLAYBACK & TIME CONTROLS -->
+                <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <div class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-2 pointer-events-auto shadow-lg">
+                        <button onclick="toggleSimulationPlay()" id="btn-play-pause" class="w-8 h-8 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-slate-950 flex items-center justify-center font-bold transition-all cursor-pointer" title="Pausar / Continuar Oscilação">
+                            <i class="fa-solid fa-pause" id="icon-play-pause"></i>
+                        </button>
+                        <button onclick="restartSimulation()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer" title="Reiniciar Fase da Onda">
+                            <i class="fa-solid fa-rotate-right text-yellow-400"></i>
+                            <span>Reiniciar</span>
+                        </button>
+                        <button onclick="stepSimulationFrame()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer" title="Avançar Δt Manualmente">
+                            <i class="fa-solid fa-forward-step text-sky-400"></i>
+                            <span class="hidden sm:inline">Passo</span>
+                        </button>
+                    </div>
+
+                    <!-- Time Speed Multiplier -->
+                    <div class="glass-panel px-2.5 py-1.5 rounded-xl flex items-center gap-1 pointer-events-auto shadow-lg">
+                        <span class="text-[10px] font-mono text-slate-400 mr-1">Escala Temporal:</span>
+                        <button onclick="setSimSpeed(0.25)" id="speed-025" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">0.25x</button>
+                        <button onclick="setSimSpeed(0.5)" id="speed-05" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">0.5x</button>
+                        <button onclick="setSimSpeed(1.0)" id="speed-10" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 cursor-pointer">1x</button>
+                        <button onclick="setSimSpeed(2.0)" id="speed-20" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">2x</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: REAL-TIME GRAPH & STEP-BY-STEP LIVE CALCULATIONS (3 COLS) -->
+        <aside class="lg:col-span-3 flex flex-col gap-4 order-3">
+            <!-- Real-time 2D Oscilloscope / Spectrum Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-2.5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-yellow-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200" id="chart-title">Osciloscópio Acústico 2D</h3>
+                    </div>
+                    <button onclick="clearChartHistory()" class="text-[10px] font-mono text-slate-400 hover:text-yellow-400 transition-colors cursor-pointer">
+                        <i class="fa-solid fa-eraser mr-1"></i>Limpar
+                    </button>
+                </div>
+                <!-- Graph Legend -->
+                <div id="chart-legend" class="flex flex-wrap items-center gap-3 text-[11px] font-mono">
+                    <!-- Dynamic Legend -->
+                </div>
+                <!-- HTML5 2D Canvas for Real-Time Charting -->
+                <div class="relative w-full h-48 bg-slate-950 rounded-xl border border-slate-800/90 p-1.5 overflow-hidden">
+                    <canvas id="realtime-chart" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Formulas & Calculations Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-emerald-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Cálculos Reais Passo a Passo</h3>
+                    </div>
+                    <span class="text-[10px] font-mono text-yellow-300 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">Valores Reais</span>
+                </div>
+                <div id="live-calculations-container" class="flex flex-col gap-2.5 overflow-y-auto max-h-[410px] pr-1 font-mono text-xs">
+                    <!-- Populated dynamically with live substituted numbers -->
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- 3D ACOUSTIC PULSE / WAVE INJECTOR MODAL -->
+    <div id="launcher-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/70">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center text-yellow-400">
+                        <i class="fa-solid fa-tower-broadcast text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-sm">Injetar Pulso Ondulatório / Som 3D</h3>
+                        <p class="text-[11px] text-slate-400">Dispare uma frente de onda esférica 3D e ouça o timbre sintetizado</p>
+                    </div>
+                </div>
+                <button onclick="toggleLauncherModal(false)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-300 flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4 text-xs text-slate-300">
+                <div>
+                    <label class="block text-slate-400 mb-1 font-semibold">Tipo de Frente de Onda / Instrumento:</label>
+                    <select id="launch-wave-type" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-yellow-500">
+                        <option value="sine">Diapasão Puro (Onda Senoidal Fundamental f₁)</option>
+                        <option value="guitar">Corda de Violão Dedilhada (Rica em Harmônicos Pares e Ímpares)</option>
+                        <option value="clarinet">Clarinete / Tubo Fechado (Predomínio de Harmônicos Ímpares)</option>
+                        <option value="shock">Onda de Choque Supersônica (Pulso de Alta Energia)</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Frequência (f):</span>
+                            <span id="lbl-launch-freq" class="font-mono text-yellow-400 font-bold">440 Hz (Lá)</span>
+                        </div>
+                        <input type="range" id="launch-freq" min="110" max="880" step="10" value="440" oninput="document.getElementById('lbl-launch-freq').textContent = this.value + ' Hz'">
+                    </div>
+                    <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Amplitude (A):</span>
+                            <span id="lbl-launch-amp" class="font-mono text-sky-400 font-bold">2.5 m</span>
+                        </div>
+                        <input type="range" id="launch-amp" min="0.5" max="4.5" step="0.5" value="2.5" oninput="document.getElementById('lbl-launch-amp').textContent = this.value + ' m'">
+                    </div>
+                </div>
+                <div class="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-[11px] text-yellow-200">
+                    <i class="fa-solid fa-volume-high mr-1 text-yellow-400"></i>
+                    Ao disparar, uma casca esférica de partículas luminosas se expandirá pelo cenário 3D e o sintetizador tocará a nota escolhida!
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-800 bg-slate-950/70 flex justify-end gap-2">
+                <button onclick="toggleLauncherModal(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium cursor-pointer">Cancelar</button>
+                <button onclick="launchCustomAcousticWave()" class="px-5 py-2 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-yellow-500/20 cursor-pointer">
+                    <i class="fa-solid fa-bolt mr-1"></i> Disparar Pulso Sonoro 3D
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL CONCEPTUAL ENCYCLOPEDIA MODAL (ALL 28 WAVE & ACOUSTICS TOPICS) -->
+    <div id="encyclopedia-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-6">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-6xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-950/60">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center text-yellow-400">
+                        <i class="fa-solid fa-book-open-reader text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white">Enciclopédia Interativa — Todos os 28 Conceitos de Ondulatória & Acústica</h2>
+                        <p class="text-xs text-slate-400">18 Tópicos de Ondulatória Geral + 10 Tópicos de Acústica Física e Musical</p>
+                    </div>
+                </div>
+                <button onclick="toggleEncyclopediaModal(false)" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-300 flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex flex-wrap items-center justify-between gap-3">
+                <div class="relative flex-1 min-w-[240px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="encyclopedia-search" oninput="renderEncyclopediaCards()" placeholder="Buscar nos 28 tópicos (ex: Pulso, Comprimento de onda, Ressonância, Doppler, Timbre, Eco, Tubos sonoros...)" class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-yellow-400">
+                </div>
+                <span class="text-xs font-mono text-slate-400">28 Tópicos • 8 Laboratórios 3D</span>
+            </div>
+
+            <div id="encyclopedia-grid" class="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION JAVASCRIPT -->
+    <script>
+        /***********************************************************************
+         * 1. COMPLETE DATABASE OF ALL 28 WAVE & ACOUSTICS CONCEPTS
+         ***********************************************************************/
+        const CONCEPTS_DB = [
+            // --- ONDULATÓRIA (18 CONCEITOS) ---
+            {
+                id: 'onda',
+                labId: 'lab1',
+                number: 1,
+                title: 'Onda (Transporte de Energia sem Matéria)',
+                formula: 'Função de Onda Harmônica: y(x, t) = A · sen(k·x - ω·t + φ₀)',
+                unit: 'Energia E ∝ A² · f² (Sem arraste líquido de massa)',
+                definition: 'Perturbação oscilatória que se propaga através de um meio material ou do vácuo, transportando exclusivamente energia e quantidade de movimento de um ponto a outro, sem transportar matéria (as partículas do meio apenas oscilam em torno de suas posições de equilíbrio).',
+                example: 'Uma boia flutuando no mar sobe e desce quando a onda passa, mas não é arrastada até a praia.',
+                howToSeeIn3D: 'No Lab 1, ative o "Corte 3D / Raio-X" para destacar uma partícula testemunha subindo e descendo sem sair do lugar X!'
+            },
+            {
+                id: 'pulso',
+                labId: 'lab1',
+                number: 2,
+                title: 'Pulso Ondulatório',
+                formula: 'Pulso Solitário: y(x, t) = A · exp[ -(x - v·t)² / (2·σ²) ]',
+                unit: 'Perturbação não-periódica isolada',
+                definition: 'Perturbação única e isolada gerada por um movimento rápido da fonte (como um único abalo vertical na ponta de uma corda). Uma sucessão periódica de pulsos dá origem a um trem de ondas contínuo.',
+                example: 'O estalo de um chicote ou uma única palma em uma sala silenciosa gera um pulso isolado.',
+                howToSeeIn3D: 'No Lab 1, mude "Modo (0=Onda Contínua, 1=Pulso Isolado)" para 1 e veja um pacote Gaussiano viajar pela corda 3D!'
+            },
+            {
+                id: 'amplitude',
+                labId: 'lab1',
+                number: 3,
+                title: 'Amplitude (A — Cristas e Vales)',
+                formula: 'A = |y_máximo|   |   Distância Vertical Crista-Vale = 2 · A',
+                unit: 'Metros (m) ou Centímetros (cm)',
+                definition: 'Elongação máxima atingida pela onda a partir do seu eixo central de equilíbrio. O ponto mais alto chama-se Crista (+A) e o mais baixo chama-se Vale (-A). A energia transportada pela onda é proporcional ao quadrado da amplitude (E ∝ A²).',
+                example: 'Em ondas sonoras, uma amplitude maior corresponde a uma maior variação de pressão e a um som mais forte (maior volume).',
+                howToSeeIn3D: 'No Lab 1, ajuste o controle "Amplitude da Onda (A)" e observe as setas verticais nas Cristas e Vales.'
+            },
+            {
+                id: 'frequencia',
+                labId: 'lab1',
+                number: 4,
+                title: 'Frequência (f)',
+                formula: 'f = N_oscilações / Δt = 1 / T   |   Frequência Angular: ω = 2π · f',
+                unit: 'Hertz (1 Hz = 1 ciclo/segundo = s⁻¹)',
+                definition: 'Número de oscilações completas (ou de cristas consecutivas) geradas pela fonte a cada segundo. A frequência depende exclusivamente da fonte emissora e jamais se altera quando a onda sofre reflexão ou refração.',
+                example: 'A nota Lá padrão de afinação orquestral vibra a exatamente f = 440 Hz (440 ciclos por segundo).',
+                howToSeeIn3D: 'No Lab 1, aumente a "Frequência da Fonte (f)" para ver a onda oscilar mais rápido e comprimir o comprimento λ.'
+            },
+            {
+                id: 'periodo',
+                labId: 'lab1',
+                number: 5,
+                title: 'Período (T)',
+                formula: 'T = 1 / f = Δt / N_oscilações',
+                unit: 'Segundos (s) ou Milissegundos (ms)',
+                definition: 'Intervalo de tempo mínimo necessário para que um ponto do meio execute uma oscilação completa (subir à crista, descer ao vale e retornar à fase inicial), ou para que a onda avance exatamente um comprimento de onda (λ).',
+                example: 'Se uma onda tem frequência f = 2 Hz, cada ciclo completo demora T = 1/2 = 0,50 segundo.',
+                howToSeeIn3D: 'Acompanhe no painel direito do Lab 1 o cálculo inverso instantâneo entre T e f.'
+            },
+            {
+                id: 'comprimento_onda',
+                labId: 'lab1',
+                number: 6,
+                title: 'Comprimento de Onda (λ — Lambda)',
+                formula: 'λ = v / f = v · T   |   Número de Onda: k = 2π / λ',
+                unit: 'Metros (m), Centímetros (cm) ou Nanômetros (nm)',
+                definition: 'Distância espacial percorrida pela onda durante um período (T). Equivale à distância entre duas cristas consecutivas, dois vales consecutivos ou dois pontos quaisquer em concordância de fase.',
+                example: 'Um som de 340 Hz propagando-se no ar (v = 340 m/s) tem comprimento de onda λ = 340 / 340 = 1,0 metro.',
+                howToSeeIn3D: 'No Lab 1, veja a barra horizontal amarela no topo da onda medindo a distância exata entre duas cristas consecutivas!'
+            },
+            {
+                id: 'velocidade_onda',
+                labId: 'lab1',
+                number: 7,
+                title: 'Velocidade da Onda (Equação Fundamental & Lei de Taylor)',
+                formula: 'Equação Fundamental: v = λ · f   |   Corda Tensa (Taylor): v = √(F_tração / μ)',
+                unit: 'Metros por segundo (m/s)',
+                definition: 'Rapidez com que a crista da onda avança pelo meio. Para ondas mecânicas, a velocidade depende apenas das propriedades físicas do meio (inércia e elasticidade, como a tração F e a densidade linear μ = m/L da corda), e não da frequência.',
+                example: 'Apertar a tarraxa de um violão aumenta a tração F da corda, elevando a velocidade da onda v.',
+                howToSeeIn3D: 'No Lab 1, altere a "Velocidade no Meio (v)" e observe como o comprimento de onda λ = v/f se expande proporcionalmente.'
+            },
+            {
+                id: 'ondas_transversais',
+                labId: 'lab2',
+                number: 8,
+                title: 'Ondas Transversais',
+                formula: 'Direção de Vibração (ŷ) ⊥ Direção de Propagação (x̂)',
+                unit: 'Admite Polarização',
+                definition: 'Ondas nas quais a oscilação das partículas do meio (ou dos campos físicos) ocorre perpendicularmente (a 90°) em relação à direção em que a onda se propaga.',
+                example: 'Ondas em cordas vibrantes, ondas eletromagnéticas (luz, rádio, raios-X) e ondas sísmicas secundárias (ondas S).',
+                howToSeeIn3D: 'No Lab 2, observe a fileira superior (Onda Transversal Mecânica) onde as esferas oscilam para cima e para baixo enquanto a onda viaja para a direita.'
+            },
+            {
+                id: 'ondas_longitudinais',
+                labId: 'lab2',
+                number: 9,
+                title: 'Ondas Longitudinais (Compressão e Rarefação)',
+                formula: 'Direção de Vibração (x̂) ∥ Direção de Propagação (x̂)',
+                unit: 'Não sofre Polarização',
+                definition: 'Ondas nas quais as partículas do meio vibram paralelamente (na mesma direção) à propagação da onda, formando regiões alternadas de alta pressão/densidade (Compressões) e baixa pressão/densidade (Rarefações).',
+                example: 'O som no ar ou na água, ondas de pressão em molas helicoidais (slinky) e ondas sísmicas primárias (ondas P).',
+                howToSeeIn3D: 'No Lab 2, veja o tubo central de partículas formando zonas densas (Compressões amarelas) e zonas abertas (Rarefações azuis).'
+            },
+            {
+                id: 'ondas_mecanicas',
+                labId: 'lab2',
+                number: 10,
+                title: 'Ondas Mecânicas',
+                formula: 'v_sólido > v_líquido > v_gás   |   v_vácuo = 0 (Não se propagam no vácuo!)',
+                unit: 'Exigem elasticidade e inércia do meio material',
+                definition: 'Perturbações que dependem obrigatoriamente de átomos ou moléculas materiais para se propagarem através de forças restauradoras elásticas entre partículas vizinhas. Não existem no vácuo.',
+                example: 'Ondas sonoras, ondas em cordas de instrumentos, ondas oceânicas e abalos sísmicos.',
+                howToSeeIn3D: 'No Lab 2, compare as duas ondas mecânicas (Transversal e Longitudinal de partículas) com a onda eletromagnética.'
+            },
+            {
+                id: 'ondas_eletromagneticas',
+                labId: 'lab2',
+                number: 11,
+                title: 'Ondas Eletromagnéticas',
+                formula: 'c = 1 / √(μ₀ · ε₀) ≈ 3,00 × 10⁸ m/s   |   E(x,t) ⊥ B(x,t) ⊥ v',
+                unit: 'Transversais e tridimensionais',
+                definition: 'Geração mútua de um Campo Elétrico (E) oscilante e um Campo Magnético (B) oscilante, perpendiculares entre si e à direção de propagação. Propagam-se perfeitamente no vácuo à velocidade da luz c.',
+                example: 'Ondas de rádio, 5G, micro-ondas, infravermelho, luz visível, ultravioleta, raios-X e raios gama.',
+                howToSeeIn3D: 'No Lab 2, veja na faixa inferior os vetores amarelos (Campo E vertical) e azuis (Campo B horizontal) oscilando a 90°!'
+            },
+            {
+                id: 'reflexao',
+                labId: 'lab3',
+                number: 12,
+                title: 'Reflexão de Ondas (Extremidade Fixa vs Livre)',
+                formula: 'Ponta Fixa: Inversão de Fase (Δφ = π rad = 180°)  |  Ponta Livre: Fase Mantida (Δφ = 0°)',
+                unit: 'Velocidade v, Frequência f e Comprimento λ permanecem constantes!',
+                definition: 'Retorno de um pulso ou onda ao bater em um obstáculo ou extremidade. Se a extremidade for FIXA, pela 3ª Lei de Newton o suporte reage para baixo e o pulso reflete INVERTIDO. Se a extremidade for LIVRE (anel deslizante), o pulso reflete DIREITO (sem inversão).',
+                example: 'O eco acústico em uma montanha ou a reflexão de pulsos nas extremidades presas do cavalete de um violão.',
+                howToSeeIn3D: 'No Lab 3, alterne "Fronteira (0=Ponta Fixa, 1=Ponta Livre, 2=Refração)" entre 0 e 1 para ver o pulso refletir invertido ou direito!'
+            },
+            {
+                id: 'refracao',
+                labId: 'lab3',
+                number: 13,
+                title: 'Refração de Ondas em Cordas e Meios Diferentes',
+                formula: 'f₁ = f₂ = constante   |   v₁ / λ₁ = v₂ / λ₂   |   v = √(F / μ)',
+                unit: 'Densidade linear μ = massa / comprimento (kg/m)',
+                definition: 'Passagem da onda de um meio para outro de densidade diferente (ex: corda fina μ₁ ligada a uma corda grossa μ₂). A frequência (f) NUNCA muda na refração, mas a velocidade (v) e o comprimento de onda (λ) variam na mesma proporção.',
+                example: 'Ao passar de uma corda leve (μ₁ menor, rápida) para uma corda pesada (μ₂ maior, lenta), a onda refratada diminui sua velocidade e encurta seu λ.',
+                howToSeeIn3D: 'No Lab 3, selecione "Modo 2 = Refração entre Cordas" e ajuste a Densidade da Corda 2 (μ₂) para ver a mudança de velocidade e λ!'
+            },
+            {
+                id: 'difracao',
+                labId: 'lab4',
+                number: 14,
+                title: 'Difração Ondulatória e Princípio de Huygens',
+                formula: 'Condição de Difração Acentuada: Largura da Fenda (a) ≤ Comprimento de Onda (λ)',
+                unit: 'Espalhamento angular θ ≈ λ / a',
+                definition: 'Propriedade que permite às ondas contornar obstáculos ou abrir-se em leque circular ao atravessar uma fenda estreita. É por causa da difração que conseguimos ouvir alguém conversando atrás de um muro mesmo sem vê-lo.',
+                example: 'Sons graves (λ longo, de vários metros) difratam muito mais facilmente por portas e esquinas do que sons agudos (λ curto).',
+                howToSeeIn3D: 'No Lab 4, selecione "Modo 0 = Difração em Fenda" e diminua a largura da fenda (a) para ver as ondas planas virarem semicirculares!'
+            },
+            {
+                id: 'interferencia',
+                labId: 'lab4',
+                number: 15,
+                title: 'Interferência Ondulatória (Construtiva e Destrutiva)',
+                formula: 'Diferença de Caminho Δx = |d₁ - d₂|  |  Construtiva: Δx = m·λ  |  Destrutiva: Δx = (m+0,5)·λ',
+                unit: 'Amplitude Resultante: |A₁ - A₂| ≤ A_res ≤ A₁ + A₂',
+                definition: 'Superposição algébrica de duas ou mais ondas no mesmo ponto do espaço. Onde crista encontra crista (ou vale com vale), ocorre Interferência Construtiva (soma das amplitudes). Onde crista encontra vale, ocorre Interferência Destrutiva (cancelamento / linhas nodais).',
+                example: 'Fones de ouvido com cancelamento ativo de ruído geram uma onda sonora invertida em 180° para produzir interferência destrutiva.',
+                howToSeeIn3D: 'No Lab 4, selecione "Modo 1 = Interferência de 2 Fontes" para ver o Tanque de Ondas 3D com cristas duplas e corredores nodais calmos!'
+            },
+            {
+                id: 'ressonancia',
+                labId: 'lab5',
+                number: 16,
+                title: 'Ressonância e Transferência Máxima de Energia',
+                formula: 'Condição de Ressonância: f_excitadora = f_natural (fₙ)   ⇒   Amplitude A → Máxima!',
+                unit: 'Fator de Qualidade Q da ressonância',
+                definition: 'Fenômeno em que um sistema físico vibratório recebe impulsos periódicos com frequência exatamente igual a uma de suas frequências naturais de oscilação. A absorção de energia é máxima e a amplitude cresce drasticamente.',
+                example: 'Quebrar uma taça de cristal com a voz na frequência natural do vidro, ou o colapso aeroelástico da ponte de Tacoma Narrows.',
+                howToSeeIn3D: 'No Lab 5, ajuste o controle "Sintonia de Ressonância (Δf)" para 0.0 Hz e veja a amplitude da corda explodir no pico ressonante!'
+            },
+            {
+                id: 'ondas_estacionarias',
+                labId: 'lab5',
+                number: 17,
+                title: 'Ondas Estacionárias (Nós e Ventres)',
+                formula: 'y(x,t) = [2A · sen(k·x)] · cos(ω·t)   |   Distância Nó-Nó = λ / 2   |   Distância Nó-Ventre = λ / 4',
+                unit: 'Nós (Amplitude = 0) | Ventres (Amplitude = 2A)',
+                definition: 'Padrão resultante da interferência entre uma onda incidente e sua onda refletida de mesma frequência e amplitude viajando em sentidos opostos. Formam-se pontos fixos de destruição total chamados NÓS (N) intercalados por pontos de vibração máxima chamados VENTRES (V).',
+                example: 'As vibrações nas cordas de um violão, piano ou violino e dentro de tubos de órgãos e flautas.',
+                howToSeeIn3D: 'No Lab 5, observe as esferas vermelhas imóveis (NÓS) e as esferas verdes de oscilação máxima (VENTRES) ao longo da corda!'
+            },
+            {
+                id: 'efeito_doppler',
+                labId: 'lab6',
+                number: 18,
+                title: 'Efeito Doppler e Cone de Mach Supersônico',
+                formula: 'f_obs = f_fonte · [ (v_som ± v_obs) / (v_som ∓ v_fonte) ]   |   Ângulo de Mach: sen(θ) = v_som / v_fonte = 1 / Mach',
+                unit: 'Aproximação → Mais Agudo (f > f₀) | Afastamento → Mais Grave (f < f₀)',
+                definition: 'Alteração na frequência aparente percebida por um observador quando há movimento relativo entre a fonte sonora e o observador. Na aproximação, as frentes de onda se acumulam (λ menor, som mais agudo); no afastamento, elas se espaçam (λ maior, som mais grave). Se v_fonte > v_som, forma-se a onda de choque cônica (estrondo sônico).',
+                example: 'O som da sirene de uma ambulância aguda ao se aproximar ("iiiii") e grave ao passar e se afastar ("uuuu").',
+                howToSeeIn3D: 'No Lab 6, veja os anéis 3D comprimidos à frente da fonte móvel e aumente a velocidade acima de 340 m/s para criar o Cone de Mach 3D!'
+            },
+
+            // --- ACÚSTICA (10 CONCEITOS) ---
+            {
+                id: 'som',
+                labId: 'lab7',
+                number: 19,
+                title: 'Som (Natureza e Velocidade nos Meios)',
+                formula: 'v_ar(T) ≈ 331 + 0,6 · T_°C (≈ 340 m/s a 15°C)   |   v_água ≈ 1.480 m/s   |   v_aço ≈ 5.100 m/s',
+                unit: 'Onda Mecânica, Longitudinal e Tridimensional',
+                definition: 'Onda mecânica longitudinal de pressão que se propaga em meios materiais (sólidos, líquidos e gases) e é capaz de sensibilizar o aparelho auditivo humano. Quanto mais rígido e denso o meio elástico, maior a velocidade de propagação do som.',
+                example: 'Encostar o ouvido nos trilhos de aço de uma ferrovia permite ouvir o trem muito antes de o som chegar pelo ar.',
+                howToSeeIn3D: 'No Lab 7, acompanhe os pulsos esféricos de pressão viajando do alto-falante 3D até o microfone e a parede refletora.'
+            },
+            {
+                id: 'frequencia_sonora',
+                labId: 'lab7',
+                number: 20,
+                title: 'Frequência Sonora (Infrassom, Som Audível e Ultrassom)',
+                formula: 'Infrassom: f < 20 Hz   |   Faixa Audível Humana: 20 Hz ≤ f ≤ 20.000 Hz   |   Ultrassom: f > 20.000 Hz',
+                unit: 'Hertz (Hz) ou Quilohertz (kHz)',
+                definition: 'Classificação espectroscópica das ondas acústicas. O ouvido humano jovem percebe apenas vibrações entre 20 Hz e 20 kHz. Abaixo de 20 Hz estão os infrassons (abalos sísmicos, comunicação de elefantes e baleias) e acima de 20 kHz estão os ultrassons (sonar de morcegos e golfinhos, ultrassonografia médica).',
+                example: 'Apitos para cães e exames de ultrassom obstétrico operam na faixa ultrassônica (acima de 20.000 Hz).',
+                howToSeeIn3D: 'No Lab 7, ajuste a frequência sonora e clique em "Ouvir Som Real" para perceber a mudança de frequência!'
+            },
+            {
+                id: 'altura',
+                labId: 'lab7',
+                number: 21,
+                title: 'Altura do Som (Som Grave vs Som Agudo)',
+                formula: 'Intervalo Musical: i = f₂ / f₁   |   Oitava Acima: f₂ = 2 · f₁',
+                unit: 'Qualidade fisiológica associada exclusivamente à FREQUÊNCIA (f)',
+                definition: 'Cuidado com a pegadinha clássica da Física! Em Acústica, "Altura" NÃO é volume! Altura é a qualidade que permite distinguir um som GRAVE (baixa frequência, ex: contrabaixo, trovão) de um som AGUDO (alta frequência, ex: flauta piccolo, violino).',
+                example: 'Quando um músico diz que uma nota está "mais alta", significa que ela tem maior frequência (mais aguda).',
+                howToSeeIn3D: 'No Lab 7, mova o controle de Frequência de 100 Hz (Grave) até 1.000 Hz (Agudo) com o áudio ligado!'
+            },
+            {
+                id: 'intensidade',
+                labId: 'lab7',
+                number: 22,
+                title: 'Intensidade Sonora e Nível em Decibéis (Som Forte vs Fraco)',
+                formula: 'I = Potência / (4π · d²) [W/m²]   |   Nível Sonoro: β = 10 · log₁₀(I / I₀) [dB],  com I₀ = 10⁻¹² W/m²',
+                unit: 'Decibéis (dB) — Limiar Audível = 0 dB | Limiar da Dor = 120 dB',
+                definition: 'Qualidade fisiológica ligada à AMPLITUDE e à energia da onda, permitindo distinguir um som FORTE (grande intensidade/volume) de um som FRACO (baixa intensidade). Como o ouvido humano responde logaritmicamente, cada aumento de +10 dB multiplica a intensidade física (W/m²) por 10!',
+                example: 'Uma conversa normal tem cerca de 60 dB (10⁻⁶ W/m²), enquanto uma turbina de avião a jato atinge 120 dB (1 W/m²).',
+                howToSeeIn3D: 'No Lab 7, aumente a Potência Acústica e a Distância para ver o cálculo logarítmico exato em Decibéis (dB)!'
+            },
+            {
+                id: 'timbre',
+                labId: 'lab8',
+                number: 23,
+                title: 'Timbre e Série Harmônica (Formato da Onda)',
+                formula: 'Série de Fourier: y(t) = Σ Aₙ · sen(n · 2π · f₁ · t + φₙ)',
+                unit: 'Qualidade fisiológica associada ao FORMATO DA ONDA (Harmônicos)',
+                definition: 'Qualidade que permite ao ouvido diferenciar dois instrumentos musicais distintos (ex: um violão e uma flauta) tocando exatamente a MESMA nota (mesma altura/frequência fundamental f₁) e com o MESMO volume (mesma intensidade). Isso ocorre porque cada instrumento emite uma combinação única de harmônicos superiores (2f₁, 3f₁, 4f₁...).',
+                example: 'O diapasão emite uma senóide pura (apenas f₁), enquanto o violão e o piano emitem dezenas de harmônicos superpostos.',
+                howToSeeIn3D: 'No Lab 8, alterne entre Diapasão, Flauta, Clarinete e Violão para ver e ouvir a forma de onda complexa no osciloscópio!'
+            },
+            {
+                id: 'eco',
+                labId: 'lab7',
+                number: 24,
+                title: 'Eco Acústico (Distância Mínima de 17 metros)',
+                formula: 'Tempo de Persistência Auditiva Δt_mín = 0,10 s   ⇒   2·d = v_som · 0,10   ⇒   d_mín = (340 × 0,10) / 2 = 17,0 m',
+                unit: 'Ocorre quando d ≥ 17 m (no ar) e Δt ≥ 0,10 s',
+                definition: 'Fenômeno no qual o ouvinte consegue distinguir nitidamente o som refletido por um obstáculo como uma repetição separada do som emitido originalmente. Como o cérebro humano precisa de pelo menos 0,1 segundo para separar dois sons, a parede refletora deve estar a pelo menos 17 metros de distância (percurso total de ida e volta = 34 m).',
+                example: 'Gritar diante de um cânion ou paredão rochoso a 50 metros produz um eco nítido após Δt = 100 / 340 = 0,29 s.',
+                howToSeeIn3D: 'No Lab 7, coloque a "Distância da Parede Refletora (d)" acima de 17 metros para ver e ouvir o pulso de ECO separado!'
+            },
+            {
+                id: 'reverberacao',
+                labId: 'lab7',
+                number: 25,
+                title: 'Reverberação e Reforço Acústico',
+                formula: 'Reverberação: Distância d < 17 m   ⇒   Tempo de Retorno Δt = (2·d / v_som) < 0,10 s',
+                unit: 'Persistência sonora contínua no recinto',
+                definition: 'Ocorre quando o som refletido pelas paredes de uma sala chega ao ouvido antes de o som original se extinguir (Δt < 0,1 s, ou seja, paredes a menos de 17 m). Em vez de ouvir duas palavras separadas (eco), o ouvinte percebe um prolongamento contínuo que encorpa a voz ou a música.',
+                example: 'Cantar no banheiro ou em uma catedral produz forte reverberação devido às múltiplas reflexões próximas.',
+                howToSeeIn3D: 'No Lab 7, reduza a distância da parede para menos de 17 metros (ex: 8 m) e veja o diagnóstico mudar para REVERBERAÇÃO!'
+            },
+            {
+                id: 'cordas_vibrantes',
+                labId: 'lab5',
+                number: 26,
+                title: 'Cordas Vibrantes e Leis de Mersenne',
+                formula: 'Comprimento de Onda: λₙ = (2 · L) / n   |   Frequência do n-ésimo Harmônico: fₙ = n · [ v / (2 · L) ]   (n = 1, 2, 3...)',
+                unit: 'n = Número do Harmônico = Número de Ventres (Fusos)',
+                definition: 'Uma corda presa nas duas extremidades de comprimento L só pode sustentar ondas estacionárias que possuam Nós nas duas pontas. Portanto, o comprimento da corda comporta um número inteiro n de meios comprimentos de onda: L = n · (λ/2). O 1º harmônico (n=1) é o Som Fundamental.',
+                example: 'Pressionar a corda de um violão na 12ª casa reduz seu comprimento L pela metade (L/2), dobrando a frequência (1 oitava acima).',
+                howToSeeIn3D: 'No Lab 5, mude o "Harmônico (n = Nº de Fusos)" de 1 até 6 para contar os ventres e nós na corda 3D!'
+            },
+            {
+                id: 'tubos_sonoros',
+                labId: 'lab8',
+                number: 27,
+                title: 'Tubos Sonoros Abertos vs Tubos Sonoros Fechados',
+                formula: 'Tubo Aberto: fₙ = n · v / (2·L) (n = 1, 2, 3...)   |   Tubo Fechado: fₙ = n · v / (4·L) (Apenas ÍMPARES: n = 1, 3, 5...)',
+                unit: 'Extremidade Aberta = Ventre de Deslocamento | Extremidade Fechada = Nó de Deslocamento',
+                definition: 'Colunas de ar ressonantes em instrumentos de sopro. No Tubo Aberto nas duas pontas, formam-se ventres nas duas extremidades e existem TODOS os harmônicos (pares e ímpares). No Tubo Fechado em uma ponta, há um Nó no fundo fechado e um Ventre no bocal aberto, permitindo apenas harmônicos ÍMPARES (1º, 3º, 5º...).',
+                example: 'A flauta transversal comporta-se como tubo aberto (todos os harmônicos); o clarinete comporta-se como tubo fechado (harmônicos ímpares).',
+                howToSeeIn3D: 'No Lab 8, alterne entre "Tubo Aberto" e "Tubo Fechado" e observe as moléculas de ar 3D vibrando dentro do cilindro transparente!'
+            },
+            {
+                id: 'instrumentos_musicais',
+                labId: 'lab8',
+                number: 28,
+                title: 'Instrumentos Musicais (Cordas, Sopro e Percussão)',
+                formula: 'Cordas (Violão/Piano)   |   Aerofones Abertos/Fechados (Flauta/Clarinete/Órgão)   |   Membranofones (Percussão)',
+                unit: 'Fonte Primária + Caixa de Ressonância Amplificadora',
+                definition: 'Dispositivos acústicos projetados para gerar ondas estacionárias controladas e amplificá-las por ressonância. Nos cordofones (violão, violino), a corda vibrante transfere energia pelo cavalete para o tampo e a caixa acústica. Nos aerofones (flauta, trompete), chaves ou pistões alteram o comprimento efetivo L da coluna de ar.',
+                example: 'Sem a caixa de ressonância de madeira, o som de uma corda de violão isolada no ar seria quase inaudível.',
+                howToSeeIn3D: 'No Lab 8, escolha o instrumento musical nos botões de cenário rápido para visualizar seu espectro harmônico e ouvir seu timbre!'
+            }
+        ];
+
+        /***********************************************************************
+         * 2. 8 EXCLUSIVE 3D WAVE & ACOUSTICS LABORATORIES CONFIGURATION
+         ***********************************************************************/
+        const LABS_CONFIG = {
+            lab1: {
+                id: 'lab1',
+                badge: 'LAB 1 DE 8 • FUNDAMENTOS DA ONDA & PULSO 3D',
+                shortTitle: '1. Fundamentos & Pulso',
+                fullTitle: 'Onda, Pulso Solitário, Amplitude (A), Frequência (f), Período (T), Comprimento (λ) e Velocidade (v = λ·f)',
+                summary: 'Visualize uma corda/fita ondulatória 3D composta por osciladores acoplados, meça em tempo real as cotas de Crista (+A), Vale (-A) e Comprimento de Onda (λ), ou dispare um Pulso Gaussiano isolado.',
+                cutawayTitle: 'Isolamento de Oscilador Testemunha (Prova de que Onda NÃO Transporta Matéria!)',
+                cutawayDesc: 'Destaca em vermelho brilhante uma única esfera da corda oscilando puramente na vertical (eixo Y) enquanto a crista de energia viaja horizontalmente pelo eixo X.',
+                presets: [
+                    { label: 'Onda Harmônica Clássica (v = λ·f)', values: { waveMode: 0, amplitude: 2.8, frequency: 1.5, waveSpeed: 15.0, damping: 0.0 } },
+                    { label: 'Pulso Solitário Gaussiano (Perturbação Única)', values: { waveMode: 1, amplitude: 3.6, frequency: 1.2, waveSpeed: 16.0, damping: 0.0 } },
+                    { label: 'Alta Frequência & λ Curto (Agudo Energético)', values: { waveMode: 0, amplitude: 2.2, frequency: 3.2, waveSpeed: 16.0, damping: 0.0 } },
+                    { label: 'Onda Amortecida com Perda de Energia', values: { waveMode: 0, amplitude: 3.4, frequency: 1.8, waveSpeed: 14.0, damping: 0.08 } }
+                ],
+                sliders: [
+                    { key: 'waveMode', label: 'Modo: 0=Onda Periódica Contínua | 1=Pulso Isolado', min: 0, max: 1, step: 1, unit: '', default: 0 },
+                    { key: 'amplitude', label: 'Amplitude da Onda (A)', min: 0.5, max: 4.5, step: 0.1, unit: 'm', default: 2.8 },
+                    { key: 'frequency', label: 'Frequência da Fonte (f)', min: 0.5, max: 4.0, step: 0.1, unit: 'Hz', default: 1.5 },
+                    { key: 'waveSpeed', label: 'Velocidade de Propagação (v)', min: 6.0, max: 24.0, step: 0.5, unit: 'm/s', default: 15.0 },
+                    { key: 'damping', label: 'Atenuação / Amortecimento do Meio', min: 0.00, max: 0.12, step: 0.01, unit: '', default: 0.00 }
+                ]
+            },
+            lab2: {
+                id: 'lab2',
+                badge: 'LAB 2 DE 8 • TRANSVERSAIS VS LONGITUDINAIS & MECÂNICAS VS EM',
+                shortTitle: '2. Tipos de Ondas 3D',
+                fullTitle: 'Ondas Transversais vs Longitudinais (Compressão/Rarefação) e Mecânicas vs Eletromagnéticas (E ⊥ B)',
+                summary: 'Compare simultaneamente em 3D: (1) Onda Transversal Mecânica na corda superior, (2) Onda Longitudinal Acústica no túnel central mostrando zonas de Compressão e Rarefação, e (3) Onda Eletromagnética inferior com vetores E e B ortogonais!',
+                cutawayTitle: 'Planos de Polarização e Fatias de Pressão Acústica (Compressão vs Rarefação)',
+                cutawayDesc: 'Exibe anéis marcadores nas zonas de Compressão máxima e os planos ortogonais de oscilação do Campo Elétrico (Y) e Magnético (Z).',
+                presets: [
+                    { label: 'Comparação Tripla Completa (Todas as 3 Ondas)', values: { viewMode: 0, amplitude: 2.2, frequency: 1.6, wavelength: 10.0 } },
+                    { label: 'Foco em Onda Longitudinal (Som: Compressão & Rarefação)', values: { viewMode: 1, amplitude: 2.6, frequency: 1.8, wavelength: 9.0 } },
+                    { label: 'Foco em Onda Eletromagnética 3D (Campos E ⊥ B)', values: { viewMode: 2, amplitude: 2.8, frequency: 2.0, wavelength: 10.0 } }
+                ],
+                sliders: [
+                    { key: 'viewMode', label: 'Exibição: 0=Tripla Comparativa, 1=Só Longitudinal, 2=Só EM', min: 0, max: 2, step: 1, unit: '', default: 0 },
+                    { key: 'amplitude', label: 'Amplitude de Oscilação (A)', min: 0.8, max: 3.5, step: 0.1, unit: 'u', default: 2.2 },
+                    { key: 'frequency', label: 'Frequência de Oscilação (f)', min: 0.5, max: 3.5, step: 0.1, unit: 'Hz', default: 1.6 },
+                    { key: 'wavelength', label: 'Comprimento de Onda (λ)', min: 6.0, max: 16.0, step: 0.5, unit: 'm', default: 10.0 }
+                ]
+            },
+            lab3: {
+                id: 'lab3',
+                badge: 'LAB 3 DE 8 • REFLEXÃO (FIXA/LIVRE) & REFRAÇÃO EM CORDAS',
+                shortTitle: '3. Reflexão & Refração',
+                fullTitle: 'Reflexão de Pulsos (Extremidade Fixa com Inversão vs Livre sem Inversão) e Refração (μ₁ → μ₂)',
+                summary: 'Dispare pulsos contra um poste 3D com Extremidade Fixa (inversão de 180°), Extremidade Livre com anel deslizante (sem inversão) ou observe a Refração na junção de duas cordas de densidades lineares μ₁ e μ₂ diferentes!',
+                cutawayTitle: 'Vetor Força de Reação no Poste / Junção de Impedância Mecânica (μ₁ → μ₂)',
+                cutawayDesc: 'Mostra o diagrama de forças na fronteira x = 0 que explica fisicamente por que o pulso inverte na ponta fixa e muda de comprimento na refração.',
+                presets: [
+                    { label: 'Reflexão em Extremidade FIXA (Inverte Fase 180°)', values: { boundaryType: 0, mu1: 1.0, mu2: 4.0, tensionF: 40, pulseAmp: 3.2 } },
+                    { label: 'Reflexão em Extremidade LIVRE (Anel — Mantém Fase 0°)', values: { boundaryType: 1, mu1: 1.0, mu2: 4.0, tensionF: 40, pulseAmp: 3.2 } },
+                    { label: 'Refração: Corda Fina → Corda Grossa (μ₁=1 → μ₂=4)', values: { boundaryType: 2, mu1: 1.0, mu2: 4.0, tensionF: 50, pulseAmp: 3.2 } },
+                    { label: 'Refração: Corda Grossa → Corda Fina (μ₁=4 → μ₂=1)', values: { boundaryType: 2, mu1: 4.0, mu2: 1.0, tensionF: 50, pulseAmp: 3.0 } }
+                ],
+                sliders: [
+                    { key: 'boundaryType', label: 'Fronteira: 0=Ponta Fixa, 1=Ponta Livre, 2=Refração μ₁→μ₂', min: 0, max: 2, step: 1, unit: '', default: 2 },
+                    { key: 'mu1', label: 'Densidade Linear da Corda 1 (μ₁)', min: 0.5, max: 5.0, step: 0.5, unit: 'g/m', default: 1.0 },
+                    { key: 'mu2', label: 'Densidade Linear da Corda 2 (μ₂)', min: 0.5, max: 6.0, step: 0.5, unit: 'g/m', default: 4.0 },
+                    { key: 'tensionF', label: 'Força de Tração na Corda (F)', min: 15, max: 90, step: 5, unit: 'N', default: 50 },
+                    { key: 'pulseAmp', label: 'Amplitude do Pulso Incidente (Aᵢ)', min: 1.5, max: 4.5, step: 0.2, unit: 'm', default: 3.2 }
+                ]
+            },
+            lab4: {
+                id: 'lab4',
+                badge: 'LAB 4 DE 8 • DIFRAÇÃO EM FENDA & INTERFERÊNCIA 3D (TANQUE DE ONDAS)',
+                shortTitle: '4. Difração & Interferência',
+                fullTitle: 'Tanque de Ondas 3D (Ripple Tank): Interferência Construtiva/Destrutiva de 2 Fontes e Difração de Huygens',
+                summary: 'Observe a superfície 3D de um Tanque de Ondas iluminado: alterne entre a Interferência de duas fontes coerentes S₁ e S₂ (exibindo hipérboles nodais e cristas construtivas) e a Difração de ondas planas atravessando uma fenda!',
+                cutawayTitle: 'Mapa Hipsométrico de Linhas Nodais (Interferência Destrutiva Δx = (m+0,5)λ)',
+                cutawayDesc: 'Renderiza a superfície da água em malha wireframe de alta precisão com as curvas nodais onde a amplitude resultante é permanentemente zero.',
+                presets: [
+                    { label: 'Interferência Clássica de 2 Fontes Coerentes (S₁ e S₂)', values: { tankMode: 1, sourceSep: 9.0, wavelength: 4.2, slitWidth: 3.0, waveAmp: 1.4 } },
+                    { label: 'Interferência com Fontes Afastadas (Muitas Linhas Nodais)', values: { tankMode: 1, sourceSep: 14.0, wavelength: 3.5, slitWidth: 3.0, waveAmp: 1.3 } },
+                    { label: 'Difração Forte em Fenda Estreita (a ≈ λ → Onda Circular!)', values: { tankMode: 0, sourceSep: 9.0, wavelength: 4.5, slitWidth: 2.2, waveAmp: 1.5 } },
+                    { label: 'Difração Fraca em Fenda Larga (a ≫ λ → Sombra Geométrica)', values: { tankMode: 0, sourceSep: 9.0, wavelength: 3.0, slitWidth: 9.5, waveAmp: 1.4 } }
+                ],
+                sliders: [
+                    { key: 'tankMode', label: 'Experimento: 0=Difração em Fenda | 1=Interferência 2 Fontes', min: 0, max: 1, step: 1, unit: '', default: 1 },
+                    { key: 'wavelength', label: 'Comprimento de Onda no Tanque (λ)', min: 2.5, max: 7.0, step: 0.2, unit: 'cm', default: 4.2 },
+                    { key: 'sourceSep', label: 'Distância entre Fontes S₁ e S₂ (d)', min: 4.0, max: 16.0, step: 0.5, unit: 'cm', default: 9.0 },
+                    { key: 'slitWidth', label: 'Abertura da Fenda de Difração (a)', min: 1.5, max: 11.0, step: 0.5, unit: 'cm', default: 3.0 },
+                    { key: 'waveAmp', label: 'Amplitude de Oscilação (A)', min: 0.5, max: 2.2, step: 0.1, unit: 'cm', default: 1.4 }
+                ]
+            },
+            lab5: {
+                id: 'lab5',
+                badge: 'LAB 5 DE 8 • RESSONÂNCIA, CORDAS VIBRANTES & ONDAS ESTACIONÁRIAS',
+                shortTitle: '5. Cordas & Ressonância',
+                fullTitle: 'Ondas Estacionárias (Nós e Ventres), Harmônicos em Cordas Vibrantes (fₙ = n·v/2L) e Ressonância',
+                summary: 'Explore do 1º ao 8º Harmônico em uma corda vibrante 3D presa em cavaletes acústicos, visualize os Nós (esferas vermelhas fixas) e Ventres (esferas verdes em amplitude máxima 2A) e sintonize a Ressonância!',
+                cutawayTitle: 'Decomposição das Duas Ondas Viajantes Opostas + Envoltória Estacionária',
+                cutawayDesc: 'Mostra simultaneamente a onda incidente (amarela) viajando para a direita e a onda refletida (azul) viajando para a esquerda que, somadas, criam a Onda Estacionária!',
+                presets: [
+                    { label: '1º Harmônico (Som Fundamental n = 1 — 1 Fuso)', values: { harmonicN: 1, stringLen: 1.2, tensionF: 60, detuning: 0.0 } },
+                    { label: '2º Harmônico (1ª Oitava n = 2 — 2 Ventres e 3 Nós)', values: { harmonicN: 2, stringLen: 1.2, tensionF: 60, detuning: 0.0 } },
+                    { label: '3º Harmônico (Quinta Justa n = 3 — 3 Ventres e 4 Nós)', values: { harmonicN: 3, stringLen: 1.2, tensionF: 60, detuning: 0.0 } },
+                    { label: '5º Harmônico em Ressonância Máxima (n = 5)', values: { harmonicN: 5, stringLen: 1.2, tensionF: 80, detuning: 0.0 } },
+                    { label: 'Fora de Ressonância (Dessintonia Δf = 3.5 Hz → Queda de Amplitude)', values: { harmonicN: 3, stringLen: 1.2, tensionF: 60, detuning: 3.5 } }
+                ],
+                sliders: [
+                    { key: 'harmonicN', label: 'Número do Harmônico / Fusos (n)', min: 1, max: 8, step: 1, unit: 'º harm', default: 3 },
+                    { key: 'stringLen', label: 'Comprimento da Corda Vibrante (L)', min: 0.6, max: 2.0, step: 0.1, unit: 'm', default: 1.2 },
+                    { key: 'tensionF', label: 'Tração Mecânica na Corda (F)', min: 20, max: 120, step: 5, unit: 'N', default: 60 },
+                    { key: 'detuning', label: 'Dessintonia da Ressonância (|f_exc - fₙ|)', min: 0.0, max: 5.0, step: 0.2, unit: 'Hz', default: 0.0 }
+                ]
+            },
+            lab6: {
+                id: 'lab6',
+                badge: 'LAB 6 DE 8 • EFEITO DOPPLER 3D & CONE DE MACH SUPERSÔNICO',
+                shortTitle: '6. Efeito Doppler & Mach',
+                fullTitle: 'Efeito Doppler Acústico 3D (Frentes Comprimidas vs Expandidas) e Cone de Choque Supersônico (Mach > 1)',
+                summary: 'Acompanhe uma aeronave/ambulância 3D emitindo frentes de onda esféricas periódicas: veja o encurtamento de λ à frente (som agudo f_aprox) e o alargamento atrás (som grave f_afast), ou ultrapasse 340 m/s para formar a Barreira do Som (Cone de Mach)!',
+                cutawayTitle: 'Geometria do Cone de Mach (sen θ = v_som / v_fonte) & Vetores de Velocidade Relativa',
+                cutawayDesc: 'Exibe o cone envoltório tangente às esferas de pressão acústica e a medição direta de λ_frente vs λ_trás.',
+                presets: [
+                    { label: 'Fonte em Repouso (v_fonte = 0 m/s → Anéis Concêntricos)', values: { vSource: 0, vObserver: 0, fEmitted: 440, vSound: 340 } },
+                    { label: 'Ambulância Subsônica Rápida (v_fonte = 120 m/s ≈ Mach 0.35)', values: { vSource: 120, vObserver: 0, fEmitted: 440, vSound: 340 } },
+                    { label: 'Barreira do Som Exata (Mach 1.0 — v_fonte = 340 m/s!)', values: { vSource: 340, vObserver: 0, fEmitted: 440, vSound: 340 } },
+                    { label: 'Caça Supersônico Mach 1.6 (v_fonte = 544 m/s — Cone de Mach!)', values: { vSource: 544, vObserver: 0, fEmitted: 500, vSound: 340 } }
+                ],
+                sliders: [
+                    { key: 'vSource', label: 'Velocidade da Fonte Sonora (v_fonte)', min: 0, max: 600, step: 10, unit: 'm/s', default: 140 },
+                    { key: 'vObserver', label: 'Velocidade do Observador (v_obs)', min: -100, max: 100, step: 10, unit: 'm/s', default: 0 },
+                    { key: 'fEmitted', label: 'Frequência Real Emitida pela Fonte (f₀)', min: 200, max: 800, step: 20, unit: 'Hz', default: 440 },
+                    { key: 'vSound', label: 'Velocidade do Som no Meio (v_som)', min: 300, max: 400, step: 5, unit: 'm/s', default: 340 }
+                ]
+            },
+            lab7: {
+                id: 'lab7',
+                badge: 'LAB 7 DE 8 • ACÚSTICA: SOM, ALTURA, INTENSIDADE (dB), ECO & REVERBERAÇÃO',
+                shortTitle: '7. Som, dB, Eco & Reverb',
+                fullTitle: 'Acústica Física: Altura (Grave/Agudo), Nível Sonoro em Decibéis (β), Eco (d ≥ 17 m) e Reverberação (d < 17 m)',
+                summary: 'Controle a potência em Watts de um canhão acústico 3D, meça a queda de Intensidade (W/m²) e Decibéis (dB) com a distância e mova o paredão rochoso antes ou depois do limite clássico de 17 metros para testar Reverberação vs Eco!',
+                cutawayTitle: 'Fronteira Crítica dos 17 Metros (Persistência Auditiva Δt = 0,10 s) + Hemisférios de Intensidade 4πd²',
+                cutawayDesc: 'Destaca no piso da bancada 3D a linha vermelha exata de d = 17,0 m que separa a zona de Reverberação/Reforço da zona de Eco Acústico.',
+                presets: [
+                    { label: 'ECO NÍTIDO no Cânion (Parede a d = 30 m → Δt = 0,176 s ≥ 0,1 s)', values: { wallDist: 30.0, freqHz: 440, powerWatts: 10.0, tempC: 15 } },
+                    { label: 'LIMITE EXATO DO ECO (Parede a d = 17,0 m → Δt = 0,100 s!)', values: { wallDist: 17.0, freqHz: 520, powerWatts: 5.0, tempC: 15 } },
+                    { label: 'REVERBERAÇÃO em Sala Pequena (Parede a d = 8,0 m → Δt = 0,047 s)', values: { wallDist: 8.0, freqHz: 330, powerWatts: 1.0, tempC: 20 } },
+                    { label: 'Som Grave e Muito Forte (110 Hz, 80 Watts — Alta Intensidade dB)', values: { wallDist: 24.0, freqHz: 110, powerWatts: 80.0, tempC: 25 } }
+                ],
+                sliders: [
+                    { key: 'wallDist', label: 'Distância até o Paredão Refletor (d)', min: 4.0, max: 45.0, step: 0.5, unit: 'm', default: 25.0 },
+                    { key: 'freqHz', label: 'Frequência / Altura (Grave ↔ Agudo)', min: 80, max: 1200, step: 20, unit: 'Hz', default: 440 },
+                    { key: 'powerWatts', label: 'Potência Sonora da Fonte (P)', min: 0.1, max: 100.0, step: 0.5, unit: 'W', default: 10.0 },
+                    { key: 'tempC', label: 'Temperatura do Ar Ambiente (T)', min: 0, max: 40, step: 5, unit: '°C', default: 15 }
+                ]
+            },
+            lab8: {
+                id: 'lab8',
+                badge: 'LAB 8 DE 8 • TUBOS SONOROS (ABERTO/FECHADO), TIMBRE & INSTRUMENTOS',
+                shortTitle: '8. Tubos Sonoros & Timbre',
+                fullTitle: 'Tubos Sonoros Abertos e Fechados (Kundt 3D), Harmônicos Pares/Ímpares, Timbre e Instrumentos Musicais',
+                summary: 'Observe 5.000 moléculas de ar vibrando longitudinalmente dentro de um Tubo de Kundt 3D (Aberto nas duas pontas vs Fechado em uma ponta) e compare o Timbre real e o espectro harmônico do Diapasão, Flauta, Clarinete e Violão!',
+                cutawayTitle: 'Curva Envoltória de Deslocamento Molecular s(x) vs Variação de Pressão ΔP(x) no Tubo',
+                cutawayDesc: 'Mostra que onde as moléculas têm Nó de deslocamento (presas na tampa fechada), a variação de pressão ΔP é máxima (Ventre de Pressão)!',
+                presets: [
+                    { label: 'Flauta Transversal (Tubo Aberto — 1º Harmônico)', values: { pipeClosed: 0, harmonicMode: 1, pipeLen: 0.85, instrumentTimbre: 1 } },
+                    { label: 'Clarinete (Tubo Fechado — 3º Harmônico Ímpar n=3)', values: { pipeClosed: 1, harmonicMode: 2, pipeLen: 0.85, instrumentTimbre: 2 } },
+                    { label: 'Violão Acústico (Rico em Harmônicos — Timbre Encorpado)', values: { pipeClosed: 0, harmonicMode: 3, pipeLen: 0.65, instrumentTimbre: 3 } },
+                    { label: 'Diapasão de Laboratório (Senóide Pura 440 Hz — Sem Harmônicos)', values: { pipeClosed: 0, harmonicMode: 1, pipeLen: 0.39, instrumentTimbre: 0 } }
+                ],
+                sliders: [
+                    { key: 'pipeClosed', label: 'Tubo: 0=Aberto nas 2 Pontas | 1=Fechado em 1 Ponta', min: 0, max: 1, step: 1, unit: '', default: 0 },
+                    { key: 'harmonicMode', label: 'Modo Ressonante (k = 1º, 2º, 3º, 4º modo permitido)', min: 1, max: 5, step: 1, unit: 'º modo', default: 2 },
+                    { key: 'pipeLen', label: 'Comprimento Efetivo do Tubo / Corda (L)', min: 0.30, max: 1.70, step: 0.05, unit: 'm', default: 0.85 },
+                    { key: 'instrumentTimbre', label: 'Timbre: 0=Diapasão, 1=Flauta, 2=Clarinete, 3=Violão', min: 0, max: 3, step: 1, unit: '', default: 3 }
+                ]
+            }
+        };
+
+        /***********************************************************************
+         * 3. GLOBAL APPLICATION STATE & WEB AUDIO API SYNTHESIZER
+         ***********************************************************************/
+        const state = {
+            currentLabId: 'lab1',
+            selectedConceptId: 'onda',
+            isPlaying: true,
+            simTime: 0,
+            simSpeed: 1.0,
+            cutawayMode: false,
+            showBenchGrid: true,
+            showVectors: true,
+            audioEnabled: false,
+            params: {},
+            chartHistory: [],
+            labRuntime: {},
+            launchedWaves: []
+        };
+
+        Object.keys(LABS_CONFIG).forEach(labKey => {
+            state.params[labKey] = {};
+            LABS_CONFIG[labKey].sliders.forEach(s => {
+                state.params[labKey][s.key] = s.default;
+            });
+        });
+
+        // --- WEB AUDIO API SYNTHESIZER (Safe, Interactive & Educational) ---
+        let audioCtx = null;
+        let masterGain = null;
+        let activeOscillators = [];
+
+        function initAudioContextIfNeeded() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.0;
+                masterGain.connect(audioCtx.destination);
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function stopContinuousOscillators() {
+            activeOscillators.forEach(oscObj => {
+                try {
+                    oscObj.osc.stop();
+                    oscObj.osc.disconnect();
+                } catch (e) {}
+            });
+            activeOscillators = [];
+        }
+
+        function rebuildContinuousAudioSynth() {
+            if (!state.audioEnabled) {
+                stopContinuousOscillators();
+                return;
+            }
+            initAudioContextIfNeeded();
+            stopContinuousOscillators();
+
+            const id = state.currentLabId;
+            let baseFreq = 220;
+            // Harmonic weights [h1, h2, h3, h4, h5]
+            let harmonics = [1.0, 0.0, 0.0, 0.0, 0.0];
+
+            if (id === 'lab1') {
+                baseFreq = 140 + state.params.lab1.frequency * 90;
+                harmonics = [1.0, 0.15, 0.05, 0, 0];
+            } else if (id === 'lab2') {
+                baseFreq = 160 + state.params.lab2.frequency * 80;
+                harmonics = [1.0, 0.2, 0.1, 0, 0];
+            } else if (id === 'lab5') {
+                const p5 = state.params.lab5;
+                const v = Math.sqrt(p5.tensionF / 0.005);
+                baseFreq = Math.min(1200, Math.max(80, p5.harmonicN * (v / (2 * p5.stringLen))));
+                harmonics = [1.0, 0.35, 0.2, 0.1, 0.05];
+            } else if (id === 'lab6') {
+                const p6 = state.params.lab6;
+                const denom = Math.max(40, p6.vSound - p6.vSource * 0.65);
+                baseFreq = Math.min(1400, (p6.fEmitted * (p6.vSound + p6.vObserver)) / denom);
+                harmonics = [1.0, 0.3, 0.15, 0, 0];
+            } else if (id === 'lab7') {
+                baseFreq = state.params.lab7.freqHz;
+                harmonics = [1.0, 0.1, 0, 0, 0];
+            } else if (id === 'lab8') {
+                const p8 = state.params.lab8;
+                const nHarm = p8.pipeClosed === 1 ? (2 * p8.harmonicMode - 1) : p8.harmonicMode;
+                const denomFactor = p8.pipeClosed === 1 ? 4 : 2;
+                baseFreq = Math.min(1200, Math.max(90, (nHarm * 340) / (denomFactor * p8.pipeLen)));
+                if (p8.instrumentTimbre === 0) harmonics = [1.0, 0.0, 0.0, 0.0, 0.0]; // Diapasão puro
+                else if (p8.instrumentTimbre === 1) harmonics = [1.0, 0.45, 0.20, 0.08, 0.03]; // Flauta
+                else if (p8.instrumentTimbre === 2) harmonics = [1.0, 0.04, 0.65, 0.04, 0.35]; // Clarinete (ímpares)
+                else harmonics = [1.0, 0.68, 0.48, 0.32, 0.22]; // Violão rico
+            } else {
+                baseFreq = 261.6; // Dó central
+                harmonics = [1.0, 0.25, 0.1, 0, 0];
+            }
+
+            const now = audioCtx.currentTime;
+            masterGain.gain.setTargetAtTime(0.12, now, 0.05);
+
+            harmonics.forEach((weight, idx) => {
+                if (weight <= 0.01) return;
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(baseFreq * (idx + 1), now);
+                g.gain.setValueAtTime(weight * 0.35, now);
+                osc.connect(g);
+                g.connect(masterGain);
+                osc.start();
+                activeOscillators.push({ osc, gain: g, mult: idx + 1 });
+            });
+        }
+
+        function toggleWebAudioSynth() {
+            state.audioEnabled = !state.audioEnabled;
+            const btn = document.getElementById('btn-audio-synth');
+            const icon = document.getElementById('icon-audio-synth');
+            const lbl = document.getElementById('lbl-audio-synth');
+
+            if (state.audioEnabled) {
+                btn.classList.add('audio-active');
+                icon.className = 'fa-solid fa-volume-high';
+                lbl.textContent = 'Som Real Ativo (On)';
+                rebuildContinuousAudioSynth();
+            } else {
+                btn.classList.remove('audio-active');
+                icon.className = 'fa-solid fa-volume-xmark';
+                lbl.textContent = 'Ouvir Som Real (Off)';
+                if (masterGain && audioCtx) {
+                    masterGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.03);
+                }
+                setTimeout(stopContinuousOscillators, 80);
+            }
+        }
+
+        // One-shot acoustic demo (plays note or Echo/Reverb demonstration!)
+        function playQuickAudioDemo(customFreq = null, customType = null) {
+            initAudioContextIfNeeded();
+            const now = audioCtx.currentTime;
+            const id = state.currentLabId;
+
+            const playTone = (freq, startTime, duration, gainVal, timbreWeights) => {
+                timbreWeights.forEach((w, idx) => {
+                    if (w <= 0.01) return;
+                    const osc = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq * (idx + 1), startTime);
+                    g.gain.setValueAtTime(0.001, startTime);
+                    g.gain.exponentialRampToValueAtTime(gainVal * w, startTime + 0.02);
+                    g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+                    osc.connect(g);
+                    g.connect(audioCtx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + duration + 0.02);
+                });
+            };
+
+            if (customFreq) {
+                const weights = customType === 'guitar' ? [1, 0.7, 0.5, 0.3, 0.2] :
+                                customType === 'clarinet' ? [1, 0.05, 0.7, 0.05, 0.4] :
+                                customType === 'shock' ? [1, 0.9, 0.8, 0.7, 0.6] : [1, 0, 0, 0, 0];
+                playTone(customFreq, now, 0.65, 0.16, weights);
+                return;
+            }
+
+            if (id === 'lab7') {
+                // Play Direct Sound + Reflected Sound after exact delay Δt = 2d / v_sound!
+                const p7 = state.params.lab7;
+                const vSound = 331 + 0.6 * p7.tempC;
+                const delaySec = (2 * p7.wallDist) / vSound;
+                playTone(p7.freqHz, now, 0.09, 0.18, [1.0, 0.3, 0.1]);
+                playTone(p7.freqHz, now + delaySec, 0.12, 0.09, [1.0, 0.2, 0.05]);
+            } else if (id === 'lab8') {
+                const p8 = state.params.lab8;
+                const nHarm = p8.pipeClosed === 1 ? (2 * p8.harmonicMode - 1) : p8.harmonicMode;
+                const denomFactor = p8.pipeClosed === 1 ? 4 : 2;
+                const freq = Math.min(1200, Math.max(100, (nHarm * 340) / (denomFactor * p8.pipeLen)));
+                const weights = p8.instrumentTimbre === 0 ? [1, 0, 0, 0, 0] :
+                                p8.instrumentTimbre === 1 ? [1, 0.45, 0.2, 0.08, 0.03] :
+                                p8.instrumentTimbre === 2 ? [1, 0.04, 0.65, 0.04, 0.35] : [1, 0.68, 0.48, 0.32, 0.22];
+                playTone(freq, now, 0.75, 0.16, weights);
+            } else {
+                playTone(440, now, 0.45, 0.15, [1.0, 0.35, 0.15]);
+            }
+        }
+
+        /***********************************************************************
+         * 4. THREE.JS ENGINE, GLOW SPRITE & ACOUSTIC BENCH GRID
+         ***********************************************************************/
+        let scene, camera, renderer, controls, labGroup, launchedGroup, acousticBenchGroup, bgParticles;
+        let glowParticleTexture = null;
+
+        function createSoftParticleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+            grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.85)');
+            grad.addColorStop(0.65, 'rgba(255, 255, 255, 0.25)');
+            grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 64, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas3d-container');
+            const w = container.clientWidth || 800;
+            const h = container.clientHeight || 600;
+
+            glowParticleTexture = createSoftParticleTexture();
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x030611);
+            scene.fog = new THREE.FogExp2(0x030611, 0.0055);
+
+            camera = new THREE.PerspectiveCamera(44, w / h, 0.1, 1000);
+            camera.position.set(0, 16, 36);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.25;
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 5;
+            controls.maxDistance = 150;
+
+            const ambientLight = new THREE.AmbientLight(0xe2e8f0, 0.75);
+            scene.add(ambientLight);
+
+            const mainLight = new THREE.PointLight(0xffffff, 1.5, 250);
+            mainLight.position.set(12, 26, 22);
+            scene.add(mainLight);
+
+            const rimLight = new THREE.DirectionalLight(0xeab308, 0.65);
+            rimLight.position.set(-25, 18, -20);
+            scene.add(rimLight);
+
+            // Ambient Floating Acoustic Dust in Dark Studio
+            const dustGeo = new THREE.BufferGeometry();
+            const dustCount = 2800;
+            const dustPos = new Float32Array(dustCount * 3);
+            const dustCol = new Float32Array(dustCount * 3);
+            const palette = [
+                new THREE.Color(0xeab308),
+                new THREE.Color(0x38bdf8),
+                new THREE.Color(0xf59e0b),
+                new THREE.Color(0x10b981)
+            ];
+            for (let i = 0; i < dustCount; i++) {
+                dustPos[i * 3] = (Math.random() - 0.5) * 160;
+                dustPos[i * 3 + 1] = (Math.random() - 0.5) * 90;
+                dustPos[i * 3 + 2] = (Math.random() - 0.5) * 160;
+                const c = palette[i % palette.length];
+                dustCol[i * 3] = c.r; dustCol[i * 3 + 1] = c.g; dustCol[i * 3 + 2] = c.b;
+            }
+            dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+            dustGeo.setAttribute('color', new THREE.BufferAttribute(dustCol, 3));
+            bgParticles = new THREE.Points(
+                dustGeo,
+                new THREE.PointsMaterial({ size: 0.7, vertexColors: true, transparent: true, opacity: 0.38 })
+            );
+            scene.add(bgParticles);
+
+            labGroup = new THREE.Group();
+            scene.add(labGroup);
+
+            launchedGroup = new THREE.Group();
+            scene.add(launchedGroup);
+
+            createAcousticBenchGrid();
+            window.addEventListener('resize', handleWindowResize);
+        }
+
+        function createAcousticBenchGrid() {
+            if (acousticBenchGroup) scene.remove(acousticBenchGroup);
+            acousticBenchGroup = new THREE.Group();
+
+            const gridHelper = new THREE.GridHelper(64, 32, 0xeab308, 0x1e293b);
+            gridHelper.position.y = -6.5;
+            gridHelper.material.transparent = true;
+            gridHelper.material.opacity = 0.42;
+            acousticBenchGroup.add(gridHelper);
+
+            acousticBenchGroup.visible = state.showBenchGrid;
+            scene.add(acousticBenchGroup);
+        }
+
+        function handleWindowResize() {
+            const container = document.getElementById('canvas3d-container');
+            if (!container || !renderer) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            resize2DChartCanvas();
+        }
+
+        function setCameraPreset(preset) {
+            controls.target.set(0, 0, 0);
+            if (preset === 'iso') camera.position.set(0, 16, 36);
+            else if (preset === 'top') camera.position.set(0, 44, 0.01);
+            else if (preset === 'front') camera.position.set(0, 1.0, 38);
+            controls.update();
+        }
+
+        function toggleCutawayMode() {
+            state.cutawayMode = !state.cutawayMode;
+            const btn = document.getElementById('btn-cutaway');
+            const banner = document.getElementById('cutaway-info-banner');
+            const labCfg = LABS_CONFIG[state.currentLabId];
+
+            if (state.cutawayMode) {
+                btn.classList.add('cutaway-active');
+                banner.classList.remove('hidden');
+                document.getElementById('cutaway-banner-title').textContent = labCfg.cutawayTitle;
+                document.getElementById('cutaway-banner-desc').textContent = labCfg.cutawayDesc;
+            } else {
+                btn.classList.remove('cutaway-active');
+                banner.classList.add('hidden');
+            }
+            rebuildActive3DLabScene();
+        }
+
+        function toggleBenchGrid() {
+            state.showBenchGrid = !state.showBenchGrid;
+            const btn = document.getElementById('btn-bench');
+            btn.className = state.showBenchGrid
+                ? 'px-2.5 py-1 rounded-lg bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer'
+                : 'px-2.5 py-1 rounded-lg bg-slate-800/90 text-slate-400 border border-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer';
+            if (acousticBenchGroup) acousticBenchGroup.visible = state.showBenchGrid;
+        }
+
+        function toggleVectorsVisibility() {
+            state.showVectors = !state.showVectors;
+            const btn = document.getElementById('btn-vectors');
+            const legend = document.getElementById('vector-legend-box');
+            if (state.showVectors) {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer';
+                legend.classList.remove('hidden');
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800/90 text-slate-400 border border-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer';
+                legend.classList.add('hidden');
+            }
+            rebuildActive3DLabScene();
+        }
+
+        // Helper: Create glowing 3D cylinder segment between two Vector3 points
+        function createGlowingSegment(pStart, pEnd, colorHex, radius = 0.08, opacity = 0.9) {
+            const dir = new THREE.Vector3().subVectors(pEnd, pStart);
+            const len = dir.length();
+            if (len < 0.01) return new THREE.Group();
+            const mid = new THREE.Vector3().addVectors(pStart, pEnd).multiplyScalar(0.5);
+            const mesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(radius, radius, len, 12),
+                new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity })
+            );
+            mesh.position.copy(mid);
+            mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+            return mesh;
+        }
+
+        /***********************************************************************
+         * 5. BUILDERS & UPDATERS FOR ALL 8 3D WAVE & ACOUSTICS LABORATORIES
+         ***********************************************************************/
+        function clearLabGroup() {
+            while (labGroup.children.length > 0) {
+                labGroup.remove(labGroup.children[0]);
+            }
+        }
+
+        function rebuildActive3DLabScene() {
+            clearLabGroup();
+            const id = state.currentLabId;
+            if (id === 'lab1') buildLab1WaveFundamentals();
+            else if (id === 'lab2') buildLab2WaveTypesComparison();
+            else if (id === 'lab3') buildLab3ReflectionRefraction();
+            else if (id === 'lab4') buildLab4DiffractionInterferenceTank();
+            else if (id === 'lab5') buildLab5StandingWavesResonance();
+            else if (id === 'lab6') buildLab6DopplerMachCone();
+            else if (id === 'lab7') buildLab7AcousticsEchoDecibels();
+            else if (id === 'lab8') buildLab8SoundPipesTimbre();
+
+            if (state.audioEnabled) rebuildContinuousAudioSynth();
+        }
+
+        /* =====================================================================
+         * LAB 1: FUNDAMENTOS DA ONDA & PULSO SOLITÁRIO (v = λ · f)
+         * ===================================================================== */
+        function buildLab1WaveFundamentals() {
+            const p = state.params.lab1;
+            const rt = {};
+
+            // Central Equilibrium Axis X (-20 to +20)
+            labGroup.add(createGlowingSegment(new THREE.Vector3(-21, 0, 0), new THREE.Vector3(21, 0, 0), 0x475569, 0.04, 0.7));
+
+            // Oscillator Source Piston on Left (x = -20)
+            const sourceBox = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.9, 0.9, 1.8, 24),
+                new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.7, roughness: 0.2 })
+            );
+            sourceBox.position.set(-20.5, 0, 0);
+            labGroup.add(sourceBox);
+            rt.sourceBox = sourceBox;
+
+            // 120 Coupled 3D Sphere Oscillators along X (-20 to +20) + Ribbon Wave Surface
+            const numBeads = 120;
+            rt.beads = [];
+            const beadGeo = new THREE.SphereGeometry(0.24, 16, 16);
+            const testBeadGeo = new THREE.SphereGeometry(0.48, 24, 24);
+
+            for (let i = 0; i < numBeads; i++) {
+                const x = -20 + (i / (numBeads - 1)) * 40;
+                const isTestParticle = (i === 45); // Witness particle at x ≈ -5 m
+                const mat = new THREE.MeshStandardMaterial({
+                    color: (isTestParticle && state.cutawayMode) ? 0xf43f5e : 0xfacc15,
+                    emissive: (isTestParticle && state.cutawayMode) ? 0xe11d48 : 0xca8a04,
+                    emissiveIntensity: (isTestParticle && state.cutawayMode) ? 0.9 : 0.4,
+                    roughness: 0.2
+                });
+                const bead = new THREE.Mesh((isTestParticle && state.cutawayMode) ? testBeadGeo : beadGeo, mat);
+                bead.position.set(x, 0, 0);
+                labGroup.add(bead);
+                rt.beads.push({ mesh: bead, x, isTestParticle });
+
+                // Vertical guide rail for the witness particle in Cutaway Mode (proves no matter transport along X!)
+                if (isTestParticle && state.cutawayMode) {
+                    labGroup.add(createGlowingSegment(new THREE.Vector3(x, -5.2, 0), new THREE.Vector3(x, 5.2, 0), 0xf43f5e, 0.05, 0.8));
+                }
+            }
+
+            // Dynamic Wavelength (λ) & Amplitude (A) 3D Dimension Bars
+            if (state.showVectors) {
+                rt.lambdaBarGroup = new THREE.Group();
+                labGroup.add(rt.lambdaBarGroup);
+            }
+
+            document.getElementById('hud-wave-eq').textContent = 'v = λ · f';
+            document.getElementById('hud-particles-count').textContent = '120 Osciladores Acoplados';
+            state.labRuntime = rt;
+        }
+
+        function updateLab1WaveFundamentals(dt) {
+            const p = state.params.lab1;
+            const rt = state.labRuntime;
+            if (!rt.beads) return;
+
+            const A = p.amplitude;
+            const f = p.frequency;
+            const T = 1 / f;
+            const v = p.waveSpeed;
+            const lambda = v / f;
+            const k = (2 * Math.PI) / lambda;
+            const omega = 2 * Math.PI * f;
+
+            let witnessY = 0;
+
+            rt.beads.forEach((b, idx) => {
+                const distFromLeft = b.x + 20;
+                const atten = Math.exp(-p.damping * distFromLeft);
+                let y = 0;
+
+                if (p.waveMode === 0) {
+                    // Continuous Harmonic Wave: y(x,t) = A * exp(-γx) * sin(k*x - ω*t)
+                    y = A * atten * Math.sin(k * distFromLeft - omega * state.simTime);
+                } else {
+                    // Solitary Gaussian Pulse traveling at speed v along +X
+                    const pulseCenter = ((state.simTime * v) % 46) - 3;
+                    const dx = distFromLeft - pulseCenter;
+                    y = A * atten * Math.exp(-(dx * dx) / 4.5);
+                }
+
+                b.mesh.position.y = y;
+                if (b.isTestParticle) witnessY = y;
+
+                // Color gradient by elevation (Crest = Yellow, Trough = Sky Blue)
+                if (!(b.isTestParticle && state.cutawayMode)) {
+                    const norm = (y / (A + 0.01) + 1) * 0.5;
+                    b.mesh.material.color.setHSL(0.55 - norm * 0.42, 0.95, 0.55);
+                }
+            });
+
+            if (rt.sourceBox && rt.beads.length > 0) {
+                rt.sourceBox.position.y = rt.beads[0].mesh.position.y;
+            }
+
+            // Update 3D Wavelength (λ) and Amplitude (+A) caliper bars dynamically
+            if (state.showVectors && rt.lambdaBarGroup) {
+                while (rt.lambdaBarGroup.children.length > 0) {
+                    rt.lambdaBarGroup.remove(rt.lambdaBarGroup.children[0]);
+                }
+                if (p.waveMode === 0 && lambda <= 36) {
+                    const barY = A + 1.1;
+                    const xStart = -12;
+                    const xEnd = xStart + lambda;
+                    rt.lambdaBarGroup.add(createGlowingSegment(new THREE.Vector3(xStart, barY, 0), new THREE.Vector3(xEnd, barY, 0), 0x38bdf8, 0.07, 0.95));
+                    rt.lambdaBarGroup.add(createGlowingSegment(new THREE.Vector3(xStart, barY - 0.6, 0), new THREE.Vector3(xStart, barY + 0.6, 0), 0x38bdf8, 0.06, 0.95));
+                    rt.lambdaBarGroup.add(createGlowingSegment(new THREE.Vector3(xEnd, barY - 0.6, 0), new THREE.Vector3(xEnd, barY + 0.6, 0), 0x38bdf8, 0.06, 0.95));
+                }
+                // Amplitude vertical indicator at x = 0
+                rt.lambdaBarGroup.add(createGlowingSegment(new THREE.Vector3(0, 0, 0.8), new THREE.Vector3(0, A, 0.8), 0x10b981, 0.07, 0.9));
+            }
+
+            const vMaxOscillator = omega * A;
+
+            pushChartPoint(state.simTime, witnessY * 18, A * 18, -A * 18);
+            setHUDMetrics([
+                `Amplitude A: ${A.toFixed(1)} m`,
+                `Período T: ${T.toFixed(2)} s`,
+                `Compr. λ: ${lambda.toFixed(2)} m`,
+                `Velocidade v: ${v.toFixed(1)} m/s`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Equação Fundamental da Ondulatória (v = λ · f)',
+                    formula: 'Comprimento de Onda (λ) = Velocidade (v) / Frequência (f)',
+                    calc: `v = ${v.toFixed(1)} m/s  |  f = ${f.toFixed(2)} Hz\nλ = ${v.toFixed(1)} / ${f.toFixed(2)} = ${lambda.toFixed(2)} metros`,
+                    result: `Comprimento de Onda λ = ${lambda.toFixed(2)} m  (Distância Crista a Crista)`
+                },
+                {
+                    title: '2. Período (T) e Frequência Angular (ω)',
+                    formula: 'Período T = 1 / f   |   ω = 2π · f   |   Número de Onda k = 2π / λ',
+                    calc: `T = 1 / ${f.toFixed(2)} Hz = ${T.toFixed(3)} segundos por ciclo\nω = 2 × 3,1416 × ${f.toFixed(2)} = ${omega.toFixed(2)} rad/s  |  k = ${k.toFixed(2)} rad/m`,
+                    result: `Período T = ${T.toFixed(2)} s  |  Distância Crista-Vale (2A) = ${(2 * A).toFixed(1)} m`
+                },
+                {
+                    title: '3. Velocidade de Propagação (v) vs Velocidade Transversal da Partícula (v_y)',
+                    formula: 'v_onda = λ · f (Horizontal)   |   v_máx_partícula = ω · A (Vertical no MHS)',
+                    calc: `A onda avança horizontalmente a v = ${v.toFixed(1)} m/s (sem transportar matéria!).\nCada partícula oscila verticalmente em MHS com v_máx = ${omega.toFixed(2)} × ${A.toFixed(1)} = ${vMaxOscillator.toFixed(1)} m/s`,
+                    result: `Elongação atual da Partícula Testemunha: y(t) = ${witnessY >= 0 ? '+' : ''}${witnessY.toFixed(2)} m`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 2: TRANSVERSAIS VS LONGITUDINAIS & MECÂNICAS VS ELETROMAGNÉTICAS
+         * ===================================================================== */
+        function buildLab2WaveTypesComparison() {
+            const p = state.params.lab2;
+            const rt = {};
+
+            const showAll = p.viewMode === 0;
+            const yTrans = showAll ? 6.5 : 0;
+            const yLong = showAll ? 0.0 : 0;
+            const yEM = showAll ? -6.5 : 0;
+
+            // 1. TOP TRACK: Transverse Mechanical Wave (Oscillation Y ⊥ Propagation X)
+            if (showAll) {
+                rt.transBeads = [];
+                const geoT = new THREE.SphereGeometry(0.24, 14, 14);
+                for (let i = 0; i < 85; i++) {
+                    const x = -19 + (i / 84) * 38;
+                    const mesh = new THREE.Mesh(geoT, new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xca8a04, emissiveIntensity: 0.4 }));
+                    mesh.position.set(x, yTrans, 0);
+                    labGroup.add(mesh);
+                    rt.transBeads.push({ mesh, x, yBase: yTrans });
+                }
+            }
+
+            // 2. MIDDLE TRACK: Longitudinal Mechanical Sound Wave (Oscillation X ∥ Propagation X: Compression & Rarefaction)
+            if (showAll || p.viewMode === 1) {
+                rt.longParticles = [];
+                const pCount = 900;
+                const pGeo = new THREE.BufferGeometry();
+                const pPos = new Float32Array(pCount * 3);
+                const pCol = new Float32Array(pCount * 3);
+                const eqX = new Float32Array(pCount);
+                const eqYZ = new Float32Array(pCount * 2);
+
+                for (let i = 0; i < pCount; i++) {
+                    eqX[i] = -19 + Math.random() * 38;
+                    const r = Math.sqrt(Math.random()) * 1.9;
+                    const th = Math.random() * Math.PI * 2;
+                    eqYZ[i * 2] = yLong + r * Math.sin(th);
+                    eqYZ[i * 2 + 1] = r * Math.cos(th);
+                }
+                pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+                pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+                pGeo.userData = { eqX, eqYZ };
+
+                const longCloud = new THREE.Points(
+                    pGeo,
+                    new THREE.PointsMaterial({ size: 0.48, map: glowParticleTexture, vertexColors: true, transparent: true, opacity: 0.92 })
+                );
+                labGroup.add(longCloud);
+                rt.longCloud = longCloud;
+
+                // Translucent Acoustic Tube Guide
+                const tubeGuide = new THREE.Mesh(
+                    new THREE.CylinderGeometry(2.05, 2.05, 38, 28, 1, true),
+                    new THREE.MeshBasicMaterial({ color: 0x334155, wireframe: true, transparent: true, opacity: 0.25 })
+                );
+                tubeGuide.rotation.z = Math.PI / 2;
+                tubeGuide.position.y = yLong;
+                labGroup.add(tubeGuide);
+            }
+
+            // 3. BOTTOM TRACK: 3D Electromagnetic Wave (Electric Field E along Y ⊥ Magnetic Field B along Z ⊥ Propagation X)
+            if (showAll || p.viewMode === 2) {
+                rt.emVectors = [];
+                labGroup.add(createGlowingSegment(new THREE.Vector3(-19, yEM, 0), new THREE.Vector3(19, yEM, 0), 0x64748b, 0.04, 0.8));
+                for (let x = -18.5; x <= 18.5; x += 0.65) {
+                    const lineE = new THREE.Line(
+                        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, yEM, 0), new THREE.Vector3(x, yEM + 1, 0)]),
+                        new THREE.LineBasicMaterial({ color: 0xeab308 })
+                    );
+                    const lineB = new THREE.Line(
+                        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, yEM, 0), new THREE.Vector3(x, yEM, 1)]),
+                        new THREE.LineBasicMaterial({ color: 0x38bdf8 })
+                    );
+                    labGroup.add(lineE, lineB);
+                    rt.emVectors.push({ x, yBase: yEM, lineE, lineB });
+                }
+            }
+
+            document.getElementById('hud-wave-eq').textContent = 'Transversal (⊥) vs Longitudinal (∥)';
+            document.getElementById('hud-particles-count').textContent = '3 Modelos Simultâneos';
+            state.labRuntime = rt;
+        }
+
+        function updateLab2WaveTypesComparison(dt) {
+            const p = state.params.lab2;
+            const rt = state.labRuntime;
+
+            const A = p.amplitude;
+            const f = p.frequency;
+            const lambda = p.wavelength;
+            const k = (2 * Math.PI) / lambda;
+            const omega = 2 * Math.PI * f;
+            const v = lambda * f;
+
+            // 1. Update Transverse Mechanical Wave
+            if (rt.transBeads) {
+                rt.transBeads.forEach(b => {
+                    const dy = A * 0.78 * Math.sin(k * b.x - omega * state.simTime);
+                    b.mesh.position.y = b.yBase + dy;
+                });
+            }
+
+            // 2. Update Longitudinal Sound Wave (s(x,t) along X; Compression where ∂s/∂x < 0)
+            if (rt.longCloud) {
+                const pos = rt.longCloud.geometry.attributes.position;
+                const col = rt.longCloud.geometry.attributes.color;
+                const { eqX, eqYZ } = rt.longCloud.geometry.userData;
+                const cComp = new THREE.Color(0xfacc15); // Hot Yellow = High Pressure Compression
+                const cRare = new THREE.Color(0x0284c7); // Deep Blue = Low Pressure Rarefaction
+
+                for (let i = 0; i < pos.count; i++) {
+                    const x0 = eqX[i];
+                    const phase = k * x0 - omega * state.simTime;
+                    const dx = A * 0.65 * Math.sin(phase);
+                    // Pressure fluctuation ΔP is 90° out of phase with displacement (-cos(phase))
+                    const compressionFactor = (-Math.cos(phase) + 1) * 0.5;
+                    pos.setXYZ(i, x0 + dx, eqYZ[i * 2], eqYZ[i * 2 + 1]);
+                    const c = cRare.clone().lerp(cComp, compressionFactor);
+                    col.setXYZ(i, c.r, c.g, c.b);
+                }
+                pos.needsUpdate = true;
+                col.needsUpdate = true;
+            }
+
+            // 3. Update 3D Electromagnetic Wave (E along Y, B along Z in phase!)
+            if (rt.emVectors) {
+                rt.emVectors.forEach(item => {
+                    const val = A * 0.85 * Math.sin(k * item.x - omega * state.simTime);
+                    item.lineE.geometry.setFromPoints([
+                        new THREE.Vector3(item.x, item.yBase, 0),
+                        new THREE.Vector3(item.x, item.yBase + val, 0)
+                    ]);
+                    item.lineB.geometry.setFromPoints([
+                        new THREE.Vector3(item.x, item.yBase, 0),
+                        new THREE.Vector3(item.x, item.yBase, val)
+                    ]);
+                });
+            }
+
+            const samplePhase = -omega * state.simTime;
+            pushChartPoint(state.simTime, A * Math.sin(samplePhase) * 18, -A * Math.cos(samplePhase) * 18, v * 1.5);
+            setHUDMetrics([
+                `Velocidade v: ${v.toFixed(1)} m/s`,
+                `Compr. λ: ${lambda.toFixed(1)} m`,
+                `Frequência f: ${f.toFixed(1)} Hz`,
+                `Período T: ${(1 / f).toFixed(2)} s`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Onda Transversal vs Onda Longitudinal (Compressão e Rarefação)',
+                    formula: 'Deslocamento Longitudinal: s(x,t) = s₀·sen(kx - ωt)  |  Pressão: ΔP(x,t) = ΔP_máx·cos(kx - ωt)',
+                    calc: `Na onda longitudinal (som), a compressão máxima ocorre onde s(x,t) = 0 (defasagem de 90°).\nDistância entre duas Compressões consecutivas = λ = ${lambda.toFixed(1)} m`,
+                    result: `Distância entre uma Compressão e a Rarefação vizinha = λ / 2 = ${(lambda / 2).toFixed(2)} m`
+                },
+                {
+                    title: '2. Ondas Mecânicas vs Ondas Eletromagnéticas',
+                    formula: 'v_som_ar ≈ 340 m/s (Precisa de Meio)   |   c_luz_vácuo = 300.000.000 m/s (Propagação no Vácuo)',
+                    calc: `Razão de velocidades c / v_som = 3,00×10⁸ / 340 ≈ 882.350 vezes mais rápida!\nNa onda Eletromagnética: E₀ = c · B₀ (Campos Elétrico e Magnético em fase e a 90°).`,
+                    result: `Som = Mecânica Longitudinal (Não polariza) | Luz = EM Transversal (Polarizável)`
+                },
+                {
+                    title: '3. Velocidade Atual da Simulação (v = λ · f)',
+                    formula: 'v = λ × f',
+                    calc: `v = ${lambda.toFixed(1)} m × ${f.toFixed(1)} Hz = ${v.toFixed(2)} m/s`,
+                    result: `Velocidade de Fase = ${v.toFixed(2)} m/s`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 3: REFLEXÃO (PONTA FIXA VS LIVRE) & REFRAÇÃO EM CORDAS (μ₁ → μ₂)
+         * ===================================================================== */
+        function buildLab3ReflectionRefraction() {
+            const p = state.params.lab3;
+            const rt = {};
+
+            // Boundary or Junction is located at x = 0
+            if (p.boundaryType === 0) {
+                // Fixed End Post at x = 0 (Clamp)
+                const post = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.9, 10.5, 1.4),
+                    new THREE.MeshStandardMaterial({ color: 0xf43f5e, metalness: 0.7, roughness: 0.3 })
+                );
+                post.position.set(0.45, 0, 0);
+                labGroup.add(post);
+            } else if (p.boundaryType === 1) {
+                // Free End Frictionless Rod + Sliding Golden Ring at x = 0
+                const rod = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.18, 0.18, 11, 20),
+                    new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.1 })
+                );
+                labGroup.add(rod);
+
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.48, 0.14, 16, 32),
+                    new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x059669, emissiveIntensity: 0.5 })
+                );
+                ring.rotation.x = Math.PI / 2;
+                labGroup.add(ring);
+                rt.slidingRing = ring;
+            }
+
+            // Create String Beads: Left String 1 (-22 to 0) and Right String 2 (0 to +22 if Refraction Mode)
+            rt.leftBeads = [];
+            rt.rightBeads = [];
+
+            const r1 = 0.16 + Math.sqrt(p.mu1) * 0.08;
+            const r2 = 0.16 + Math.sqrt(p.mu2) * 0.08;
+            const geo1 = new THREE.SphereGeometry(r1, 14, 14);
+            const geo2 = new THREE.SphereGeometry(r2, 14, 14);
+
+            for (let i = 0; i <= 80; i++) {
+                const x = -22 + (i / 80) * 22;
+                const m = new THREE.Mesh(geo1, new THREE.MeshStandardMaterial({ color: 0xeab308, emissive: 0xca8a04, emissiveIntensity: 0.4 }));
+                m.position.set(x, 0, 0);
+                labGroup.add(m);
+                rt.leftBeads.push({ mesh: m, x });
+            }
+
+            if (p.boundaryType === 2) {
+                for (let i = 1; i <= 80; i++) {
+                    const x = (i / 80) * 22;
+                    const m = new THREE.Mesh(geo2, new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.4 }));
+                    m.position.set(x, 0, 0);
+                    labGroup.add(m);
+                    rt.rightBeads.push({ mesh: m, x });
+                }
+            }
+
+            document.getElementById('hud-wave-eq').textContent = 'v = √(F / μ)';
+            document.getElementById('hud-particles-count').textContent = p.boundaryType === 2 ? 'Duas Cordas (μ₁ → μ₂)' : 'Fronteira Reflexiva';
+            state.labRuntime = rt;
+        }
+
+        function updateLab3ReflectionRefraction(dt) {
+            const p = state.params.lab3;
+            const rt = state.labRuntime;
+            if (!rt.leftBeads) return;
+
+            // Taylor's Law speeds (scaled for visual clarity)
+            const v1Real = Math.sqrt(p.tensionF / (p.mu1 * 0.001));
+            const v2Real = Math.sqrt(p.tensionF / (p.mu2 * 0.001));
+            const v1Vis = 14.0 / Math.sqrt(p.mu1);
+            const v2Vis = 14.0 / Math.sqrt(p.mu2);
+
+            // Reflection (R) and Transmission (T) Amplitude Coefficients at x = 0
+            let reflCoeff = -1.0; // Fixed End: 180° phase inversion!
+            let transCoeff = 0.0;
+            if (p.boundaryType === 1) {
+                reflCoeff = +1.0; // Free End: 0° phase shift (erect reflection!)
+            } else if (p.boundaryType === 2) {
+                reflCoeff = (v2Vis - v1Vis) / (v1Vis + v2Vis);
+                transCoeff = (2 * v2Vis) / (v1Vis + v2Vis);
+            }
+
+            // Periodic Pulse Cycle: starts at x = -18, hits x = 0 at tHit = 18 / v1Vis, then reflects/refracts
+            const cycleDuration = 40 / v1Vis;
+            const tMod = state.simTime % cycleDuration;
+            const xIncCenter = -18 + v1Vis * tMod;
+            const tAfterHit = tMod - (18 / v1Vis);
+
+            const width1 = 2.2;
+            const width2 = width1 * (v2Vis / v1Vis); // Wavelength/width scales with speed v2/v1!
+
+            const calcGaussian = (dx, w) => Math.exp(-(dx * dx) / (w * w));
+
+            rt.leftBeads.forEach(b => {
+                const yInc = p.pulseAmp * calcGaussian(b.x - xIncCenter, width1);
+                const xReflCenter = -v1Vis * tAfterHit;
+                const yRefl = reflCoeff * p.pulseAmp * calcGaussian(b.x - xReflCenter, width1);
+                b.mesh.position.y = yInc + yRefl;
+            });
+
+            if (rt.slidingRing && rt.leftBeads.length > 0) {
+                rt.slidingRing.position.y = rt.leftBeads[rt.leftBeads.length - 1].mesh.position.y;
+            }
+
+            if (p.boundaryType === 2 && rt.rightBeads) {
+                const xTransCenter = v2Vis * tAfterHit;
+                rt.rightBeads.forEach(b => {
+                    const yTrans = tAfterHit > -0.4 ? transCoeff * p.pulseAmp * calcGaussian(b.x - xTransCenter, width2) : 0;
+                    b.mesh.position.y = yTrans;
+                });
+            }
+
+            const yJunction = rt.leftBeads[rt.leftBeads.length - 1].mesh.position.y;
+            pushChartPoint(state.simTime, yJunction * 15, reflCoeff * p.pulseAmp * 15, transCoeff * p.pulseAmp * 15);
+
+            setHUDMetrics([
+                `v₁ (Corda 1): ${v1Real.toFixed(0)} m/s`,
+                p.boundaryType === 2 ? `v₂ (Corda 2): ${v2Real.toFixed(0)} m/s` : `Fase Refl: ${reflCoeff < 0 ? '180° (Inv)' : '0° (Dir)'}`,
+                `A_refletida: ${(reflCoeff * p.pulseAmp).toFixed(2)} m`,
+                p.boundaryType === 2 ? `A_refratada: ${(transCoeff * p.pulseAmp).toFixed(2)} m` : `Tração F: ${p.tensionF} N`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Fórmula de Taylor (Velocidade da Onda na Corda Tensa)',
+                    formula: 'v = √( Força_Tração / Densidade_Linear_μ )',
+                    calc: `Na Corda 1 (μ₁ = ${p.mu1.toFixed(1)} g/m): v₁ = √(${p.tensionF} N / ${(p.mu1 * 0.001).toFixed(4)} kg/m) = ${v1Real.toFixed(1)} m/s\nNa Corda 2 (μ₂ = ${p.mu2.toFixed(1)} g/m): v₂ = √(${p.tensionF} N / ${(p.mu2 * 0.001).toFixed(4)} kg/m) = ${v2Real.toFixed(1)} m/s`,
+                    result: `Razão de velocidades e comprimentos: v₂ / v₁ = λ₂ / λ₁ = ${(v2Real / v1Real).toFixed(2)}x`
+                },
+                {
+                    title: '2. Fase e Amplitude do Pulso Refletido',
+                    formula: 'Ponta Fixa: Inverte (180°) | Ponta Livre: Mantém (0°) | Junção: R = (v₂ - v₁)/(v₁ + v₂)',
+                    calc: p.boundaryType === 0 ? `Extremidade Fixa: o suporte aplica força contrária ⇒ Pulso reflete INVERTIDO (A_r = -${p.pulseAmp.toFixed(1)} m).` :
+                          p.boundaryType === 1 ? `Extremidade Livre (Anel): sem reação vertical ⇒ Pulso reflete DIREITO com pico duplo na ponta (2A = ${(2 * p.pulseAmp).toFixed(1)} m).` :
+                          `Passando de μ₁=${p.mu1} para μ₂=${p.mu2}: Coeficiente R = ${reflCoeff.toFixed(2)} ⇒ A_refletida = ${(reflCoeff * p.pulseAmp).toFixed(2)} m`,
+                    result: reflCoeff < 0
+                        ? `REFLEXÃO COM INVERSÃO DE FASE (180° — Meio mais denso ou ponta fixa)`
+                        : `REFLEXÃO SEM INVERSÃO DE FASE (0° — Meio menos denso ou ponta livre)`
+                },
+                {
+                    title: '3. Conservação da Frequência na Refração (f₁ = f₂)',
+                    formula: 'f_incidente = f_refletida = f_refratada   |   Pulso Refratado NUNCA inverte de fase!',
+                    calc: `O pulso transmitido para a Corda 2 sempre mantém a mesma fase do pulso incidente (A_t = +${(transCoeff * p.pulseAmp).toFixed(2)} m).`,
+                    result: `A frequência f permanece 100% constante na Reflexão e na Refração!`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 4: TANQUE DE ONDAS 3D — DIFRAÇÃO EM FENDA & INTERFERÊNCIA
+         * ===================================================================== */
+        function buildLab4DiffractionInterferenceTank() {
+            const p = state.params.lab4;
+            const rt = {};
+
+            // High-Resolution 3D Ripple Tank Water Surface Mesh (34 x 34 units, 96 x 96 grid)
+            const tankSize = 34;
+            const segs = 96;
+            const waterGeo = new THREE.PlaneGeometry(tankSize, tankSize, segs, segs);
+            waterGeo.rotateX(-Math.PI / 2);
+
+            const vCount = waterGeo.attributes.position.count;
+            const colors = new Float32Array(vCount * 3);
+            waterGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const waterMat = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                roughness: 0.15,
+                metalness: 0.35,
+                wireframe: state.cutawayMode,
+                side: THREE.DoubleSide
+            });
+            const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+            labGroup.add(waterMesh);
+            rt.waterMesh = waterMesh;
+
+            if (p.tankMode === 1) {
+                // TWO COHERENT POINT SOURCES S1 & S2 at x = -8, z = ±sourceSep/2
+                const dHalf = p.sourceSep / 2;
+                const s1 = new THREE.Mesh(new THREE.SphereGeometry(0.65, 20, 20), new THREE.MeshBasicMaterial({ color: 0xeab308 }));
+                const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.65, 20, 20), new THREE.MeshBasicMaterial({ color: 0xeab308 }));
+                s1.position.set(-8, 1.5, -dHalf);
+                s2.position.set(-8, 1.5, dHalf);
+                labGroup.add(s1, s2);
+                rt.s1 = s1;
+                rt.s2 = s2;
+            } else {
+                // DIFFRACTION SLIT BARRIER WALL at x = -4 with slit opening a = p.slitWidth
+                const wallMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, metalness: 0.5, roughness: 0.4 });
+                const halfGap = p.slitWidth / 2;
+                const wallLen = Math.max(1, (tankSize / 2) - halfGap);
+
+                const wallLeft = new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.8, wallLen), wallMat);
+                wallLeft.position.set(-4, 0.5, -halfGap - wallLen / 2);
+                const wallRight = new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.8, wallLen), wallMat);
+                wallRight.position.set(-4, 0.5, halfGap + wallLen / 2);
+                labGroup.add(wallLeft, wallRight);
+            }
+
+            document.getElementById('hud-wave-eq').textContent = p.tankMode === 1 ? 'Δx = |d₁ - d₂| = m·λ' : 'Difração: a ≤ λ';
+            document.getElementById('hud-particles-count').textContent = '9.409 Vértices no Tanque 3D';
+            state.labRuntime = rt;
+        }
+
+        function updateLab4DiffractionInterferenceTank(dt) {
+            const p = state.params.lab4;
+            const rt = state.labRuntime;
+            if (!rt.waterMesh) return;
+
+            const pos = rt.waterMesh.geometry.attributes.position;
+            const col = rt.waterMesh.geometry.attributes.color;
+            const k = (2 * Math.PI) / p.wavelength;
+            const omega = 5.5;
+            const A = p.waveAmp;
+
+            const cTrough = new THREE.Color(0x091e3a);
+            const cNode = new THREE.Color(0x0284c7);
+            const cCrest = new THREE.Color(0xfef08a);
+
+            if (p.tankMode === 1) {
+                const z1 = -p.sourceSep / 2;
+                const z2 = p.sourceSep / 2;
+                const xSrc = -8.0;
+
+                if (rt.s1 && rt.s2) {
+                    const osc = Math.sin(-omega * state.simTime) * 0.7;
+                    rt.s1.position.y = 1.2 + osc;
+                    rt.s2.position.y = 1.2 + osc;
+                }
+
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i);
+                    const z = pos.getZ(i);
+                    const d1 = Math.hypot(x - xSrc, z - z1);
+                    const d2 = Math.hypot(x - xSrc, z - z2);
+                    const y1 = (A / (1 + d1 * 0.04)) * Math.sin(k * d1 - omega * state.simTime);
+                    const y2 = (A / (1 + d2 * 0.04)) * Math.sin(k * d2 - omega * state.simTime);
+                    const yTot = y1 + y2;
+                    pos.setY(i, yTot);
+
+                    const norm = Math.min(1, Math.max(0, (yTot + 2 * A) / (4 * A)));
+                    const c = norm < 0.5
+                        ? cTrough.clone().lerp(cNode, norm * 2)
+                        : cNode.clone().lerp(cCrest, (norm - 0.5) * 2);
+                    col.setXYZ(i, c.r, c.g, c.b);
+                }
+            } else {
+                // Huygens-Fresnel Diffraction through slit at x = -4, width = p.slitWidth
+                const slitX = -4.0;
+                const numHuygens = 9;
+                const halfA = p.slitWidth / 2;
+
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i);
+                    const z = pos.getZ(i);
+                    let yTot = 0;
+
+                    if (x <= slitX) {
+                        // Incoming Plane Wave from left
+                        yTot = A * Math.sin(k * (x - slitX) - omega * state.simTime);
+                    } else {
+                        // Sum of secondary Huygens cylindrical wavelets across the slit opening
+                        for (let h = 0; h < numHuygens; h++) {
+                            const zSrc = -halfA + (h / (numHuygens - 1)) * p.slitWidth;
+                            const dist = Math.hypot(x - slitX, z - zSrc);
+                            yTot += (A / numHuygens) * (1.6 / (1 + dist * 0.05)) * Math.sin(k * dist - omega * state.simTime);
+                        }
+                    }
+                    pos.setY(i, yTot);
+                    const norm = Math.min(1, Math.max(0, (yTot + A * 1.4) / (2.8 * A)));
+                    const c = norm < 0.5
+                        ? cTrough.clone().lerp(cNode, norm * 2)
+                        : cNode.clone().lerp(cCrest, (norm - 0.5) * 2);
+                    col.setXYZ(i, c.r, c.g, c.b);
+                }
+            }
+
+            pos.needsUpdate = true;
+            col.needsUpdate = true;
+            rt.waterMesh.geometry.computeVertexNormals();
+
+            const maxOrderM = Math.floor(p.sourceSep / p.wavelength);
+            const totalNodalLines = 2 * maxOrderM;
+            const diffRatio = p.wavelength / p.slitWidth;
+
+            pushChartPoint(state.simTime, Math.sin(omega * state.simTime) * 2 * A * 12, totalNodalLines * 4, diffRatio * 20);
+            setHUDMetrics([
+                `Compr. λ: ${p.wavelength.toFixed(1)} cm`,
+                p.tankMode === 1 ? `Fontes d: ${p.sourceSep.toFixed(1)} cm` : `Fenda a: ${p.slitWidth.toFixed(1)} cm`,
+                p.tankMode === 1 ? `Máximos m: ±${maxOrderM}` : `Razão λ/a: ${diffRatio.toFixed(2)}`,
+                p.tankMode === 1 ? `Linhas Nodais: ${totalNodalLines}` : (diffRatio >= 0.8 ? 'Difração FORTE' : 'Difração FRACA')
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Condição de Interferência Construtiva e Destrutiva (Δx = |d₁ - d₂|)',
+                    formula: 'Construtiva (Ventre): Δx = m · λ   |   Destrutiva (Nó): Δx = (m + 0,5) · λ',
+                    calc: `Comprimento de onda λ = ${p.wavelength.toFixed(2)} cm  |  Distância entre fontes d = ${p.sourceSep.toFixed(1)} cm\n1º Máximo Construtiva (m=1): Δx = ${p.wavelength.toFixed(2)} cm  |  1º Nó Destrutivo: Δx = ${(0.5 * p.wavelength).toFixed(2)} cm`,
+                    result: `Ordem máxima construtiva m_máx = ⌊d / λ⌋ = ${maxOrderM} (${2 * maxOrderM + 1} linhas ventrais)`
+                },
+                {
+                    title: '2. Critério de Difração Significativa e Princípio de Huygens',
+                    formula: 'sen(θ_mínimo) = λ / a   (Difração total ocorre quando a ≤ λ)',
+                    calc: `Largura da fenda a = ${p.slitWidth.toFixed(1)} cm  |  λ = ${p.wavelength.toFixed(1)} cm\nRazão λ / a = ${p.wavelength.toFixed(1)} / ${p.slitWidth.toFixed(1)} = ${diffRatio.toFixed(2)}`,
+                    result: diffRatio >= 1.0
+                        ? `a ≤ λ: Onda difrata em 180° (Frentes semicirculares perfeitas sem zona de sombra!)`
+                        : `Espalhamento angular do feixe central θ ≈ ${THREE.MathUtils.radToDeg(Math.asin(Math.min(1, diffRatio))).toFixed(1)}°`
+                },
+                {
+                    title: '3. Amplitude nos Pontos de Superposição (Fontes em Fase)',
+                    formula: 'A_construtiva = A₁ + A₂ = 2·A   |   A_destrutiva = |A₁ - A₂| = 0',
+                    calc: `Amplitude individual A = ${A.toFixed(1)} cm\nNos ventres construtivos: A_máx = ${(2 * A).toFixed(1)} cm (Intensidade 4x maior!)`,
+                    result: `Nas linhas nodais escuras: Amplitude = 0,0 cm (Água permanece em repouso)`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 5: RESSONÂNCIA, CORDAS VIBRANTES & ONDAS ESTACIONÁRIAS (NÓS E VENTRES)
+         * ===================================================================== */
+        function buildLab5StandingWavesResonance() {
+            const p = state.params.lab5;
+            const rt = {};
+
+            const xLeft = -18, xRight = 18;
+            const spanVis = xRight - xLeft;
+
+            // Acoustic Bridges (Cavaletes Fixos nas duas pontas x = -18 e x = +18)
+            const bridgeGeo = new THREE.BoxGeometry(0.9, 5.5, 2.5);
+            const bridgeMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.5 });
+            const b1 = new THREE.Mesh(bridgeGeo, bridgeMat); b1.position.set(xLeft, -1.5, 0);
+            const b2 = new THREE.Mesh(bridgeGeo, bridgeMat); b2.position.set(xRight, -1.5, 0);
+            labGroup.add(b1, b2);
+
+            // Equilibrium Axis Line
+            labGroup.add(createGlowingSegment(new THREE.Vector3(xLeft, 0, 0), new THREE.Vector3(xRight, 0, 0), 0x475569, 0.035, 0.6));
+
+            // Vibrating String Beads (140 spheres)
+            rt.stringBeads = [];
+            const beadGeo = new THREE.SphereGeometry(0.22, 14, 14);
+            for (let i = 0; i <= 140; i++) {
+                const frac = i / 140;
+                const x = xLeft + frac * spanVis;
+                const mesh = new THREE.Mesh(beadGeo, new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xca8a04, emissiveIntensity: 0.45 }));
+                mesh.position.set(x, 0, 0);
+                labGroup.add(mesh);
+                rt.stringBeads.push({ mesh, x, frac });
+            }
+
+            // Cutaway Mode: Show the Two Counter-Propagating Traveling Waves (Incident Right + Reflected Left)
+            if (state.cutawayMode) {
+                const createDynWave = (hex) => {
+                    const pts = [];
+                    for (let i = 0; i <= 120; i++) pts.push(new THREE.Vector3());
+                    return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: hex }));
+                };
+                rt.rightWaveLine = createDynWave(0x38bdf8);
+                rt.leftWaveLine = createDynWave(0xf43f5e);
+                labGroup.add(rt.rightWaveLine, rt.leftWaveLine);
+            }
+
+            // Node Markers (N = n + 1 Red Spheres at zero amplitude) & Antinode Markers (V = n Green Spheres at max amplitude)
+            const n = p.harmonicN;
+            rt.antinodeMarkers = [];
+            if (state.showVectors) {
+                for (let kNode = 0; kNode <= n; kNode++) {
+                    const xNode = xLeft + (kNode / n) * spanVis;
+                    const nodeSphere = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.45, 20, 20),
+                        new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+                    );
+                    nodeSphere.position.set(xNode, 0, 0);
+                    labGroup.add(nodeSphere);
+                }
+                for (let kAnti = 0; kAnti < n; kAnti++) {
+                    const fracAnti = (kAnti + 0.5) / n;
+                    const xAnti = xLeft + fracAnti * spanVis;
+                    const antiSphere = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.42, 20, 20),
+                        new THREE.MeshBasicMaterial({ color: 0x10b981 })
+                    );
+                    antiSphere.position.set(xAnti, 0, 0);
+                    labGroup.add(antiSphere);
+                    rt.antinodeMarkers.push({ mesh: antiSphere, frac: fracAnti });
+                }
+            }
+
+            document.getElementById('hud-wave-eq').textContent = `f_${n} = ${n} · v / (2L)`;
+            document.getElementById('hud-particles-count').textContent = `${n} Ventre(s) e ${n + 1} Nós`;
+            state.labRuntime = rt;
+        }
+
+        function updateLab5StandingWavesResonance(dt) {
+            const p = state.params.lab5;
+            const rt = state.labRuntime;
+            if (!rt.stringBeads) return;
+
+            const n = p.harmonicN;
+            const L = p.stringLen;
+            const mu = 0.005; // 5 g/m acoustic guitar string
+            const vReal = Math.sqrt(p.tensionF / mu);
+            const lambdaReal = (2 * L) / n;
+            const fnReal = (n * vReal) / (2 * L);
+            const f1Fundamental = vReal / (2 * L);
+
+            // Lorentzian Resonance Curve: Amplitude peaks sharply when detuning Δf = 0!
+            const resonanceFactor = 1.0 / Math.sqrt(1.0 + Math.pow(p.detuning * 1.4, 2));
+            const maxAmpVis = 4.2 * resonanceFactor;
+            const omegaVis = (3.5 + n * 1.1);
+
+            const cosTime = Math.cos(omegaVis * state.simTime);
+
+            rt.stringBeads.forEach(b => {
+                const spatialEnv = Math.sin(n * Math.PI * b.frac);
+                b.mesh.position.y = maxAmpVis * spatialEnv * cosTime;
+            });
+
+            if (rt.antinodeMarkers) {
+                rt.antinodeMarkers.forEach(am => {
+                    const spatialEnv = Math.sin(n * Math.PI * am.frac);
+                    am.mesh.position.y = maxAmpVis * spatialEnv * cosTime;
+                });
+            }
+
+            if (state.cutawayMode && rt.rightWaveLine && rt.leftWaveLine) {
+                const posR = rt.rightWaveLine.geometry.attributes.position;
+                const posL = rt.leftWaveLine.geometry.attributes.position;
+                for (let i = 0; i <= 120; i++) {
+                    const frac = i / 120;
+                    const x = -18 + frac * 36;
+                    const yR = (maxAmpVis * 0.5) * Math.sin(n * Math.PI * frac - omegaVis * state.simTime);
+                    const yL = (maxAmpVis * 0.5) * Math.sin(n * Math.PI * frac + omegaVis * state.simTime);
+                    posR.setXYZ(i, x, yR, 0.8);
+                    posL.setXYZ(i, x, yL, -0.8);
+                }
+                posR.needsUpdate = true;
+                posL.needsUpdate = true;
+            }
+
+            pushChartPoint(state.simTime, maxAmpVis * cosTime * 6, resonanceFactor * 25, n * 3);
+            setHUDMetrics([
+                `${n}º Harmônico: ${fnReal.toFixed(1)} Hz`,
+                `Compr. λ_${n}: ${lambdaReal.toFixed(2)} m`,
+                `Nós: ${n + 1} | Ventres: ${n}`,
+                `Ressonância: ${(resonanceFactor * 100).toFixed(0)}%`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: `1. Frequência e Comprimento de Onda do ${n}º Harmônico (Leis de Mersenne)`,
+                    formula: 'λₙ = (2 · L) / n   |   fₙ = n · [ v / (2 · L) ] = n · f₁',
+                    calc: `Velocidade na corda: v = √(${p.tensionF} N / 0,005 kg/m) = ${vReal.toFixed(1)} m/s\nλ_${n} = (2 × ${L.toFixed(2)} m) / ${n} = ${lambdaReal.toFixed(3)} m\nf_${n} = ${n} × [${vReal.toFixed(1)} / ${(2 * L).toFixed(2)}] = ${fnReal.toFixed(1)} Hz`,
+                    result: `Frequência Natural f_${n} = ${fnReal.toFixed(1)} Hz (${n}x a Fundamental f₁ = ${f1Fundamental.toFixed(1)} Hz)`
+                },
+                {
+                    title: '2. Contagem de Nós (N), Ventres (V) e Distância Internodal',
+                    formula: 'Nº de Ventres (Fusos) = n   |   Nº de Nós = n + 1   |   Distância Nó-Nó = λ / 2',
+                    calc: `Para n = ${n}: formam-se ${n} Ventres de amplitude máxima e ${n + 1} Nós imóveis.\nDistância entre dois Nós vizinhos = L / n = ${(L / n).toFixed(3)} m (= λ/2)`,
+                    result: `${n} Ventres ( verdes ) e ${n + 1} Nós ( vermelhos ) separados por ${(L / n).toFixed(2)} m`
+                },
+                {
+                    title: '3. Condição de Ressonância Forçada',
+                    formula: 'Amplitude(Δf) = A_máx / √[ 1 + (Δf / γ)² ]',
+                    calc: `Dessintonia atual Δf = |f_excitadora - f_${n}| = ${p.detuning.toFixed(1)} Hz`,
+                    result: p.detuning === 0
+                        ? `RESSONÂNCIA PERFEITA (f_exc = f_${n})! Transferência de energia 100%`
+                        : `Fora de sintonia: Amplitude reduzida para ${(resonanceFactor * 100).toFixed(1)}% do pico`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 6: EFEITO DOPPLER 3D & CONE DE MACH SUPERSÔNICO
+         * ===================================================================== */
+        function buildLab6DopplerMachCone() {
+            const p = state.params.lab6;
+            const rt = {};
+
+            // 1. Moving Acoustic Source (Supersonic Jet / Siren Vehicle)
+            const sourceGroup = new THREE.Group();
+            const fuselage = new THREE.Mesh(
+                new THREE.ConeGeometry(0.95, 3.4, 24),
+                new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.7, roughness: 0.2 })
+            );
+            fuselage.rotation.z = -Math.PI / 2;
+            const wings = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 0.12, 3.6),
+                new THREE.MeshStandardMaterial({ color: 0xf43f5e, metalness: 0.6 })
+            );
+            sourceGroup.add(fuselage, wings);
+            labGroup.add(sourceGroup);
+            rt.sourceGroup = sourceGroup;
+
+            // 2. Observer Microphone Station on the Right (x = +14, z = 2.2)
+            const obsGroup = new THREE.Group();
+            const obsBody = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.55, 0.7, 2.2, 20),
+                new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x059669, emissiveIntensity: 0.4 })
+            );
+            const obsHead = new THREE.Mesh(
+                new THREE.SphereGeometry(0.65, 20, 20),
+                new THREE.MeshStandardMaterial({ color: 0x38bdf8 })
+            );
+            obsHead.position.y = 1.4;
+            obsGroup.add(obsBody, obsHead);
+            obsGroup.position.set(14, 0, 2.2);
+            labGroup.add(obsGroup);
+            rt.obsGroup = obsGroup;
+
+            // 3. Expanding Wavefront Rings Pool (18 concentric/eccentric rings emitted periodically along the path)
+            rt.waveRings = [];
+            const numRings = 18;
+            for (let i = 0; i < numRings; i++) {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(1.0, 0.055, 12, 64),
+                    new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8 })
+                );
+                ring.rotation.x = Math.PI / 2;
+                labGroup.add(ring);
+                rt.waveRings.push({ mesh: ring, emitX: 0, age: (i / numRings) * 3.6 });
+            }
+
+            // 4. Supersonic Mach Cone (Visible when Mach >= 1.0!)
+            const machNumber = p.vSource / p.vSound;
+            if (machNumber >= 1.0) {
+                const sinAlpha = 1 / machNumber;
+                const tanAlpha = Math.tan(Math.asin(Math.min(0.99, sinAlpha)));
+                const coneLen = 24;
+                const coneRadius = Math.min(22, coneLen * tanAlpha);
+                const machCone = new THREE.Mesh(
+                    new THREE.ConeGeometry(coneRadius, coneLen, 36, 1, true),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xf43f5e,
+                        wireframe: state.cutawayMode,
+                        transparent: true,
+                        opacity: state.cutawayMode ? 0.55 : 0.25,
+                        side: THREE.DoubleSide
+                    })
+                );
+                machCone.rotation.z = -Math.PI / 2;
+                machCone.position.x = -coneLen / 2;
+                sourceGroup.add(machCone);
+            }
+
+            rt.sourceX = -15;
+            document.getElementById('hud-wave-eq').textContent = 'f = f₀ · (v ± v_o) / (v ∓ v_f)';
+            document.getElementById('hud-particles-count').textContent = '18 Frentes Esféricas 3D';
+            state.labRuntime = rt;
+        }
+
+        function updateLab6DopplerMachCone(dt) {
+            const p = state.params.lab6;
+            const rt = state.labRuntime;
+            if (!rt.sourceGroup) return;
+
+            const vSoundVis = 8.5;
+            const mach = p.vSource / p.vSound;
+            const vSourceVis = mach * vSoundVis;
+
+            rt.sourceX += vSourceVis * dt;
+            if (rt.sourceX > 16) {
+                const shift = 32;
+                rt.sourceX -= shift;
+                rt.waveRings.forEach(r => { r.emitX -= shift; });
+            }
+            rt.sourceGroup.position.set(rt.sourceX, 0, 0);
+
+            const maxAge = 3.6;
+            rt.waveRings.forEach(r => {
+                r.age += dt;
+                if (r.age >= maxAge) {
+                    r.age -= maxAge;
+                    r.emitX = rt.sourceX;
+                }
+                const radius = Math.max(0.1, r.age * vSoundVis);
+                r.mesh.position.set(r.emitX, 0, 0);
+                r.mesh.scale.set(radius, radius, 1);
+                const frac = r.age / maxAge;
+                r.mesh.material.opacity = (1 - frac) * 0.85;
+                r.mesh.material.color.setHex(mach >= 1.0 ? 0xf43f5e : 0x38bdf8);
+            });
+
+            // Real Doppler Equations (Approaching vs Receding)
+            const isSupersonic = p.vSource >= p.vSound;
+            const fApproach = isSupersonic
+                ? Infinity
+                : p.fEmitted * ((p.vSound + p.vObserver) / (p.vSound - p.vSource));
+            const fRecede = p.fEmitted * ((p.vSound - p.vObserver) / (p.vSound + p.vSource));
+
+            const lambda0 = p.vSound / p.fEmitted;
+            const lambdaFront = isSupersonic ? 0 : (p.vSound - p.vSource) / p.fEmitted;
+            const lambdaBack = (p.vSound + p.vSource) / p.fEmitted;
+            const machAngleDeg = mach >= 1.0 ? THREE.MathUtils.radToDeg(Math.asin(1 / mach)) : 90;
+
+            const currentPerceivedF = rt.sourceX < 14 ? (isSupersonic ? 1200 : Math.min(1200, fApproach)) : fRecede;
+            pushChartPoint(state.simTime, currentPerceivedF * 0.15, p.fEmitted * 0.15, fRecede * 0.15);
+
+            setHUDMetrics([
+                `Mach: ${mach.toFixed(2)} (${isSupersonic ? 'Supersônico!' : 'Subsônico'})`,
+                `f_Aprox: ${isSupersonic ? 'Choque!' : fApproach.toFixed(0) + ' Hz'}`,
+                `f_Afast: ${fRecede.toFixed(0)} Hz`,
+                `λ_frente: ${isSupersonic ? '≤ 0' : lambdaFront.toFixed(2) + ' m'}`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Frequência Aparente na APROXIMAÇÃO (Som Mais Agudo)',
+                    formula: 'f_aprox = f₀ · [ (v_som + v_obs) / (v_som - v_fonte) ]',
+                    calc: isSupersonic
+                        ? `v_fonte (${p.vSource} m/s) ≥ v_som (${p.vSound} m/s): A fonte ultrapassa suas próprias ondas!`
+                        : `f_aprox = ${p.fEmitted} × [ (${p.vSound} + ${p.vObserver}) / (${p.vSound} - ${p.vSource}) ] = ${p.fEmitted} × (${p.vSound + p.vObserver} / ${p.vSound - p.vSource})`,
+                    result: isSupersonic
+                        ? `ONDA DE CHOQUE SUPERSÔNICA (Estrondo Sônico / Cone de Mach)`
+                        : `Frequência na Aproximação = ${fApproach.toFixed(1)} Hz (+${(fApproach - p.fEmitted).toFixed(1)} Hz mais agudo)`
+                },
+                {
+                    title: '2. Frequência Aparente no AFASTAMENTO (Som Mais Grave)',
+                    formula: 'f_afast = f₀ · [ (v_som - v_obs) / (v_som + v_fonte) ]',
+                    calc: `f_afast = ${p.fEmitted} × [ (${p.vSound} - ${p.vObserver}) / (${p.vSound} + ${p.vSource}) ] = ${p.fEmitted} × (${p.vSound - p.vObserver} / ${p.vSound + p.vSource})`,
+                    result: `Frequência no Afastamento = ${fRecede.toFixed(1)} Hz (${(fRecede - p.fEmitted).toFixed(1)} Hz mais grave)`
+                },
+                {
+                    title: '3. Comprimentos de Onda Comprimido/Expandido e Número de Mach',
+                    formula: 'λ_frente = (v_som - v_f)/f₀   |   λ_trás = (v_som + v_f)/f₀   |   sen(θ_Mach) = 1 / Mach',
+                    calc: `Original λ₀ = ${lambda0.toFixed(2)} m  |  Atrás da fonte λ_trás = ${lambdaBack.toFixed(2)} m\nNúmero de Mach = ${p.vSource} / ${p.vSound} = ${mach.toFixed(2)} Mach`,
+                    result: mach >= 1.0
+                        ? `Semi-ângulo do Cone de Mach: θ = arcsen(1 / ${mach.toFixed(2)}) = ${machAngleDeg.toFixed(1)}°`
+                        : `λ comprimido à frente = ${lambdaFront.toFixed(2)} m  |  λ alargado atrás = ${lambdaBack.toFixed(2)} m`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 7: ACÚSTICA FÍSICA — SOM, ALTURA, INTENSIDADE (dB), ECO & REVERB
+         * ===================================================================== */
+        function buildLab7AcousticsEchoDecibels() {
+            const p = state.params.lab7;
+            const rt = {};
+
+            // Map physical distance (0 to 45 m) to visual 3D X coordinates (-18 to +18)
+            const xSource = -16.0;
+            const scaleMtoVis = 0.72;
+            const xWall = xSource + p.wallDist * scaleMtoVis;
+            const xCritical17m = xSource + 17.0 * scaleMtoVis;
+
+            // 1. Acoustic Horn Loudspeaker & Listener at x = xSource
+            const speakerGroup = new THREE.Group();
+            const box = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 3.2, 2.2),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7 })
+            );
+            const cone = new THREE.Mesh(
+                new THREE.ConeGeometry(1.3, 1.6, 24, 1, true),
+                new THREE.MeshStandardMaterial({ color: 0xeab308, side: THREE.DoubleSide })
+            );
+            cone.rotation.z = -Math.PI / 2;
+            cone.position.x = 1.2;
+            speakerGroup.add(box, cone);
+            speakerGroup.position.set(xSource, 0, 0);
+            labGroup.add(speakerGroup);
+
+            // 2. Critical 17.0 Meter Threshold Marker on the Floor (Separates Reverberation < 17m from Echo >= 17m!)
+            if (state.cutawayMode || state.showVectors) {
+                const line17m = createGlowingSegment(
+                    new THREE.Vector3(xCritical17m, -6.2, -9),
+                    new THREE.Vector3(xCritical17m, -6.2, 9),
+                    0xf43f5e, 0.14, 0.9
+                );
+                labGroup.add(line17m);
+            }
+
+            // 3. Movable Canyon / Reflecting Wall at d = p.wallDist meters
+            const isEcho = p.wallDist >= 17.0;
+            const wallMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 11, 14),
+                new THREE.MeshStandardMaterial({
+                    color: isEcho ? 0x10b981 : 0xa855f7,
+                    roughness: 0.4,
+                    metalness: 0.3,
+                    transparent: true,
+                    opacity: 0.85
+                })
+            );
+            wallMesh.position.set(xWall + 0.6, -0.5, 0);
+            labGroup.add(wallMesh);
+
+            // 4. Animated Outgoing (Yellow) and Reflected Echo/Reverb (Emerald/Violet) Wavefront Arcs
+            rt.pulseArcs = [];
+            for (let i = 0; i < 6; i++) {
+                const arc = new THREE.Mesh(
+                    new THREE.TorusGeometry(2.2, 0.09, 12, 36, Math.PI * 0.65),
+                    new THREE.MeshBasicMaterial({ color: 0xeab308, transparent: true, opacity: 0.85 })
+                );
+                arc.rotation.z = -Math.PI * 0.325;
+                labGroup.add(arc);
+                rt.pulseArcs.push({ mesh: arc, phase: i / 6 });
+            }
+
+            rt.xSource = xSource;
+            rt.xWall = xWall;
+            rt.isEcho = isEcho;
+            document.getElementById('hud-wave-eq').textContent = 'β = 10 · log₁₀(I / I₀)';
+            document.getElementById('hud-particles-count').textContent = isEcho ? 'ECO ATIVO (d ≥ 17 m)' : 'REVERBERAÇÃO (d < 17 m)';
+            state.labRuntime = rt;
+        }
+
+        function updateLab7AcousticsEchoDecibels(dt) {
+            const p = state.params.lab7;
+            const rt = state.labRuntime;
+            if (!rt.pulseArcs) return;
+
+            const span = rt.xWall - rt.xSource;
+            rt.pulseArcs.forEach(item => {
+                item.phase = (item.phase + dt * 0.55) % 2.0; // 0..1 outgoing, 1..2 reflected
+                if (item.phase < 1.0) {
+                    const f = item.phase;
+                    item.mesh.position.set(rt.xSource + f * span, 0, 0);
+                    item.mesh.rotation.y = 0;
+                    item.mesh.scale.set(0.5 + f * 1.4, 0.5 + f * 1.4, 1);
+                    item.mesh.material.color.setHex(0xeab308);
+                    item.mesh.material.opacity = 0.9 - f * 0.25;
+                } else {
+                    const f = item.phase - 1.0;
+                    item.mesh.position.set(rt.xWall - f * span, 0, 0);
+                    item.mesh.rotation.y = Math.PI;
+                    item.mesh.scale.set(1.9 - f * 0.9, 1.9 - f * 0.9, 1);
+                    item.mesh.material.color.setHex(rt.isEcho ? 0x10b981 : 0xa855f7);
+                    item.mesh.material.opacity = (1 - f) * 0.8;
+                }
+            });
+
+            const vSound = 331 + 0.6 * p.tempC;
+            const roundTripDist = 2 * p.wallDist;
+            const echoTimeSec = roundTripDist / vSound;
+            const minEchoDist = (vSound * 0.10) / 2;
+
+            const intensityW = p.powerWatts / (4 * Math.PI * p.wallDist * p.wallDist);
+            const decibelsDB = 10 * Math.log10(intensityW / 1e-12);
+            const lambdaSound = vSound / p.freqHz;
+
+            const pitchClass = p.freqHz < 250 ? 'Som GRAVE (Baixa f)' : (p.freqHz > 600 ? 'Som AGUDO (Alta f)' : 'Frequência Média');
+
+            pushChartPoint(state.simTime, decibelsDB * 0.3, echoTimeSec * 150, p.wallDist);
+            setHUDMetrics([
+                `Nível β: ${decibelsDB.toFixed(1)} dB`,
+                `Retorno Δt: ${(echoTimeSec * 1000).toFixed(0)} ms`,
+                `d_mín Eco: ${minEchoDist.toFixed(1)} m`,
+                `${p.wallDist >= minEchoDist ? 'ECO NÍTIDO!' : 'REVERBERAÇÃO'}`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Eco vs Reverberação (Tempo de Persistência Auditiva = 0,10 s)',
+                    formula: 'Δt = (2 · d) / v_som   |   Condição de Eco: Δt ≥ 0,10 s  (d ≥ v_som · 0,05)',
+                    calc: `Velocidade do som a ${p.tempC}°C: v = 331 + 0,6×${p.tempC} = ${vSound.toFixed(1)} m/s\nPercurso de ida e volta (2d) = 2 × ${p.wallDist.toFixed(1)} m = ${roundTripDist.toFixed(1)} m\nTempo de retorno Δt = ${roundTripDist.toFixed(1)} / ${vSound.toFixed(1)} = ${echoTimeSec.toFixed(3)} s (${(echoTimeSec * 1000).toFixed(0)} ms)`,
+                    result: echoTimeSec >= 0.10
+                        ? `ECO DISTINTO! (Δt = ${echoTimeSec.toFixed(3)} s ≥ 0,10 s e d = ${p.wallDist.toFixed(1)} m ≥ ${minEchoDist.toFixed(1)} m)`
+                        : `REVERBERAÇÃO / REFORÇO! (Δt = ${echoTimeSec.toFixed(3)} s < 0,10 s — Som chega antes de 0,1 s)`
+                },
+                {
+                    title: '2. Intensidade Física (I) e Nível Sonoro em Decibéis (β)',
+                    formula: 'I = P / (4π · d²) [W/m²]   |   β = 10 · log₁₀(I / 10⁻¹²) [dB]',
+                    calc: `I = ${p.powerWatts.toFixed(1)} W / (4π × ${p.wallDist.toFixed(1)}²) = ${intensityW.toExponential(2)} W/m²\nβ = 10 × log₁₀(${intensityW.toExponential(2)} / 10⁻¹²) = ${decibelsDB.toFixed(1)} dB`,
+                    result: `Nível Sonoro = ${decibelsDB.toFixed(1)} dB (${decibelsDB > 85 ? 'Som Muito Forte' : 'Volume Confortável'})`
+                },
+                {
+                    title: '3. Qualidade Fisiológica: Altura (Frequência) vs Comprimento de Onda',
+                    formula: 'λ = v_som / f',
+                    calc: `λ = ${vSound.toFixed(1)} m/s / ${p.freqHz} Hz = ${lambdaSound.toFixed(2)} metros`,
+                    result: `Classificação: ${pitchClass}  |  λ = ${lambdaSound.toFixed(2)} m`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 8: TUBOS SONOROS (ABERTO VS FECHADO), TIMBRE & INSTRUMENTOS 3D
+         * ===================================================================== */
+        function buildLab8SoundPipesTimbre() {
+            const p = state.params.lab8;
+            const rt = {};
+
+            const tubeLenVis = 28;
+            const tubeR = 3.2;
+            const phiArc = state.cutawayMode ? Math.PI : Math.PI * 2;
+
+            // 1. Transparent 3D Acoustic Kundt Resonator Tube
+            const tubeMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(tubeR, tubeR, tubeLenVis, 36, 1, true, 0, phiArc),
+                new THREE.MeshStandardMaterial({
+                    color: 0x38bdf8,
+                    transparent: true,
+                    opacity: state.cutawayMode ? 0.38 : 0.22,
+                    roughness: 0.1,
+                    side: THREE.DoubleSide
+                })
+            );
+            tubeMesh.rotation.z = Math.PI / 2;
+            labGroup.add(tubeMesh);
+
+            // End Ring Left (Always Open Mouthpiece at x = -14)
+            const leftRim = new THREE.Mesh(
+                new THREE.TorusGeometry(tubeR, 0.2, 16, 48),
+                new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.8 })
+            );
+            leftRim.rotation.y = Math.PI / 2;
+            leftRim.position.x = -tubeLenVis / 2;
+            labGroup.add(leftRim);
+
+            // Right End at x = +14: Open Ring (if pipeClosed === 0) OR Solid Red Cap (if pipeClosed === 1!)
+            if (p.pipeClosed === 1) {
+                const closedCap = new THREE.Mesh(
+                    new THREE.CylinderGeometry(tubeR * 1.04, tubeR * 1.04, 0.7, 36),
+                    new THREE.MeshStandardMaterial({ color: 0xf43f5e, metalness: 0.6, roughness: 0.3 })
+                );
+                closedCap.rotation.z = Math.PI / 2;
+                closedCap.position.x = tubeLenVis / 2 + 0.35;
+                labGroup.add(closedCap);
+            } else {
+                const rightRim = leftRim.clone();
+                rightRim.position.x = tubeLenVis / 2;
+                labGroup.add(rightRim);
+            }
+
+            // 2. 4,500 Air Molecules inside the Tube vibrating longitudinally (Kundt's Tube Standing Wave!)
+            const pCount = 4500;
+            const pGeo = new THREE.BufferGeometry();
+            const pPos = new Float32Array(pCount * 3);
+            const pCol = new Float32Array(pCount * 3);
+            const baseX = new Float32Array(pCount);
+            const baseYZ = new Float32Array(pCount * 2);
+
+            for (let i = 0; i < pCount; i++) {
+                baseX[i] = (Math.random() - 0.5) * tubeLenVis;
+                const r = Math.sqrt(Math.random()) * (tubeR * 0.88);
+                const th = Math.random() * Math.PI * 2;
+                baseYZ[i * 2] = r * Math.sin(th);
+                baseYZ[i * 2 + 1] = r * Math.cos(th);
+            }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+            pGeo.userData = { baseX, baseYZ, tubeLenVis };
+
+            const airParticles = new THREE.Points(
+                pGeo,
+                new THREE.PointsMaterial({
+                    size: 0.42,
+                    map: glowParticleTexture,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.9,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                })
+            );
+            labGroup.add(airParticles);
+            rt.airParticles = airParticles;
+
+            // 3. 3D Displacement Envelope Curve s(x) mounted above the tube
+            if (state.showVectors || state.cutawayMode) {
+                const createEnvLine = (hex) => {
+                    const pts = [];
+                    for (let i = 0; i <= 100; i++) pts.push(new THREE.Vector3());
+                    return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: hex }));
+                };
+                rt.envTop = createEnvLine(0xeab308);
+                rt.envBot = createEnvLine(0xeab308);
+                labGroup.add(rt.envTop, rt.envBot);
+            }
+
+            const nHarm = p.pipeClosed === 1 ? (2 * p.harmonicMode - 1) : p.harmonicMode;
+            document.getElementById('hud-wave-eq').textContent = p.pipeClosed === 1 ? `f_${nHarm} = ${nHarm}·v / (4L)` : `f_${nHarm} = ${nHarm}·v / (2L)`;
+            document.getElementById('hud-particles-count').textContent = '4.500 Moléculas no Tubo 3D';
+            state.labRuntime = rt;
+        }
+
+        function updateLab8SoundPipesTimbre(dt) {
+            const p = state.params.lab8;
+            const rt = state.labRuntime;
+            if (!rt.airParticles) return;
+
+            // Harmonic number n: Open pipe has all integers (1,2,3,4,5); Closed pipe has ONLY ODD harmonics (1,3,5,7,9)!
+            const nHarm = p.pipeClosed === 1 ? (2 * p.harmonicMode - 1) : p.harmonicMode;
+            const vSound = 340;
+            const lambdaReal = p.pipeClosed === 1 ? (4 * p.pipeLen) / nHarm : (2 * p.pipeLen) / nHarm;
+            const fnReal = vSound / lambdaReal;
+
+            const omegaVis = 4.2 + p.harmonicMode * 1.1;
+            const timeFactor = Math.sin(omegaVis * state.simTime);
+
+            const pos = rt.airParticles.geometry.attributes.position;
+            const col = rt.airParticles.geometry.attributes.color;
+            const { baseX, baseYZ, tubeLenVis } = rt.airParticles.geometry.userData;
+
+            const cNode = new THREE.Color(0xf43f5e);     // Red = Displacement Node (Zero motion, Max Pressure!)
+            const cAntinode = new THREE.Color(0xfef08a); // Bright Yellow = Displacement Antinode (Max motion)
+
+            // Spatial standing wave function for displacement s(u) where u in [0, 1] from left open end to right end:
+            // Left end (u=0) is ALWAYS Open -> Antinode of displacement -> cos(0) = 1!
+            // If Open Pipe: right end (u=1) is also Antinode -> cos(n * π * u)
+            // If Closed Pipe: right end (u=1) is Closed Node -> cos(n * π * u / 2) where n = 1, 3, 5...
+            const kSpatial = p.pipeClosed === 1 ? (nHarm * Math.PI * 0.5) : (nHarm * Math.PI);
+
+            for (let i = 0; i < pos.count; i++) {
+                const x0 = baseX[i];
+                const u = (x0 + tubeLenVis / 2) / tubeLenVis; // 0 at left, 1 at right
+                const ampEnv = Math.cos(kSpatial * u);
+                const dx = 1.45 * ampEnv * timeFactor;
+                pos.setXYZ(i, Math.max(-tubeLenVis / 2, Math.min(tubeLenVis / 2, x0 + dx)), baseYZ[i * 2], baseYZ[i * 2 + 1]);
+
+                const c = cNode.clone().lerp(cAntinode, Math.abs(ampEnv));
+                col.setXYZ(i, c.r, c.g, c.b);
+            }
+            pos.needsUpdate = true;
+            col.needsUpdate = true;
+
+            if (rt.envTop && rt.envBot) {
+                const pTop = rt.envTop.geometry.attributes.position;
+                const pBot = rt.envBot.geometry.attributes.position;
+                for (let i = 0; i <= 100; i++) {
+                    const u = i / 100;
+                    const x = -tubeLenVis / 2 + u * tubeLenVis;
+                    const env = 2.4 * Math.abs(Math.cos(kSpatial * u));
+                    pTop.setXYZ(i, x, 4.2 + env, 0);
+                    pBot.setXYZ(i, x, 4.2 - env, 0);
+                }
+                pTop.needsUpdate = true;
+                pBot.needsUpdate = true;
+            }
+
+            const instNames = ['Diapasão (Senóide Pura)', 'Flauta (Tubo Aberto)', 'Clarinete (Tubo Fechado)', 'Violão Acústico'];
+            setHUDMetrics([
+                `Tubo: ${p.pipeClosed === 1 ? 'FECHADO' : 'ABERTO'}`,
+                `Harmônico: ${nHarm}º (f_${nHarm})`,
+                `Freq: ${fnReal.toFixed(1)} Hz`,
+                `${instNames[p.instrumentTimbre].split(' ')[0]}`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: `1. Ressonância em Tubo Sonoro ${p.pipeClosed === 1 ? 'FECHADO (Só Harmônicos Ímpares!)' : 'ABERTO (Todos os Harmônicos)'}`,
+                    formula: p.pipeClosed === 1
+                        ? 'Tubo Fechado: L = n · (λ / 4)   ⇒   fₙ = (n · v_som) / (4 · L),  com n = 1, 3, 5, 7...'
+                        : 'Tubo Aberto: L = n · (λ / 2)   ⇒   fₙ = (n · v_som) / (2 · L),  com n = 1, 2, 3, 4...',
+                    calc: `Comprimento do Tubo L = ${p.pipeLen.toFixed(2)} m  |  Modo selecionado: ${nHarm}º Harmônico\nλ_${nHarm} = ${lambdaReal.toFixed(3)} m\nf_${nHarm} = 340 m/s / ${lambdaReal.toFixed(3)} m = ${fnReal.toFixed(1)} Hz`,
+                    result: `Frequência Ressonante f_${nHarm} = ${fnReal.toFixed(1)} Hz  |  λ = ${lambdaReal.toFixed(2)} m`
+                },
+                {
+                    title: '2. Timbre e Assinatura Harmônica do Instrumento Musical',
+                    formula: 'y_timbre(t) = A₁·sen(ωt) + A₂·sen(2ωt) + A₃·sen(3ωt) + ...',
+                    calc: `Instrumento Selecionado: ${instNames[p.instrumentTimbre]}\n${
+                        p.instrumentTimbre === 0 ? 'Emite exclusivamente o 1º harmônico fundamental (onda senoidal perfeitamente lisa).' :
+                        p.instrumentTimbre === 1 ? 'Tubo aberto: contém harmônicos pares e ímpares suaves (som doce e aveludado).' :
+                        p.instrumentTimbre === 2 ? 'Tubo cilíndrico fechado na palheta: forte predomínio de harmônicos ÍMPARES (1º, 3º, 5º).' :
+                        'Corda dedilhada + caixa acústica: espectro denso de harmônicos pares e ímpares.'
+                    }`,
+                    result: `Veja no Osciloscópio 2D ao lado o formato exato da onda deste Timbre!`
+                },
+                {
+                    title: '3. Relação entre Deslocamento Molecular e Pressão Acústica',
+                    formula: 'Nó de Deslocamento = Ventre de Pressão   |   Ventre de Deslocamento = Nó de Pressão',
+                    calc: `Nas bocas abertas do tubo, o ar vibra livremente (Ventre de deslocamento, pressão atmosférica constante).\nNa tampa fechada (se houver), o ar não pode avançar (Nó de deslocamento, variação máxima de pressão).`,
+                    result: `Clique em "Testar Áudio" ou "Ouvir Som Real" no topo para escutar este instrumento!`
+                }
+            ]);
+        }
+
+        /***********************************************************************
+         * 6. CUSTOM 3D ACOUSTIC PULSE / WAVE INJECTOR
+         ***********************************************************************/
+        function toggleLauncherModal(show) {
+            const modal = document.getElementById('launcher-modal');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        function launchCustomAcousticWave() {
+            const waveType = document.getElementById('launch-wave-type').value;
+            const freq = parseFloat(document.getElementById('launch-freq').value);
+            const amp = parseFloat(document.getElementById('launch-amp').value);
+
+            const pulseGroup = new THREE.Group();
+            const colorHex = waveType === 'shock' ? 0xf43f5e : (waveType === 'guitar' ? 0xeab308 : 0x38bdf8);
+            const col = new THREE.Color(colorHex);
+
+            // Create expanding spherical shell of glowing acoustic particles
+            const count = 900;
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = 1.0 + (Math.random() - 0.5) * 0.25;
+                pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                pos[i * 3 + 2] = r * Math.cos(phi);
+                colors[i * 3] = col.r; colors[i * 3 + 1] = col.g; colors[i * 3 + 2] = col.b;
+            }
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const shell = new THREE.Points(
+                geo,
+                new THREE.PointsMaterial({
+                    size: 0.65,
+                    map: glowParticleTexture,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.95,
+                    blending: THREE.AdditiveBlending
+                })
+            );
+            pulseGroup.add(shell);
+            pulseGroup.userData = { radius: 1.0, speed: 14 + amp * 2, shell };
+
+            launchedGroup.add(pulseGroup);
+            state.launchedWaves.push(pulseGroup);
+
+            // Play the synthesized instrument tone via Web Audio API!
+            playQuickAudioDemo(freq, waveType);
+            toggleLauncherModal(false);
+        }
+
+        function updateLaunchedAcousticWaves(dt) {
+            for (let i = state.launchedWaves.length - 1; i >= 0; i--) {
+                const w = state.launchedWaves[i];
+                w.userData.radius += w.userData.speed * dt;
+                const r = w.userData.radius;
+                w.scale.set(r, r, r);
+                w.userData.shell.material.opacity = Math.max(0, 1.0 - r / 36);
+                if (r > 36) {
+                    launchedGroup.remove(w);
+                    state.launchedWaves.splice(i, 1);
+                }
+            }
+        }
+
+        /***********************************************************************
+         * 7. REAL-TIME 2D OSCILLOSCOPE & SPECTRUM CHART ENGINE
+         ***********************************************************************/
+        let chartCtx = null;
+
+        function init2DChartCanvas() {
+            const canvas = document.getElementById('realtime-chart');
+            chartCtx = canvas.getContext('2d');
+            resize2DChartCanvas();
+        }
+
+        function resize2DChartCanvas() {
+            const canvas = document.getElementById('realtime-chart');
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = (rect.width - 12) * Math.min(window.devicePixelRatio, 2);
+            canvas.height = (rect.height - 12) * Math.min(window.devicePixelRatio, 2);
+        }
+
+        function clearChartHistory() {
+            state.chartHistory = [];
+        }
+
+        function pushChartPoint(t, y1, y2, y3) {
+            state.chartHistory.push({ t, y1, y2, y3 });
+            if (state.chartHistory.length > 160) state.chartHistory.shift();
+        }
+
+        function drawRealtimeChart() {
+            if (!chartCtx) return;
+            const canvas = chartCtx.canvas;
+            const w = canvas.width;
+            const h = canvas.height;
+            chartCtx.clearRect(0, 0, w, h);
+
+            chartCtx.strokeStyle = '#1e293b';
+            chartCtx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                const gy = (h / 4) * i;
+                chartCtx.beginPath();
+                chartCtx.moveTo(0, gy);
+                chartCtx.lineTo(w, gy);
+                chartCtx.stroke();
+            }
+
+            const id = state.currentLabId;
+
+            // Dedicated Scientific Curve for Lab 5: Lorentzian Resonance Curve A(f) + Standing Wave Harmonics
+            if (id === 'lab5') {
+                const p = state.params.lab5;
+                chartCtx.strokeStyle = '#eab308';
+                chartCtx.lineWidth = 2.5;
+                chartCtx.beginPath();
+                for (let px = 0; px <= w; px += 2) {
+                    const df = ((px / w) - 0.5) * 10; // -5 Hz to +5 Hz around f_n
+                    const lor = 1.0 / Math.sqrt(1.0 + Math.pow(df * 1.4, 2));
+                    const py = h * 0.88 - lor * (h * 0.76);
+                    if (px === 0) chartCtx.moveTo(px, py);
+                    else chartCtx.lineTo(px, py);
+                }
+                chartCtx.stroke();
+
+                // Current Operating Point on the Resonance Curve
+                const curX = (0.5 + (p.detuning / 10)) * w;
+                const curLor = 1.0 / Math.sqrt(1.0 + Math.pow(p.detuning * 1.4, 2));
+                const curY = h * 0.88 - curLor * (h * 0.76);
+                chartCtx.fillStyle = p.detuning === 0 ? '#10b981' : '#f43f5e';
+                chartCtx.beginPath();
+                chartCtx.arc(curX, curY, 5.5, 0, Math.PI * 2);
+                chartCtx.fill();
+                return;
+            }
+
+            // Dedicated Scientific Oscilloscope for Lab 8: Real-Time Timbre Waveform y(t) + Harmonic Spectrum Bars!
+            if (id === 'lab8') {
+                const p = state.params.lab8;
+                const weights = p.instrumentTimbre === 0 ? [1.0, 0.0, 0.0, 0.0, 0.0] :
+                                p.instrumentTimbre === 1 ? [1.0, 0.45, 0.20, 0.08, 0.03] :
+                                p.instrumentTimbre === 2 ? [1.0, 0.04, 0.65, 0.04, 0.35] :
+                                [1.0, 0.68, 0.48, 0.32, 0.22];
+
+                // Draw Fourier Harmonic Bars in background
+                weights.forEach((wt, idx) => {
+                    const barW = w * 0.08;
+                    const bx = w * 0.12 + idx * (w * 0.16);
+                    const bh = wt * (h * 0.55);
+                    chartCtx.fillStyle = 'rgba(56, 189, 248, 0.22)';
+                    chartCtx.fillRect(bx, h * 0.9 - bh, barW, bh);
+                });
+
+                // Draw Synthesized Timbre Waveform y(t) in bright yellow
+                chartCtx.strokeStyle = '#eab308';
+                chartCtx.lineWidth = 2.6;
+                chartCtx.beginPath();
+                for (let px = 0; px <= w; px += 2) {
+                    const phase = (px / w) * Math.PI * 4 - state.simTime * 6;
+                    let ySum = 0;
+                    weights.forEach((wt, idx) => {
+                        ySum += wt * Math.sin((idx + 1) * phase);
+                    });
+                    const py = h * 0.5 - (ySum / 2.1) * (h * 0.38);
+                    if (px === 0) chartCtx.moveTo(px, py);
+                    else chartCtx.lineTo(px, py);
+                }
+                chartCtx.stroke();
+                return;
+            }
+
+            const pts = state.chartHistory;
+            if (pts.length < 2) return;
+
+            let maxAbs = 25;
+            for (let i = 0; i < pts.length; i++) {
+                maxAbs = Math.max(maxAbs, Math.abs(pts[i].y1), Math.abs(pts[i].y2), Math.abs(pts[i].y3));
+            }
+            const zeroY = h * 0.5;
+            const scaleY = (h * 0.42) / maxAbs;
+
+            const plotLine = (key, hex) => {
+                chartCtx.strokeStyle = hex;
+                chartCtx.lineWidth = 2.2;
+                chartCtx.beginPath();
+                for (let i = 0; i < pts.length; i++) {
+                    const px = (i / (pts.length - 1)) * w;
+                    const py = zeroY - pts[i][key] * scaleY;
+                    if (i === 0) chartCtx.moveTo(px, py);
+                    else chartCtx.lineTo(px, py);
+                }
+                chartCtx.stroke();
+            };
+
+            plotLine('y1', '#eab308');
+            plotLine('y2', '#38bdf8');
+            plotLine('y3', '#10b981');
+        }
+
+        function updateChartLegendForActiveLab() {
+            const titles = {
+                lab1: 'Osciloscópio: Elongação y(t), Crista (+A) e Vale (-A)',
+                lab2: 'Defasagem 90°: Deslocamento s(t) vs Pressão Acústica ΔP(t)',
+                lab3: 'Pulso na Junção, Amplitude Refletida e Refratada',
+                lab4: 'Elongação Construtiva (2A), Nº de Linhas Nodais e Difração',
+                lab5: 'Curva de Ressonância A(f): Pico Máximo em f_exc = f_natural',
+                lab6: 'Frequência Aparente Percebida f_obs(t) vs Emitida (f₀)',
+                lab7: 'Nível Sonoro β (dB), Tempo de Eco Δt e Distância (d)',
+                lab8: 'Forma de Onda do Timbre Musical y(t) + Espectro de Harmônicos'
+            };
+            document.getElementById('chart-title').textContent = titles[state.currentLabId];
+
+            const legends = {
+                lab1: ['Elongação y(t)', 'Crista (+A)', 'Vale (-A)'],
+                lab2: ['Deslocamento s(t)', 'Pressão ΔP(t)', 'Velocidade v'],
+                lab3: ['Junção y(0,t)', 'Refletida A_r', 'Refratada A_t'],
+                lab4: ['Ventre 2A(t)', 'Linhas Nodais', 'Razão λ/a'],
+                lab5: ['Curva Ressonância', 'Sintonia Atual', ''],
+                lab6: ['f_percebida(t)', 'f_emitida (f₀)', 'f_afastamento'],
+                lab7: ['Decibéis (dB)', 'Retorno Δt', 'Distância d'],
+                lab8: ['Onda do Timbre y(t)', 'Barras Harmônicas fₙ', '']
+            };
+            const items = legends[state.currentLabId] || [];
+            const colors = ['bg-yellow-400', 'bg-sky-400', 'bg-emerald-400'];
+            document.getElementById('chart-legend').innerHTML = items.filter(Boolean).map((lbl, idx) => `
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full ${colors[idx]} inline-block"></span>
+                    <span class="text-slate-300">${lbl}</span>
+                </div>
+            `).join('');
+        }
+
+        /***********************************************************************
+         * 8. UI CONTROLLERS, NAVIGATION, SLIDERS & ENCYCLOPEDIA
+         ***********************************************************************/
+        function renderExperimentSelectorBar() {
+            const bar = document.getElementById('experiment-selector-bar');
+            bar.innerHTML = Object.values(LABS_CONFIG).map(lab => {
+                const isActive = lab.id === state.currentLabId;
+                return `
+                    <button onclick="selectLab('${lab.id}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                        isActive
+                            ? 'lab-tab-active'
+                            : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    }">
+                        <span>${lab.shortTitle}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectLab(labId, focusConceptId = null) {
+            state.currentLabId = labId;
+            const labCfg = LABS_CONFIG[labId];
+            state.simTime = 0;
+            state.chartHistory = [];
+
+            if (state.cutawayMode) {
+                document.getElementById('cutaway-banner-title').textContent = labCfg.cutawayTitle;
+                document.getElementById('cutaway-banner-desc').textContent = labCfg.cutawayDesc;
+            }
+
+            document.getElementById('active-module-badge').textContent = labCfg.badge;
+            document.getElementById('active-lab-title').textContent = labCfg.fullTitle;
+            document.getElementById('active-lab-summary').textContent = labCfg.summary;
+
+            renderExperimentSelectorBar();
+            renderPresetsAndSliders();
+            renderConceptPillsForActiveLab(focusConceptId);
+            updateChartLegendForActiveLab();
+            setCameraPreset(labId === 'lab4' ? 'iso' : 'iso');
+            rebuildActive3DLabScene();
+        }
+
+        function renderPresetsAndSliders() {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            document.getElementById('lab-presets-container').innerHTML = `
+                <span class="text-[10px] font-mono uppercase text-slate-400">Cenários Rápidos Clássicos:</span>
+                <div class="flex flex-wrap gap-1.5">
+                    ${labCfg.presets.map((pr, idx) => `
+                        <button onclick="applyLabPreset(${idx})" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-yellow-500/20 hover:text-yellow-300 border border-slate-700 text-[11px] font-medium text-slate-200 transition-all cursor-pointer">
+                            ${pr.label}
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+
+            const currParams = state.params[state.currentLabId];
+            document.getElementById('sliders-container').innerHTML = labCfg.sliders.map(s => `
+                <div class="flex flex-col gap-1 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-medium text-slate-300">${s.label}</span>
+                        <span id="val-${s.key}" class="font-mono font-bold text-yellow-400">${currParams[s.key]} ${s.unit}</span>
+                    </div>
+                    <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${currParams[s.key]}"
+                        oninput="onSliderInput('${s.key}', this.value, '${s.unit}')">
+                </div>
+            `).join('');
+        }
+
+        function onSliderInput(key, val, unit) {
+            const num = parseFloat(val);
+            state.params[state.currentLabId][key] = num;
+            const span = document.getElementById(`val-${key}`);
+            if (span) span.textContent = `${num} ${unit}`;
+            rebuildActive3DLabScene();
+        }
+
+        function applyLabPreset(presetIndex) {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            const preset = labCfg.presets[presetIndex];
+            if (!preset) return;
+            Object.keys(preset.values).forEach(k => {
+                state.params[state.currentLabId][k] = preset.values[k];
+            });
+            state.simTime = 0;
+            state.chartHistory = [];
+            renderPresetsAndSliders();
+            rebuildActive3DLabScene();
+        }
+
+        function resetCurrentLabParameters() {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            labCfg.sliders.forEach(s => {
+                state.params[state.currentLabId][s.key] = s.default;
+            });
+            state.simTime = 0;
+            state.chartHistory = [];
+            renderPresetsAndSliders();
+            rebuildActive3DLabScene();
+        }
+
+        function renderConceptPillsForActiveLab(focusConceptId = null) {
+            const concepts = CONCEPTS_DB.filter(c => c.labId === state.currentLabId);
+            document.getElementById('concepts-count-badge').textContent = `${concepts.length} conceito(s)`;
+
+            if (focusConceptId) {
+                state.selectedConceptId = focusConceptId;
+            } else if (!concepts.some(c => c.id === state.selectedConceptId) && concepts.length > 0) {
+                state.selectedConceptId = concepts[0].id;
+            }
+
+            document.getElementById('active-lab-concept-pills').innerHTML = concepts.map(c => {
+                const active = c.id === state.selectedConceptId;
+                return `
+                    <button onclick="selectConceptPill('${c.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer border ${
+                        active
+                            ? 'bg-yellow-500/20 border-yellow-400 text-yellow-200 shadow-sm'
+                            : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-500'
+                    }">
+                        ${c.number}. ${c.title.split('(')[0].trim()}
+                    </button>
+                `;
+            }).join('');
+
+            const selectedObj = CONCEPTS_DB.find(c => c.id === state.selectedConceptId) || concepts[0];
+            if (selectedObj) {
+                document.getElementById('selected-concept-detail').innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="text-xs font-bold text-yellow-300">${selectedObj.number}. ${selectedObj.title}</h4>
+                        <span class="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">${selectedObj.unit}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">${selectedObj.definition}</p>
+                    <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-sky-300">
+                        <span class="text-slate-500">Equação: </span>${selectedObj.formula}
+                    </div>
+                    <p class="text-[11px] text-emerald-300/90 leading-snug">
+                        <i class="fa-solid fa-eye mr-1"></i><strong>Como observar no 3D:</strong> ${selectedObj.howToSeeIn3D}
+                    </p>
+                `;
+            }
+        }
+
+        function selectConceptPill(conceptId) {
+            state.selectedConceptId = conceptId;
+            renderConceptPillsForActiveLab(conceptId);
+        }
+
+        function setHUDMetrics(items) {
+            document.getElementById('hud-live-metrics').innerHTML = items.map(txt => `<div class="truncate">${txt}</div>`).join('');
+        }
+
+        function renderCalculationsHTML(blocks) {
+            document.getElementById('live-calculations-container').innerHTML = blocks.map(b => `
+                <div class="math-box p-3 rounded-r-xl flex flex-col gap-1.5 border border-slate-800/80">
+                    <span class="text-[11px] font-sans font-bold text-yellow-300">${b.title}</span>
+                    <div class="text-[10px] font-sans text-sky-300 bg-slate-900/90 px-2 py-1 rounded border border-slate-800">
+                        <strong>Fórmula:</strong> ${b.formula}
+                    </div>
+                    ${b.calc ? `<div class="text-[11px] text-slate-300 whitespace-pre-line leading-relaxed pl-1 border-l-2 border-slate-700">${b.calc}</div>` : ''}
+                    <div class="text-xs font-bold text-emerald-400 bg-emerald-950/30 px-2 py-1 rounded border border-emerald-500/30">
+                        ⇒ ${b.result}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleSimulationPlay() {
+            state.isPlaying = !state.isPlaying;
+            document.getElementById('icon-play-pause').className = state.isPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+            document.getElementById('hud-sim-status').textContent = state.isPlaying ? 'OSCILADOR 3D ATIVO' : 'SIMULAÇÃO PAUSADA';
+        }
+
+        function restartSimulation() {
+            state.simTime = 0;
+            state.chartHistory = [];
+            rebuildActive3DLabScene();
+        }
+
+        function stepSimulationFrame() {
+            state.isPlaying = false;
+            document.getElementById('icon-play-pause').className = 'fa-solid fa-play';
+            document.getElementById('hud-sim-status').textContent = 'PASSO MANUAL';
+            advancePhysicsStep(0.04);
+        }
+
+        function setSimSpeed(speed) {
+            state.simSpeed = speed;
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.className = 'speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer';
+            });
+            const idMap = { 0.25: 'speed-025', 0.5: 'speed-05', 1: 'speed-10', 2: 'speed-20' };
+            const active = document.getElementById(idMap[speed]);
+            if (active) {
+                active.className = 'speed-btn px-2 py-0.5 rounded text-[11px] font-mono bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 cursor-pointer';
+            }
+        }
+
+        function toggleEncyclopediaModal(show) {
+            const modal = document.getElementById('encyclopedia-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+                renderEncyclopediaCards();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderEncyclopediaCards() {
+            const query = (document.getElementById('encyclopedia-search').value || '').toLowerCase().trim();
+            const filtered = CONCEPTS_DB.filter(c => {
+                return !query ||
+                    c.title.toLowerCase().includes(query) ||
+                    c.definition.toLowerCase().includes(query) ||
+                    c.example.toLowerCase().includes(query);
+            });
+
+            document.getElementById('encyclopedia-grid').innerHTML = filtered.map(c => `
+                <div class="bg-slate-950/90 border border-slate-800 hover:border-yellow-500/50 rounded-xl p-4 flex flex-col justify-between gap-3 transition-all">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+                                TÓPICO #${c.number} • ${LABS_CONFIG[c.labId].shortTitle}
+                            </span>
+                            <span class="text-[10px] font-mono text-slate-400">${c.unit}</span>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">${c.title}</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">${c.definition}</p>
+                        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-sky-300">
+                            ${c.formula}
+                        </div>
+                        <p class="text-[11px] text-slate-400 italic">
+                            <strong>Aplicação real:</strong> ${c.example}
+                        </p>
+                    </div>
+                    <button onclick="openConceptIn3DLab('${c.labId}', '${c.id}')" class="w-full py-2 rounded-lg bg-yellow-500/15 hover:bg-yellow-400 hover:text-slate-950 text-yellow-300 border border-yellow-500/30 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-cube"></i>
+                        <span>Abrir no Modelo 3D (${LABS_CONFIG[c.labId].shortTitle})</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function openConceptIn3DLab(labId, conceptId) {
+            toggleEncyclopediaModal(false);
+            selectLab(labId, conceptId);
+        }
+
+        /***********************************************************************
+         * 9. MAIN ANIMATION & WAVE PHYSICS LOOP
+         ***********************************************************************/
+        let lastFrameTime = performance.now();
+
+        function advancePhysicsStep(dt) {
+            state.simTime += dt;
+            document.getElementById('hud-sim-time').textContent = `t = ${state.simTime.toFixed(1)}s`;
+
+            const id = state.currentLabId;
+            if (id === 'lab1') updateLab1WaveFundamentals(dt);
+            else if (id === 'lab2') updateLab2WaveTypesComparison(dt);
+            else if (id === 'lab3') updateLab3ReflectionRefraction(dt);
+            else if (id === 'lab4') updateLab4DiffractionInterferenceTank(dt);
+            else if (id === 'lab5') updateLab5StandingWavesResonance(dt);
+            else if (id === 'lab6') updateLab6DopplerMachCone(dt);
+            else if (id === 'lab7') updateLab7AcousticsEchoDecibels(dt);
+            else if (id === 'lab8') updateLab8SoundPipesTimbre(dt);
+
+            updateLaunchedAcousticWaves(dt);
+        }
+
+        function animateLoop(now) {
+            requestAnimationFrame(animateLoop);
+            const rawDt = Math.min(0.05, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+
+            if (state.isPlaying) {
+                advancePhysicsStep(rawDt * state.simSpeed);
+            }
+
+            if (controls) controls.update();
+            renderer.render(scene, camera);
+            drawRealtimeChart();
+        }
+
+        window.onload = function () {
+            initThreeJS();
+            init2DChartCanvas();
+            selectLab('lab1'); // Starts on Lab 1 (Wave Fundamentals) and allows instant switching across all 8 3D labs
+            lastFrameTime = performance.now();
+            animateLoop(lastFrameTime);
+        };
+    </script>
+</body>
+</html>

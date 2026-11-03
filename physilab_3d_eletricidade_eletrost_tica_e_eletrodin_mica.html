@@ -1,0 +1,3376 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhysiLab 3D — Eletricidade: Eletrostática & Eletrodinâmica</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cosmos: {
+                            bg: '#040711',
+                            panel: '#0b1120',
+                            card: '#131c31',
+                            border: '#263554',
+                            amber: '#f59e0b',
+                            sky: '#38bdf8',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            violet: '#a855f7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: #334155 #0b1120;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b1120;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        body {
+            background-color: #040711;
+            color: #f1f5f9;
+            overflow-x: hidden;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 999px;
+            outline: none;
+            border: 1px solid #334155;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #f59e0b;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.75);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #fbbf24;
+        }
+        .glass-panel {
+            background: rgba(11, 17, 32, 0.84);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.7);
+        }
+        .lab-tab-active {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(56, 189, 248, 0.12));
+            border-color: #f59e0b;
+            color: #fbbf24;
+            box-shadow: 0 0 18px rgba(245, 158, 11, 0.18);
+        }
+        .math-box {
+            background: rgba(4, 7, 17, 0.85);
+            border-left: 3px solid #f59e0b;
+        }
+        #canvas3d-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+        }
+        @keyframes pulseCutaway {
+            0%, 100% { opacity: 0.92; }
+            50% { opacity: 1; box-shadow: 0 0 20px rgba(245, 158, 11, 0.55); }
+        }
+        .cutaway-active {
+            background: linear-gradient(135deg, #f59e0b, #ea580c) !important;
+            color: #040711 !important;
+            border-color: #fde047 !important;
+            font-weight: 700 !important;
+            animation: pulseCutaway 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans select-none">
+
+    <!-- TOP NAVIGATION HEADER -->
+    <header class="bg-slate-950/90 border-b border-slate-800/90 px-3 lg:px-6 py-2.5 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-sky-600 flex items-center justify-center shadow-lg shadow-amber-500/20 border border-amber-400/30">
+                    <i class="fa-solid fa-bolt text-white text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base md:text-lg font-extrabold tracking-tight bg-gradient-to-r from-amber-400 via-yellow-300 to-sky-400 bg-clip-text text-transparent">
+                            PhysiLab 3D — Eletricidade: Eletrostática & Eletrodinâmica
+                        </h1>
+                        <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                            ⚡ 22 Conceitos • 8 Labs 3D Ultra-Densos
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">
+                        Eletrização, Campo & Linhas 3D, Potencial & ddp, Capacitores & Descarga, Leis de Ohm, Circuitos, Geradores/Receptores, Fusíveis & Chaves
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Topic Group Filter Pills -->
+            <nav class="hidden 2xl:flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                <button onclick="selectLab('lab1')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-amber-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-1"></i>Carga & Eletrização
+                </button>
+                <button onclick="selectLab('lab2')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-sky-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-arrows-to-dot text-sky-400 mr-1"></i>Campo & Linhas
+                </button>
+                <button onclick="selectLab('lab3')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-emerald-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-mountain-sun text-emerald-400 mr-1"></i>Potencial & ddp
+                </button>
+                <button onclick="selectLab('lab4')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-cyan-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-cloud-bolt text-cyan-400 mr-1"></i>Capacitor & Descarga
+                </button>
+                <button onclick="selectLab('lab5')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-indigo-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-microchip text-indigo-400 mr-1"></i>Corrente & Leis de Ohm
+                </button>
+                <button onclick="selectLab('lab6')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-orange-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-diagram-project text-orange-400 mr-1"></i>Circuitos (Série/Paralelo/Misto)
+                </button>
+                <button onclick="selectLab('lab7')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-purple-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-car-battery text-purple-400 mr-1"></i>Potência, Gerador & Receptor
+                </button>
+                <button onclick="selectLab('lab8')" class="px-2 py-1 rounded-lg text-[11px] font-medium text-slate-300 hover:text-rose-300 transition-colors cursor-pointer">
+                    <i class="fa-solid fa-toggle-on text-rose-400 mr-1"></i>Fusíveis & Chaves
+                </button>
+            </nav>
+
+            <!-- Action Buttons: Charge Injector & Encyclopedia Modal -->
+            <div class="flex items-center gap-2">
+                <button onclick="toggleLauncherModal(true)" class="px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-indigo-500/20 border border-indigo-400/40 transition-all cursor-pointer">
+                    <i class="fa-solid fa-atom text-amber-300"></i>
+                    <span>Injetar Carga 3D</span>
+                </button>
+                <button onclick="toggleEncyclopediaModal(true)" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 border border-amber-300/40 transition-all cursor-pointer">
+                    <i class="fa-solid fa-book-atlas"></i>
+                    <span>Enciclopédia (22 Conceitos)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- SUB-HEADER: 8 EXCLUSIVE 3D LABORATORIES BAR -->
+    <div class="bg-slate-900/80 border-b border-slate-800/80 px-3 lg:px-6 py-2">
+        <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 overflow-x-auto py-0.5" id="experiment-selector-bar">
+                <!-- Populated dynamically with the 8 3D labs -->
+            </div>
+            <div class="hidden 2xl:flex items-center gap-3 text-[11px] text-slate-400">
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-computer-mouse text-amber-400"></i> Arraste: Girar 3D</span>
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-magnifying-glass-plus text-emerald-400"></i> Scroll: Zoom</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN WORKSPACE GRID -->
+    <main class="flex-1 max-w-[1920px] w-full mx-auto p-3 lg:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- LEFT COLUMN: PARAMETERS, PRESETS & CONCEPT GUIDE (3 COLS) -->
+        <aside class="lg:col-span-3 flex flex-col gap-4 order-2 lg:order-1">
+            <!-- Experiment Controls Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3.5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div>
+                        <span id="active-module-badge" class="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-semibold">LABORATÓRIO 1 DE 8</span>
+                        <h2 id="active-lab-title" class="text-sm font-bold text-white leading-snug">Carga Elétrica & Processos de Eletrização</h2>
+                    </div>
+                    <button onclick="resetCurrentLabParameters()" title="Restaurar Valores Padrão" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+
+                <!-- Quick Scenario Presets for Current Lab -->
+                <div id="lab-presets-container" class="flex flex-col gap-1.5">
+                    <!-- Dynamic scenario buttons -->
+                </div>
+
+                <!-- Sliders Container -->
+                <div id="sliders-container" class="flex flex-col gap-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    <!-- Populated dynamically per experiment -->
+                </div>
+            </div>
+
+            <!-- Interactive Concept Explainer for Active Experiment -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-amber-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Conceitos Explicados Neste Lab</h3>
+                    </div>
+                    <span id="concepts-count-badge" class="text-[10px] font-mono bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        Conceitos
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed" id="active-lab-summary">
+                    Selecione um tópico abaixo para ler a explicação teórica completa, sua equação e como observá-lo no modelo 3D:
+                </p>
+                <!-- Concept Pills -->
+                <div id="active-lab-concept-pills" class="flex flex-wrap gap-1.5">
+                    <!-- Populated dynamically -->
+                </div>
+                <!-- Selected Concept Detailed Box -->
+                <div id="selected-concept-detail" class="mt-1 bg-slate-950/90 border border-slate-800/90 rounded-xl p-3 flex flex-col gap-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER COLUMN: 3D INTERACTIVE VIEWPORT & FLOATING HUD (6 COLS) -->
+        <section class="lg:col-span-6 flex flex-col gap-3 order-1 lg:order-2">
+            <div class="relative w-full h-[500px] sm:h-[580px] lg:h-[690px] bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col">
+
+                <!-- TOP FLOATING HUD: CAMERA PRESETS, CUTAWAY/X-RAY, POTENTIAL MESH & VECTORS -->
+                <div class="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <!-- Camera View Buttons -->
+                    <div class="glass-panel p-1.5 rounded-xl flex flex-wrap items-center gap-1 pointer-events-auto shadow-lg">
+                        <span class="text-[10px] font-mono uppercase text-slate-400 px-2 hidden sm:inline">Câmera:</span>
+                        <button onclick="setCameraPreset('iso')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-amber-500/20 hover:text-amber-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer" title="Perspectiva Isométrica 3D">
+                            <i class="fa-solid fa-cube text-amber-400"></i> <span>3D Isométrico</span>
+                        </button>
+                        <button onclick="setCameraPreset('top')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-amber-500/20 hover:text-amber-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer" title="Vista Superior de Bancada">
+                            <i class="fa-solid fa-compass text-sky-400"></i> <span>Superior</span>
+                        </button>
+                        <button onclick="setCameraPreset('front')" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-amber-500/20 hover:text-amber-300 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer" title="Vista Frontal / Perfil">
+                            <i class="fa-solid fa-eye text-emerald-400"></i> <span>Lateral</span>
+                        </button>
+                        <button onclick="toggleFollowCamera()" id="btn-follow-cam" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-rose-500/20 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer" title="Seguir Portador de Carga em Movimento">
+                            <i class="fa-solid fa-video text-rose-400"></i> <span>Seguir Carga</span>
+                        </button>
+                    </div>
+
+                    <!-- Cutaway / Exploded View, Potential Well & Vector Toggle -->
+                    <div class="glass-panel p-1.5 rounded-xl flex items-center gap-1.5 pointer-events-auto shadow-lg">
+                        <button onclick="toggleCutawayMode()" id="btn-cutaway" class="px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-semibold transition-all flex items-center gap-1.5 cursor-pointer">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <span>Corte 3D / Raio-X</span>
+                        </button>
+                        <button onclick="togglePotentialWell()" id="btn-well" class="px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer" title="Malha Topográfica de Potencial Elétrico V(x,z)">
+                            <i class="fa-solid fa-border-all"></i>
+                            <span>Malha Potencial (V)</span>
+                        </button>
+                        <button onclick="toggleVectorsVisibility()" id="btn-vectors" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer">
+                            <i class="fa-solid fa-location-arrow"></i>
+                            <span>Vetores</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LIVE TELEMETRY OVERLAY (TOP LEFT UNDER CAMERA BAR) -->
+                <div class="absolute top-16 left-3 z-10 pointer-events-none flex flex-col gap-1.5 max-w-[340px]">
+                    <div class="glass-panel px-3 py-2 rounded-xl border border-slate-700/60 shadow-md">
+                        <div class="flex items-center gap-2 text-[11px] font-mono text-amber-400 font-semibold">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping" id="hud-status-dot"></span>
+                            <span id="hud-sim-status">LABORATÓRIO ELETRODINÂMICO ATIVO</span>
+                            <span class="ml-auto text-slate-300" id="hud-sim-time">t = 0.0s</span>
+                        </div>
+                        <div id="hud-live-metrics" class="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-mono text-slate-200">
+                            <!-- Live metrics populated on each frame -->
+                        </div>
+                        <div class="mt-1.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-400">
+                            <span>Eventos/Descargas: <strong id="hud-events-count" class="text-rose-400">0</strong></span>
+                            <span>Portadores 3D: <strong id="hud-particles-count" class="text-sky-400">4,500</strong></span>
+                        </div>
+                    </div>
+                    <!-- Cutaway Mode Banner Explanation -->
+                    <div id="cutaway-info-banner" class="hidden glass-panel px-3 py-2 rounded-xl border border-amber-500/60 bg-amber-950/50 text-amber-200 text-[11px] leading-snug shadow-lg">
+                        <div class="font-bold text-amber-400 flex items-center gap-1.5 mb-0.5">
+                            <i class="fa-solid fa-microscope"></i>
+                            <span id="cutaway-banner-title">Corte Seccional / Raio-X Ativo</span>
+                        </div>
+                        <p id="cutaway-banner-desc" class="text-[10px] text-amber-100/90"></p>
+                    </div>
+                </div>
+
+                <!-- VECTOR COLOR LEGEND OVERLAY (TOP RIGHT) -->
+                <div id="vector-legend-box" class="absolute top-16 right-3 z-10 glass-panel px-3 py-2 rounded-xl pointer-events-none hidden sm:flex flex-col gap-1 text-[10px] font-mono">
+                    <span class="text-slate-400 uppercase font-bold mb-0.5">Legenda Eletromagnética 3D</span>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-rose-500 inline-block"></span><span class="text-slate-200">Polo / Carga Positiva (+Q / V+)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-sky-400 inline-block"></span><span class="text-slate-200">Polo / Carga Negativa (-Q / e⁻)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-emerald-400 inline-block"></span><span class="text-slate-200">Campo Elétrico (E) / Corrente (i)</span></div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-1.5 rounded bg-amber-400 inline-block"></span><span class="text-slate-200">Força Elétrica (Fe) / Efeito Joule</span></div>
+                </div>
+
+                <!-- THREE.JS 3D CANVAS CONTAINER -->
+                <div id="canvas3d-container" class="w-full h-full flex-1 cursor-grab active:cursor-grabbing"></div>
+
+                <!-- BOTTOM FLOATING HUD: PLAYBACK & TIME CONTROLS -->
+                <div class="absolute bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <div class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-2 pointer-events-auto shadow-lg">
+                        <button onclick="toggleSimulationPlay()" id="btn-play-pause" class="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center font-bold transition-all cursor-pointer" title="Pausar / Continuar Animação">
+                            <i class="fa-solid fa-pause" id="icon-play-pause"></i>
+                        </button>
+                        <button onclick="restartSimulation()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer" title="Reiniciar Simulação / Trocar Fusível">
+                            <i class="fa-solid fa-rotate-right text-amber-400"></i>
+                            <span>Reiniciar</span>
+                        </button>
+                        <button onclick="stepSimulationFrame()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer" title="Avançar Passo de Tempo">
+                            <i class="fa-solid fa-forward-step text-sky-400"></i>
+                            <span class="hidden sm:inline">Passo</span>
+                        </button>
+                    </div>
+
+                    <!-- Time Speed Multiplier -->
+                    <div class="glass-panel px-2.5 py-1.5 rounded-xl flex items-center gap-1 pointer-events-auto shadow-lg">
+                        <span class="text-[10px] font-mono text-slate-400 mr-1">Escala Temporal:</span>
+                        <button onclick="setSimSpeed(0.25)" id="speed-025" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">0.25x</button>
+                        <button onclick="setSimSpeed(0.5)" id="speed-05" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">0.5x</button>
+                        <button onclick="setSimSpeed(1.0)" id="speed-10" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-pointer">1x</button>
+                        <button onclick="setSimSpeed(2.5)" id="speed-25" class="speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer">2.5x</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: REAL-TIME OSCILLOSCOPE & STEP-BY-STEP LIVE CALCULATIONS (3 COLS) -->
+        <aside class="lg:col-span-3 flex flex-col gap-4 order-3">
+            <!-- Real-time 2D Graph Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-2.5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-wave-square text-amber-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200" id="chart-title">Osciloscópio & Gráfico Dinâmico</h3>
+                    </div>
+                    <button onclick="clearChartHistory()" class="text-[10px] font-mono text-slate-400 hover:text-amber-400 transition-colors cursor-pointer">
+                        <i class="fa-solid fa-eraser mr-1"></i>Limpar
+                    </button>
+                </div>
+                <!-- Graph Legend -->
+                <div id="chart-legend" class="flex flex-wrap items-center gap-3 text-[11px] font-mono">
+                    <!-- Dynamic Legend -->
+                </div>
+                <!-- HTML5 2D Canvas for Real-Time Charting -->
+                <div class="relative w-full h-48 bg-slate-950 rounded-xl border border-slate-800/90 p-1.5 overflow-hidden">
+                    <canvas id="realtime-chart" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Formulas & Calculations Card -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-emerald-400"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">Cálculos Reais Passo a Passo</h3>
+                    </div>
+                    <span class="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Unidades SI</span>
+                </div>
+                <div id="live-calculations-container" class="flex flex-col gap-2.5 overflow-y-auto max-h-[410px] pr-1 font-mono text-xs">
+                    <!-- Populated dynamically with live substituted numbers -->
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- TEST CHARGE / PARTICLE INJECTOR MODAL -->
+    <div id="launcher-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/70">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                        <i class="fa-solid fa-atom text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-sm">Injetar Carga de Prova no Campo 3D</h3>
+                        <p class="text-[11px] text-slate-400">Dispare elétrons, prótons ou íons na simulação atual</p>
+                    </div>
+                </div>
+                <button onclick="toggleLauncherModal(false)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-300 flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4 text-xs text-slate-300">
+                <div>
+                    <label class="block text-slate-400 mb-1 font-semibold">Tipo de Portador de Carga 3D:</label>
+                    <select id="launch-type" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-amber-500">
+                        <option value="proton">Próton / Carga de Prova Positiva (+q) — Segue o Campo E</option>
+                        <option value="electron">Elétron Livre (-e) — Atraído pelo Potencial Positivo (+V)</option>
+                        <option value="alpha">Partícula Alfa (+2e) — Alta Inércia e Trajetória Curva</option>
+                        <option value="dipole">Dipolo Elétrico Molecular (Polo + e Polo - acoplados)</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Carga (|q|):</span>
+                            <span id="lbl-launch-charge" class="font-mono text-amber-400 font-bold">5.0 μC</span>
+                        </div>
+                        <input type="range" id="launch-charge" min="1" max="20" value="5" oninput="document.getElementById('lbl-launch-charge').textContent = parseFloat(this.value).toFixed(1) + ' μC'">
+                    </div>
+                    <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Velocidade Inicial (v₀):</span>
+                            <span id="lbl-launch-speed" class="font-mono text-sky-400 font-bold">8.0 m/s</span>
+                        </div>
+                        <input type="range" id="launch-speed" min="2" max="20" step="0.5" value="8" oninput="document.getElementById('lbl-launch-speed').textContent = parseFloat(this.value).toFixed(1) + ' m/s'">
+                    </div>
+                </div>
+                <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200">
+                    <i class="fa-solid fa-circle-info mr-1 text-amber-400"></i>
+                    A carga injetada sofrerá a força eletrostática resultante <strong>F = q · E</strong> das cargas ou placas presentes na cena 3D em tempo real!
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-800 bg-slate-950/70 flex justify-end gap-2">
+                <button onclick="toggleLauncherModal(false)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium cursor-pointer">Cancelar</button>
+                <button onclick="launchCustomChargeBody()" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20 cursor-pointer">
+                    <i class="fa-solid fa-bolt mr-1"></i> Injetar na Simulação
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL CONCEPTUAL ENCYCLOPEDIA MODAL (ALL 22 ELECTRICITY TOPICS) -->
+    <div id="encyclopedia-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-3 sm:p-6">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-6xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-950/60">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                        <i class="fa-solid fa-book-atlas text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white">Enciclopédia Interativa — Todos os 22 Conceitos de Eletricidade</h2>
+                        <p class="text-xs text-slate-400">Eletrostática (8 tópicos) e Eletrodinâmica (14 tópicos) com fórmulas, unidades SI e acesso direto aos 8 Labs 3D</p>
+                    </div>
+                </div>
+                <button onclick="toggleEncyclopediaModal(false)" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-300 flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-4 border-b border-slate-800 bg-slate-900/90 flex flex-wrap items-center justify-between gap-3">
+                <div class="relative flex-1 min-w-[240px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="encyclopedia-search" oninput="renderEncyclopediaCards()" placeholder="Buscar nos 22 tópicos (ex: Carga, Eletrização, Campo, Capacitor, Lei de Ohm, Série, Paralelo, Gerador, Fusível...)" class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+                </div>
+                <span class="text-xs font-mono text-slate-400">22 Tópicos • 8 Laboratórios 3D</span>
+            </div>
+
+            <div id="encyclopedia-grid" class="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- APPLICATION JAVASCRIPT -->
+    <script>
+        /***********************************************************************
+         * 1. COMPLETE DATABASE OF ALL 22 ELECTRICITY CONCEPTS (ELETROSTÁTICA & ELETRODINÂMICA)
+         ***********************************************************************/
+        const CONCEPTS_DB = [
+            // ELETROSTÁTICA (1 a 8)
+            {
+                id: 'carga_eletrica',
+                labId: 'lab1',
+                number: 1,
+                category: 'Eletrostática',
+                title: 'Carga elétrica',
+                formula: 'Q = ± n · e   onde   e = 1,6 × 10⁻¹⁹ C',
+                unit: 'Coulomb (C), mC (10⁻³ C), μC (10⁻⁶ C)',
+                definition: 'Propriedade física fundamental da matéria associada aos prótons (carga positiva +e) e elétrons (carga negativa -e). Toda carga elétrica macroscópica é quantizada (múltiplo inteiro da carga elementar e) e conserva-se em sistemas isolados.',
+                example: 'Um corpo com excesso de 5 × 10¹³ elétrons possui carga Q = -8,0 μC.',
+                howToSeeIn3D: 'No Lab 1, ajuste o "Excesso/Falta de Elétrons" e veja as cargas positivas (vermelhas) e negativas (azuis) quantizadas nas esferas condutoras.'
+            },
+            {
+                id: 'eletrizacao',
+                labId: 'lab1',
+                number: 2,
+                category: 'Eletrostática',
+                title: 'Eletrização (Atrito, Contato e Indução)',
+                formula: 'Contato (raios iguais): Q_final = (Q₁ + Q₂) / 2   |   Atrito: Q₁ = -Q₂',
+                unit: 'Conservação: ΣQ_antes = ΣQ_depois',
+                definition: 'Processos de transferência ou separação de elétrons: 1) Atrito (dois materiais diferentes trocam elétrons ficando com cargas opostas); 2) Contato (condutores repartem a carga total ficando com mesmo sinal); 3) Indução (aproximação de indutor polariza o induzido sem tocar, e o fio terra eletriza com sinal oposto).',
+                example: 'Atritar vidro com lã deixa o vidro positivo (+Q) e a lã negativa (-Q).',
+                howToSeeIn3D: 'No Lab 1, alterne o seletor "Modalidade de Eletrização" entre 1 (Atrito), 2 (Contato) e 3 (Indução com Fio Terra) para ver os elétrons migrando em 3D.'
+            },
+            {
+                id: 'campo_eletrico',
+                labId: 'lab2',
+                number: 3,
+                category: 'Eletrostática',
+                title: 'Campo elétrico',
+                formula: 'E = (k₀ · |Q|) / d²   |   Fe = |q| · E   (k₀ = 8,99 × 10⁹ N·m²/C²)',
+                unit: 'Newton por Coulomb (N/C) ou Volt por metro (V/m)',
+                definition: 'Região de influência modificada por uma carga fonte Q, tal que qualquer carga de prova q nela colocada sofre uma força eletrostática Fe = q · E. Cargas positivas geram campo de afastamento (divergente) e cargas negativas geram campo de aproximação (convergente).',
+                example: 'A 2 metros de uma carga de 4 μC no vácuo, a intensidade do campo elétrico é E = 8.990 N/C.',
+                howToSeeIn3D: 'No Lab 2, observe os vetores de campo elétrico E e as setas de força de Coulomb F₁₂ e F₂₁ reagindo em tempo real às cargas Q₁ e Q₂.'
+            },
+            {
+                id: 'linhas_de_campo',
+                labId: 'lab2',
+                number: 4,
+                category: 'Eletrostática',
+                title: 'Linhas de campo (Linhas de Força)',
+                formula: 'Saem de (+Q) → Entram em (-Q)   |   Densidade de linhas ∝ |E|',
+                unit: 'Tangentes ao vetor Campo Elétrico E em cada ponto',
+                definition: 'Curvas geométricas imaginárias idealizadas por Michael Faraday cujo vetor tangente em cada ponto indica direção e sentido do campo elétrico resultante. Nunca se cruzam, nascem nas cargas positivas e morrem nas negativas.',
+                example: 'Entre duas cargas de sinais opostos (dipolo elétrico), as linhas conectam diretamente +Q a -Q; entre cargas de mesmo sinal, as linhas se repelem.',
+                howToSeeIn3D: 'No Lab 2, mude os sinais de Q₁ e Q₂ para ver as linhas 3D se curvarem como dipolo atrativo ou repulsão simétrica com partículas fluindo ao longo delas.'
+            },
+            {
+                id: 'potencial_eletrico',
+                labId: 'lab3',
+                number: 5,
+                category: 'Eletrostática',
+                title: 'Potencial elétrico',
+                formula: 'V = (k₀ · Q) / d   |   Ep = q · V   |   V_total = V₁ + V₂ + ...',
+                unit: 'Volt (V = Joule / Coulomb)',
+                definition: 'Grandeza escalar que mede a energia potencial elétrica por unidade de carga em um ponto do espaço. Cargas positivas criam colinas de potencial positivo (+V) e cargas negativas criam poços de potencial negativo (-V).',
+                example: 'A 0,5 m de uma carga Q = +2 μC, o potencial elétrico escalar vale V = +35.960 V.',
+                howToSeeIn3D: 'No Lab 3, veja as cascas esféricas equipotenciais 3D e a Malha de Potencial (V) formando picos vermelhos (+V) ou vales azuis (-V).'
+            },
+            {
+                id: 'diferenca_de_potencial',
+                labId: 'lab3',
+                number: 6,
+                category: 'Eletrostática',
+                title: 'Diferença de potencial (ddp / Tensão)',
+                formula: 'U = V_A - V_B = W_AB / q   |   Campo Uniforme: U = E · d',
+                unit: 'Volt (V)',
+                definition: 'Tensão elétrica (U) entre dois pontos A e B; determina o trabalho (W_AB = q · U) realizado pela força elétrica para deslocar uma carga q de A até B, independentemente da trajetória seguida (força conservativa).',
+                example: 'Deslocar uma carga de 3 C entre dois pontos com ddp U = 12 V realiza um trabalho W = 36 Joules.',
+                howToSeeIn3D: 'No Lab 3, acompanhe a carga de prova viajando entre a Superfície Equipotencial r_A e a Superfície r_B e confira o trabalho realizado em Joules.'
+            },
+            {
+                id: 'capacitores',
+                labId: 'lab4',
+                number: 7,
+                category: 'Eletrostática',
+                title: 'Capacitores',
+                formula: 'C = Q / U = (κ · ε₀ · A) / d   |   Energia: E_p = (C · U²) / 2',
+                unit: 'Farad (F), μF (10⁻⁶ F), nF (10⁻⁹ F), pF (10⁻¹² F)',
+                definition: 'Dispositivo armazenador de carga e energia potencial elétrica no campo elétrico uniforme entre duas armaduras condutoras separadas por um isolante (dielétrico de constante κ).',
+                example: 'Inserir vidro ou cerâmica (κ > 1) entre as placas polariza os dipolos internos, reduz o campo líquido e multiplica a capacitância C por κ.',
+                howToSeeIn3D: 'No Lab 4, ajuste a Área das Placas (A), a Distância (d) e a Constante Dielétrica (κ). Ative o Corte 3D para ver os dipolos polarizados dentro do dielétrico!'
+            },
+            {
+                id: 'descarga_eletrica',
+                labId: 'lab4',
+                number: 8,
+                category: 'Eletrostática',
+                title: 'Descarga elétrica (Ruptura Dielétrica)',
+                formula: 'E_atual = U / d  ≥  E_ruptura (Rigidez Dielétrica do Meio)',
+                unit: 'kV/mm ou V/m (Ar seco ≈ 3.000 V/mm)',
+                definition: 'Quando o campo elétrico supera a rigidez dielétrica do meio isolante, os elétrons são arrancados dos átomos (avalanche de ionização), transformando o isolante em plasma condutor e gerando centelhas, arcos voltaicos ou raios atmosféricos.',
+                example: 'Um raio ocorre quando a ddp entre a nuvem e o solo rompe a rigidez dielétrica do ar.',
+                howToSeeIn3D: 'No Lab 4, eleve a Tensão Aplicada (U) ou reduza a Distância (d) até superar o limite crítico e observe os raios de plasma 3D saltando entre as placas!'
+            },
+
+            // ELETRODINÂMICA (9 a 22)
+            {
+                id: 'corrente_eletrica',
+                labId: 'lab5',
+                number: 9,
+                category: 'Eletrodinâmica',
+                title: 'Corrente elétrica',
+                formula: 'i = ΔQ / Δt = (n · e) / Δt   |   i = n_v · A · e · v_d',
+                unit: 'Ampère (A = Coulomb / segundo)',
+                definition: 'Movimento ordenado de portadores de carga elétrica (elétrons livres nos metais) impulsionados por uma diferença de potencial (ddp). O sentido convencional da corrente (i) é oposto ao sentido real de deriva dos elétrons (-e).',
+                example: 'Uma corrente de 2 A significa que 1,25 × 10¹⁹ elétrons atravessam a seção transversal do fio a cada segundo.',
+                howToSeeIn3D: 'No Lab 5, observe milhares de elétrons azuis derivando para a esquerda enquanto a seta verde indica o Sentido Convencional da Corrente (i).'
+            },
+            {
+                id: 'resistencia',
+                labId: 'lab5',
+                number: 10,
+                category: 'Eletrodinâmica',
+                title: 'Resistência elétrica (2ª Lei de Ohm)',
+                formula: 'R = ρ · (L / A)',
+                unit: 'Ohm (Ω)   |   Resistividade ρ em Ω·m',
+                definition: 'Oposição oferecida pela rede cristalina do material à passagem da corrente elétrica. Pela 2ª Lei de Ohm, a resistência R é diretamente proporcional à resistividade (ρ) e ao comprimento do condutor (L), e inversamente proporcional à área de seção transversal (A).',
+                example: 'Um fio longo e fino de nicromo apresenta resistência muito maior que um fio curto e grosso de cobre.',
+                howToSeeIn3D: 'No Lab 5, altere o Comprimento (L) e a Área da Seção (A) do fio 3D para ver a geometria do cilindro mudar e afetar a colisão dos elétrons com os átomos.'
+            },
+            {
+                id: 'resistores',
+                labId: 'lab5',
+                number: 11,
+                category: 'Eletrodinâmica',
+                title: 'Resistores',
+                formula: 'Dissipação por Efeito Joule: P_dissipada = R · i²',
+                unit: 'Ohm (Ω), kΩ, MΩ',
+                definition: 'Componentes eletrônicos projetados para limitar a corrente elétrica, dividir tensões ou converter energia elétrica exclusivamente em energia térmica (Efeito Joule, como em chuveiros e aquecedores).',
+                example: 'Resistores de precisão possuem faixas coloridas padronizadas que indicam seu valor ôhmico e tolerância.',
+                howToSeeIn3D: 'No Lab 5, ative/desative o Corte 3D para ver o encapsulamento com código de cores do resistor e sua incandescência térmica ao aumentar a corrente!'
+            },
+            {
+                id: 'lei_de_ohm',
+                labId: 'lab5',
+                number: 12,
+                category: 'Eletrodinâmica',
+                title: 'Lei de Ohm (1ª Lei de Ohm)',
+                formula: 'U = R · i   ⇔   i = U / R   ⇔   R = U / i (constante em condutor ôhmico)',
+                unit: 'Volt (V) = Ohm (Ω) × Ampère (A)',
+                definition: 'Estabelece que, em um condutor mantido a temperatura constante (resistor ôhmico), a intensidade da corrente elétrica (i) é diretamente proporcional à diferença de potencial (U) aplicada entre seus terminais.',
+                example: 'Aplicando U = 24 V em um resistor ôhmico de R = 6 Ω, circula uma corrente i = 4 A.',
+                howToSeeIn3D: 'No Lab 5, varie a Tensão (U) e veja a reta linear U × i no gráfico lateral e o aumento proporcional da velocidade de deriva dos elétrons.'
+            },
+            {
+                id: 'circuito_eletrico',
+                labId: 'lab6',
+                number: 13,
+                category: 'Eletrodinâmica',
+                title: 'Circuito elétrico (Nós, Malhas e Leis de Kirchhoff)',
+                formula: 'Lei dos Nós (1ª): Σi_chegam = Σi_saem   |   Lei das Malhas (2ª): ΣΔV = 0',
+                unit: 'Conservação da Carga (Nós) e da Energia (Malhas)',
+                definition: 'Caminho fechado condutor por onde circula a corrente elétrica, composto por fonte de tensão, condutores e cargas. Nos nós (ramificações), a corrente se divide; ao longo de qualquer malha fechada, a soma algébrica das tensões é nula.',
+                example: 'Se 6 A entram em um nó e se dividem em dois ramos iguais, saem 3 A por cada ramo.',
+                howToSeeIn3D: 'No Lab 6, acompanhe os portadores luminosos percorrendo as trilhas de cobre da placa 3D e se dividindo exatamente nos nós do circuito.'
+            },
+            {
+                id: 'circuito_em_serie',
+                labId: 'lab6',
+                number: 14,
+                category: 'Eletrodinâmica',
+                title: 'Circuito em série',
+                formula: 'R_eq = R₁ + R₂ + R₃   |   i_total = i₁ = i₂ = i₃   |   U_total = U₁ + U₂ + U₃',
+                unit: 'Mesma corrente i em todos os elementos',
+                definition: 'Associação em único caminho sem ramificações: todos os resistores são percorridos pela mesma corrente elétrica (i), enquanto a tensão da fonte (U) se divide proporcionalmente ao valor de cada resistência (U_k = R_k · i).',
+                example: 'Três resistores de 4 Ω, 6 Ω e 10 Ω em série equivalem a R_eq = 20 Ω.',
+                howToSeeIn3D: 'No Lab 6, selecione Topologia = 1 (Série) e observe um único fluxo contínuo de corrente passando por R₁, R₂ e R₃ em sequência.'
+            },
+            {
+                id: 'circuito_em_paralelo',
+                labId: 'lab6',
+                number: 15,
+                category: 'Eletrodinâmica',
+                title: 'Circuito em paralelo',
+                formula: '1 / R_eq = 1/R₁ + 1/R₂ + 1/R₃   |   U_total = U₁ = U₂ = U₃   |   i_total = i₁ + i₂ + i₃',
+                unit: 'Mesma tensão U em todos os ramos',
+                definition: 'Associação em ramos independentes conectados aos mesmos dois nós: todos os resistores ficam submetidos à mesma ddp (U), e a corrente total se divide inversamente proporcional às resistências de cada ramo (i_k = U / R_k).',
+                example: 'Na instalação elétrica residencial, lâmpadas e tomadas são ligadas em paralelo (todas recebem 127 V ou 220 V).',
+                howToSeeIn3D: 'No Lab 6, selecione Topologia = 2 (Paralelo) e veja a corrente se dividir em 3 ramos paralelos com velocidades proporcionais a 1/R.'
+            },
+            {
+                id: 'circuitos_mistos',
+                labId: 'lab6',
+                number: 16,
+                category: 'Eletrodinâmica',
+                title: 'Circuitos mistos',
+                formula: 'R_eq = R₁ + R_paralelo   onde   R_paralelo = (R₂ · R₃) / (R₂ + R₃)',
+                unit: 'Combinação Série + Paralelo',
+                definition: 'Circuito que combina associações em série e em paralelo na mesma rede. Resolve-se reduzindo primeiro o bloco em paralelo a um resistor equivalente parcial e somando-o ao trecho em série.',
+                example: 'R₁ = 4 Ω em série com (R₂ = 6 Ω // R₃ = 3 Ω → R_p = 2 Ω) resulta em R_eq = 4 + 2 = 6 Ω.',
+                howToSeeIn3D: 'No Lab 6, selecione Topologia = 3 (Misto: R₁ em série com o bloco paralelo R₂ // R₃) e compare o brilho das 3 lâmpadas 3D!'
+            },
+            {
+                id: 'potencia_eletrica',
+                labId: 'lab7',
+                number: 17,
+                category: 'Eletrodinâmica',
+                title: 'Potência elétrica',
+                formula: 'P = U · i   |   P_Joule = R · i² = U² / R',
+                unit: 'Watt (W = Joule / segundo) ou quilowatt (kW = 10³ W)',
+                definition: 'Taxa de conversão ou transferência de energia elétrica por unidade de tempo. Nos resistores, mede a rapidez com que a energia elétrica é dissipada em calor pelo Efeito Joule.',
+                example: 'Um chuveiro de 5.500 W ligado em 220 V consome uma corrente elétrica i = P / U = 25 A.',
+                howToSeeIn3D: 'No Lab 7, observe a potência gerada pela bateria, a potência mecânica útil no motor 3D e a potência dissipada em calor.'
+            },
+            {
+                id: 'energia_eletrica',
+                labId: 'lab7',
+                number: 18,
+                category: 'Eletrodinâmica',
+                title: 'Energia elétrica (Consumo em kWh)',
+                formula: 'E = P · Δt   |   1 kWh = 1.000 W × 3.600 s = 3,6 × 10⁶ Joules',
+                unit: 'Joule (J) no SI ou quilowatt-hora (kWh) comercial',
+                definition: 'Quantidade total de energia elétrica consumida ou fornecida durante um intervalo de tempo Δt. Nas contas de energia residencial, mede-se o produto da potência em kW pelo tempo de uso em horas (kWh).',
+                example: 'Um equipamento de 2 kW ligado durante 5 horas por dia em 30 dias consome E = 2 × 5 × 30 = 300 kWh no mês.',
+                howToSeeIn3D: 'No Lab 7, ajuste o "Tempo de Operação Diário" e acompanhe o cálculo exato do consumo mensal em kWh e em Joules.'
+            },
+            {
+                id: 'geradores',
+                labId: 'lab7',
+                number: 19,
+                category: 'Eletrodinâmica',
+                title: 'Geradores elétricos',
+                formula: 'U = E_fem - r · i   |   i_cc = E_fem / r   |   η_ger = U / E_fem',
+                unit: 'f.e.m. (E_fem) em Volts (V), resistência interna (r) em Ω',
+                definition: 'Dispositivo (pilha, bateria, dínamo, painel solar) que converte energia não-elétrica (química, mecânica, luminosa) em energia elétrica. Possui força eletromotriz (E_fem) e perde parte da tensão em sua própria resistência interna (r · i).',
+                example: 'Uma bateria de E_fem = 12 V e resistência interna r = 0,5 Ω fornecendo i = 4 A entrega nos terminais U = 12 - 0,5×4 = 10 V.',
+                howToSeeIn3D: 'No Lab 7, ative o Corte 3D para abrir a Bateria Geradora e visualizar o ânodo, cátodo, eletrólito e a resistência interna r.'
+            },
+            {
+                id: 'receptores',
+                labId: 'lab7',
+                number: 20,
+                category: 'Eletrodinâmica',
+                title: 'Receptores elétricos (Motores)',
+                formula: 'U = E_fcem + r\' · i   |   P_útil = E_fcem · i   |   η_rec = E_fcem / U',
+                unit: 'f.c.e.m. (E\') em Volts (V), resistência interna (r\') em Ω',
+                definition: 'Aparelho (motor elétrico, bateria em recarga) que transforma energia elétrica em outra forma de energia útil (mecânica ou química), além da parcela inevitavelmente dissipada em calor na resistência interna (r\' · i²).',
+                example: 'Em um motor elétrico ligado em U = 24 V com f.c.e.m. E\' = 18 V, o rendimento elétrico é η = 18 / 24 = 75%.',
+                howToSeeIn3D: 'No Lab 7, veja o Motor Elétrico 3D girando com velocidade proporcional à potência mecânica útil P_útil = E\' · i!'
+            },
+            {
+                id: 'fusiveis',
+                labId: 'lab8',
+                number: 21,
+                category: 'Eletrodinâmica',
+                title: 'Fusíveis e Disjuntores de Proteção',
+                formula: 'Se  i_circuito > i_nominal  ⇒  Q_Joule = R_f · i² · Δt  funde o filamento (Circuito Aberto)',
+                unit: 'Corrente Nominal / Fusão em Ampères (A)',
+                definition: 'Dispositivo de segurança ligado em série com o circuito para protegê-lo contra sobrecargas e curtos-circuitos. Contém um filamento metálico de baixo ponto de fusão calibrado para derreter por Efeito Joule caso a corrente ultrapasse o limite seguro (i_nominal).',
+                example: 'Um fusível de 10 A queima imediatamente se ocorrer um curto-circuito que eleve a corrente para 40 A, evitando incêndios.',
+                howToSeeIn3D: 'No Lab 8, diminua a resistência da carga ou ative o Curto-Circuito para ver o filamento do fusível 3D aquecer ao rubro, faiscar e romper interrompendo a corrente!'
+            },
+            {
+                id: 'chaves_eletricas',
+                labId: 'lab8',
+                number: 22,
+                category: 'Eletrodinâmica',
+                title: 'Chaves elétricas (Interruptores)',
+                formula: 'Chave Aberta (OFF): R → ∞ ⇒ i = 0 A (ddp na chave = U_fonte)  |  Chave Fechada (ON): R ≈ 0 ⇒ i = U / R_carga',
+                unit: 'Estados Lógicos: 0 (Aberto / OFF) e 1 (Fechado / ON)',
+                definition: 'Componente eletromecânico de manobra destinado a estabelecer (fechar) ou interromper (abrir) o fluxo de corrente elétrica em um circuito com segurança.',
+                example: 'Quando o interruptor de parede está aberto, não há corrente na lâmpada (i = 0), mas toda a tensão da rede aparece entre os contatos da chave.',
+                howToSeeIn3D: 'No Lab 8, alterne o controle "Estado da Chave Elétrica" ou os Cenários Rápidos para ver a faca metálica da chave 3D abrir e fechar fisicamente o circuito!'
+            }
+        ];
+
+        /***********************************************************************
+         * 2. 8 EXCLUSIVE 3D LABORATORIES CONFIGURATION
+         ***********************************************************************/
+        const LABS_CONFIG = {
+            lab1: {
+                id: 'lab1',
+                badge: 'LAB 1 DE 8 • ELETROSTÁTICA: CARGA & ELETRIZAÇÃO',
+                shortTitle: '1. Carga & Eletrização',
+                fullTitle: 'Carga Elétrica Quantizada (Q = n·e) e Processos de Eletrização (Atrito, Contato e Indução)',
+                summary: 'Experimente em 3D a quantização da carga elementar e os 3 processos clássicos de eletrização: Atrito (cargas opostas), Contato (repartição de cargas) e Indução com Fio Terra (polarização e aterramento).',
+                cutawayTitle: 'Corte Atômico 3D: Rede Cristalina de Prótons Fixos (+p) vs Nuvem de Elétrons Livres (-e)',
+                cutawayDesc: 'Abre as duas esferas condutoras mostrando os núcleos positivos fixos na rede cristalina e a migração/redistribuição superficial dos elétrons livres.',
+                presets: [
+                    { label: '1. Eletrização por Atrito (Vidro + e Lã -)', values: { mode: 1, nElectrons1: -8, nElectrons2: 6, distance: 9.5, groundSwitch: 0 } },
+                    { label: '2. Eletrização por Contato (Divisão Igual)', values: { mode: 2, nElectrons1: 10, nElectrons2: -2, distance: 6.0, groundSwitch: 0 } },
+                    { label: '3. Indução Eletrostática + Fio Terra Ativo', values: { mode: 3, nElectrons1: -10, nElectrons2: 0, distance: 8.5, groundSwitch: 1 } }
+                ],
+                sliders: [
+                    { key: 'mode', label: 'Processo (1=Atrito, 2=Contato, 3=Indução)', min: 1, max: 3, step: 1, unit: '', default: 2 },
+                    { key: 'nElectrons1', label: 'Carga Inicial Corpo A (Q₁)', min: -12, max: 12, step: 1, unit: 'μC', default: 10 },
+                    { key: 'nElectrons2', label: 'Carga Inicial Corpo B (Q₂)', min: -12, max: 12, step: 1, unit: 'μC', default: -2 },
+                    { key: 'distance', label: 'Separação entre as Esferas (d)', min: 6.0, max: 18.0, step: 0.5, unit: 'cm', default: 8.0 },
+                    { key: 'groundSwitch', label: 'Fio Terra na Esfera B (0=Deslig., 1=Aterrado)', min: 0, max: 1, step: 1, unit: '', default: 0 }
+                ]
+            },
+            lab2: {
+                id: 'lab2',
+                badge: 'LAB 2 DE 8 • ELETROSTÁTICA: CAMPO & LINHAS DE FORÇA',
+                shortTitle: '2. Campo & Linhas 3D',
+                fullTitle: 'Lei de Coulomb, Vetor Campo Elétrico (E) e Linhas de Força 3D (Dipolo e Repulsão)',
+                summary: 'Visualize as linhas de força tridimensionais nascendo nas cargas positivas e convergindo nas negativas, partículas de prova fluindo pelo campo e os vetores de Força Eletrostática (Ação e Reação).',
+                cutawayTitle: 'Seção Equatorial do Campo Elétrico & Ponto de Campo Nulo (Sela Eletrostática)',
+                cutawayDesc: 'Secciona as esferas de carga e destaca o plano equatorial de simetria das linhas de fluxo e o ponto onde o campo elétrico resultante se anula.',
+                presets: [
+                    { label: 'Dipolo Elétrico Atrativo (+8 μC e -8 μC)', values: { q1: 8, q2: -8, distD: 14, lineDensity: 16 } },
+                    { label: 'Repulsão de Cargas Positivas (+8 μC e +8 μC)', values: { q1: 8, q2: 8, distD: 14, lineDensity: 16 } },
+                    { label: 'Dipolo Assimétrico (+10 μC e -4 μC)', values: { q1: 10, q2: -4, distD: 15, lineDensity: 18 } }
+                ],
+                sliders: [
+                    { key: 'q1', label: 'Carga Fonte Esquerda (Q₁)', min: -12, max: 12, step: 1, unit: 'μC', default: 8 },
+                    { key: 'q2', label: 'Carga Fonte Direita (Q₂)', min: -12, max: 12, step: 1, unit: 'μC', default: -8 },
+                    { key: 'distD', label: 'Distância entre as Cargas (d)', min: 8, max: 22, step: 0.5, unit: 'cm', default: 14 },
+                    { key: 'lineDensity', label: 'Densidade de Linhas de Campo 3D', min: 8, max: 24, step: 2, unit: 'linhas', default: 16 }
+                ]
+            },
+            lab3: {
+                id: 'lab3',
+                badge: 'LAB 3 DE 8 • ELETROSTÁTICA: POTENCIAL & DDP',
+                shortTitle: '3. Potencial & ddp',
+                fullTitle: 'Potencial Elétrico (V), Superfícies Equipotenciais 3D e Diferença de Potencial (ddp / Trabalho)',
+                summary: 'Explore as cascas esféricas equipotenciais concêntricas, meça a ddp U = V_A - V_B entre dois raios e acompanhe o trabalho W_AB realizado sobre uma carga de prova q.',
+                cutawayTitle: 'Corte das Cascas Equipotenciais 3D (V₁, V₂, V₃) Perpendiculares às Linhas de Campo',
+                cutawayDesc: 'Abre 90° das superfícies equipotenciais esféricas para revelar a trajetória da carga de prova q entre a Equipotencial A e a Equipotencial B.',
+                presets: [
+                    { label: 'Colina de Potencial Positivo (Q = +10 μC)', values: { sourceQ: 10, testChargeQ: 2.0, radiusA: 4.5, radiusB: 11.0 } },
+                    { label: 'Poço de Potencial Negativo (Q = -10 μC)', values: { sourceQ: -10, testChargeQ: 2.0, radiusA: 4.5, radiusB: 11.0 } },
+                    { label: 'Alto Trabalho Eletrostático (ddp Elevada)', values: { sourceQ: 15, testChargeQ: 4.0, radiusA: 3.5, radiusB: 13.0 } }
+                ],
+                sliders: [
+                    { key: 'sourceQ', label: 'Carga Geradora Central (Q)', min: -15, max: 15, step: 1, unit: 'μC', default: 10 },
+                    { key: 'testChargeQ', label: 'Carga de Prova Móvel (q)', min: 0.5, max: 5.0, step: 0.5, unit: 'μC', default: 2.0 },
+                    { key: 'radiusA', label: 'Raio da Equipotencial A (r_A)', min: 3.0, max: 8.0, step: 0.5, unit: 'cm', default: 4.5 },
+                    { key: 'radiusB', label: 'Raio da Equipotencial B (r_B)', min: 8.5, max: 15.0, step: 0.5, unit: 'cm', default: 11.0 }
+                ]
+            },
+            lab4: {
+                id: 'lab4',
+                badge: 'LAB 4 DE 8 • CAPACITORES & DESCARGA ELÉTRICA',
+                shortTitle: '4. Capacitor & Descarga',
+                fullTitle: 'Capacitor de Placas Paralelas, Polarização do Dielétrico e Descarga Elétrica (Ruptura)',
+                summary: 'Ajuste a área das placas, a distância, a constante dielétrica e a tensão aplicada. Quando o campo elétrico E = U/d ultrapassa a rigidez dielétrica, arcos de descarga elétrica (raios 3D) rompem o meio!',
+                cutawayTitle: 'Corte do Bloco Dielétrico: Dipolos Moleculares Alinhados vs Campo Interno',
+                cutawayDesc: 'Secciona o isolante entre as armaduras para exibir os dipolos elétricos moleculares alinhados que reduzem o campo interno e aumentam a capacitância C.',
+                presets: [
+                    { label: 'Capacitor Carregado Estável (Com Dielétrico κ=4)', values: { voltageU: 12, plateArea: 12, plateDist: 6.0, dielectricK: 4.0 } },
+                    { label: 'Descarga Elétrica / Arco Voltaico! (Ruptura no Ar)', values: { voltageU: 28, plateArea: 14, plateDist: 4.0, dielectricK: 1.0 } },
+                    { label: 'Super-Capacitor de Alta Energia (Placas Próximas)', values: { voltageU: 20, plateArea: 18, plateDist: 3.5, dielectricK: 6.5 } }
+                ],
+                sliders: [
+                    { key: 'voltageU', label: 'Tensão Aplicada nas Placas (U)', min: 2, max: 32, step: 1, unit: 'kV', default: 26 },
+                    { key: 'plateArea', label: 'Área das Armaduras (A)', min: 6, max: 20, step: 1, unit: 'cm²', default: 14 },
+                    { key: 'plateDist', label: 'Distância entre Placas (d)', min: 3.0, max: 12.0, step: 0.5, unit: 'mm', default: 4.5 },
+                    { key: 'dielectricK', label: 'Constante Dielétrica (κ — 1=Ar)', min: 1.0, max: 8.0, step: 0.5, unit: 'x', default: 1.0 }
+                ]
+            },
+            lab5: {
+                id: 'lab5',
+                badge: 'LAB 5 DE 8 • ELETRODINÂMICA: CORRENTE & LEIS DE OHM',
+                shortTitle: '5. Corrente & Leis de Ohm',
+                fullTitle: 'Corrente Elétrica, Velocidade de Deriva, Resistores e 1ª e 2ª Leis de Ohm (R = ρ·L/A)',
+                summary: 'Observe o interior microscópico de um condutor/resistor 3D: elétrons livres colidindo com os cátions vibrantes da rede cristalina (Efeito Joule) sob ação da tensão U, comprimento L, área A e resistividade ρ.',
+                cutawayTitle: 'Raio-X Microscópico do Condutor: Rede Cristalina Vibrante (Fônons) e Deriva de Elétrons',
+                cutawayDesc: 'Remove a capa externa com faixas de cores do resistor para mostrar toda a grade 3D de íons metálicos vibrando com a temperatura e o fluxo de elétrons.',
+                presets: [
+                    { label: 'Bom Condutor (Cobre Baixa Resistividade)', values: { voltageU: 12, lengthL: 10, areaA: 6.0, resistivityRho: 1.5 } },
+                    { label: 'Resistor Aquecido por Efeito Joule (Nicromo)', values: { voltageU: 24, lengthL: 16, areaA: 3.0, resistivityRho: 6.0 } },
+                    { label: 'Fio Longo e Fino (2ª Lei de Ohm: Alta Resistência)', values: { voltageU: 18, lengthL: 20, areaA: 2.0, resistivityRho: 4.0 } }
+                ],
+                sliders: [
+                    { key: 'voltageU', label: 'Diferença de Potencial / Tensão (U)', min: 2, max: 30, step: 1, unit: 'V', default: 16 },
+                    { key: 'lengthL', label: 'Comprimento do Condutor (L)', min: 6, max: 22, step: 1, unit: 'm', default: 12 },
+                    { key: 'areaA', label: 'Área da Seção Transversal (A)', min: 1.5, max: 8.0, step: 0.5, unit: 'mm²', default: 4.0 },
+                    { key: 'resistivityRho', label: 'Resistividade do Material (ρ)', min: 1.0, max: 8.0, step: 0.5, unit: '×10⁻⁷ Ω·m', default: 2.5 }
+                ]
+            },
+            lab6: {
+                id: 'lab6',
+                badge: 'LAB 6 DE 8 • CIRCUITOS: SÉRIE, PARALELO & MISTO',
+                shortTitle: '6. Circuitos (Série/Paralelo)',
+                fullTitle: 'Circuitos Elétricos 3D: Associação em Série, em Paralelo e Circuitos Mistos com Lâmpadas',
+                summary: 'Alterne instantaneamente entre um Circuito em Série, em Paralelo ou Misto. Veja a corrente se dividir nos nós, a queda de tensão em cada ramo e o brilho real 3D das lâmpadas R₁, R₂ e R₃!',
+                cutawayTitle: 'Inspeção Interna das Lâmpadas Incandescentes (Filamentos de Tungstênio) e Nós de Kirchhoff',
+                cutawayDesc: 'Torna os bulbos de vidro translúcidos para exibir os filamentos incandescentes e destaca a densidade de corrente em cada trilha de cobre.',
+                presets: [
+                    { label: '1. Circuito em Série (Mesma Corrente i)', values: { topology: 1, sourceU: 24, r1: 4, r2: 6, r3: 2 } },
+                    { label: '2. Circuito em Paralelo (Mesma Tensão U)', values: { topology: 2, sourceU: 12, r1: 4, r2: 6, r3: 12 } },
+                    { label: '3. Circuito Misto (R₁ em Série com R₂ // R₃)', values: { topology: 3, sourceU: 24, r1: 5, r2: 6, r3: 3 } }
+                ],
+                sliders: [
+                    { key: 'topology', label: 'Topologia (1=Série, 2=Paralelo, 3=Misto)', min: 1, max: 3, step: 1, unit: '', default: 3 },
+                    { key: 'sourceU', label: 'Tensão da Fonte (U_total)', min: 6, max: 36, step: 2, unit: 'V', default: 24 },
+                    { key: 'r1', label: 'Resistência Lâmpada 1 (R₁)', min: 2, max: 16, step: 1, unit: 'Ω', default: 5 },
+                    { key: 'r2', label: 'Resistência Lâmpada 2 (R₂)', min: 2, max: 16, step: 1, unit: 'Ω', default: 6 },
+                    { key: 'r3', label: 'Resistência Lâmpada 3 (R₃)', min: 2, max: 16, step: 1, unit: 'Ω', default: 3 }
+                ]
+            },
+            lab7: {
+                id: 'lab7',
+                badge: 'LAB 7 DE 8 • POTÊNCIA, GERADORES & RECEPTORES',
+                shortTitle: '7. Gerador, Receptor & kWh',
+                fullTitle: 'Potência Elétrica, Consumo de Energia (kWh), Gerador Real (U = E - r·i) e Motor Receptor (U = E\' + r\'·i)',
+                summary: 'Analise um sistema energético completo: Bateria Geradora com resistência interna r alimentando um Motor Elétrico 3D (Receptor com f.c.e.m. E\' e resistência interna r\'), calculando potências, rendimento η e consumo em kWh.',
+                cutawayTitle: 'Corte 3D da Bateria Eletroquímica (Gerador) e das Bobinas do Motor Elétrico (Receptor)',
+                cutawayDesc: 'Abre a carcaça da bateria (exibindo placas eletroquímicas e perdas r·i²) e a carcaça do motor elétrico (exibindo rotor, ímãs de campo e bobinas de cobre).',
+                presets: [
+                    { label: 'Operação de Alto Rendimento (Motor Eficiente)', values: { femE: 24, intRGen: 0.5, fcemEPrime: 16, intRRec: 1.0, hoursDay: 6 } },
+                    { label: 'Sobrecarga com Alta Perda Interna (Efeito Joule)', values: { femE: 24, intRGen: 1.5, fcemEPrime: 8, intRRec: 1.5, hoursDay: 8 } },
+                    { label: 'Motor Travado / Partida (E\' = 0 V → Máxima Corrente)', values: { femE: 18, intRGen: 1.0, fcemEPrime: 0, intRRec: 2.0, hoursDay: 4 } }
+                ],
+                sliders: [
+                    { key: 'femE', label: 'Força Eletromotriz do Gerador (E)', min: 10, max: 36, step: 1, unit: 'V', default: 24 },
+                    { key: 'intRGen', label: 'Resistência Interna Gerador (r)', min: 0.2, max: 3.0, step: 0.2, unit: 'Ω', default: 0.6 },
+                    { key: 'fcemEPrime', label: 'Força Contraeletromotriz Motor (E\')', min: 0, max: 22, step: 1, unit: 'V', default: 15 },
+                    { key: 'intRRec', label: 'Resistência Interna Receptor (r\')', min: 0.4, max: 4.0, step: 0.2, unit: 'Ω', default: 1.2 },
+                    { key: 'hoursDay', label: 'Uso Diário (Para Cálculo de kWh/mês)', min: 1, max: 24, step: 1, unit: 'h/dia', default: 6 }
+                ]
+            },
+            lab8: {
+                id: 'lab8',
+                badge: 'LAB 8 DE 8 • PROTEÇÃO: FUSÍVEIS & CHAVES ELÉTRICAS',
+                shortTitle: '8. Fusíveis & Chaves 3D',
+                fullTitle: 'Segurança e Manobra: Chaves Elétricas (Interruptores ON/OFF), Fusíveis de Proteção e Curto-Circuito',
+                summary: 'Controle uma Chave Faca 3D articulada e teste um Fusível de Vidro com filamento metálico térmico. Se a corrente do circuito ultrapassar a corrente nominal do fusível (sobrecarga ou curto-circuito), o filamento se funde com faíscas protegendo o sistema!',
+                cutawayTitle: 'Visão Raio-X da Cápsula do Fusível (Filamento Metálico em Aquecimento) e Contatos da Chave',
+                cutawayDesc: 'Amplia a visualização térmica do filamento de chumbo-estanho no interior do tubo de vidro e exibe o arco nos contatos da chave seccionadora.',
+                presets: [
+                    { label: '1. Operação Normal Segura (Chave Fechada, i < i_fusível)', values: { switchClosed: 1, sourceU: 24, loadR: 6.0, fuseRating: 6.0, shortCircuit: 0 } },
+                    { label: '2. Circuito Aberto pela Chave Elétrica (OFF → i = 0 A)', values: { switchClosed: 0, sourceU: 24, loadR: 6.0, fuseRating: 6.0, shortCircuit: 0 } },
+                    { label: '3. Sobrecorrente / Curto-Circuito (FUSÍVEL QUEIMA!)', values: { switchClosed: 1, sourceU: 24, loadR: 2.0, fuseRating: 6.0, shortCircuit: 1 } }
+                ],
+                sliders: [
+                    { key: 'switchClosed', label: 'Estado da Chave Elétrica (0=Aberta, 1=Fechada)', min: 0, max: 1, step: 1, unit: '', default: 1 },
+                    { key: 'sourceU', label: 'Tensão da Fonte de Alimentação (U)', min: 6, max: 36, step: 2, unit: 'V', default: 24 },
+                    { key: 'loadR', label: 'Resistência da Carga Principal (R_carga)', min: 1.5, max: 12.0, step: 0.5, unit: 'Ω', default: 6.0 },
+                    { key: 'fuseRating', label: 'Corrente Nominal do Fusível (i_nominal)', min: 2.0, max: 12.0, step: 0.5, unit: 'A', default: 6.0 },
+                    { key: 'shortCircuit', label: 'Simular Curto-Circuito (0=Não, 1=Curto!)', min: 0, max: 1, step: 1, unit: '', default: 0 }
+                ]
+            }
+        };
+
+        /***********************************************************************
+         * 3. GLOBAL APPLICATION STATE
+         ***********************************************************************/
+        const state = {
+            currentLabId: 'lab6',
+            selectedConceptId: 'circuitos_mistos',
+            isPlaying: true,
+            simTime: 0,
+            simSpeed: 1.0,
+            cutawayMode: false,
+            showPotentialWell: true,
+            showVectors: true,
+            followCamera: false,
+            eventsCount: 0,
+            totalParticlesCount: 2400,
+            params: {},
+            chartHistory: [],
+            labRuntime: {},
+            launchedBodies: []
+        };
+
+        Object.keys(LABS_CONFIG).forEach(labKey => {
+            state.params[labKey] = {};
+            LABS_CONFIG[labKey].sliders.forEach(s => {
+                state.params[labKey][s.key] = s.default;
+            });
+        });
+
+        /***********************************************************************
+         * 4. THREE.JS ENGINE, SOFT GLOW SPRITE & 3D ELECTRIC POTENTIAL MESH
+         ***********************************************************************/
+        let scene, camera, renderer, controls, labGroup, launchedGroup, potentialWellMesh, starfieldPoints;
+        let glowParticleTexture = null;
+
+        function createSoftParticleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+            grad.addColorStop(0.28, 'rgba(255, 255, 255, 0.88)');
+            grad.addColorStop(0.65, 'rgba(255, 255, 255, 0.25)');
+            grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 64, 64);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas3d-container');
+            const w = container.clientWidth || 800;
+            const h = container.clientHeight || 600;
+
+            glowParticleTexture = createSoftParticleTexture();
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x030611);
+            scene.fog = new THREE.FogExp2(0x030611, 0.0055);
+
+            camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 1200);
+            camera.position.set(0, 22, 36);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.22;
+            container.innerHTML = '';
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 5;
+            controls.maxDistance = 180;
+
+            const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.72);
+            scene.add(ambientLight);
+
+            const mainPointLight = new THREE.PointLight(0xfffbeb, 1.6, 250);
+            mainPointLight.position.set(12, 24, 18);
+            scene.add(mainPointLight);
+
+            const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.75);
+            rimLight.position.set(-25, 22, -20);
+            scene.add(rimLight);
+
+            // Ambient Quantum/Photon Dust Background
+            const starGeo = new THREE.BufferGeometry();
+            const starCount = 6000;
+            const starPos = new Float32Array(starCount * 3);
+            const starCol = new Float32Array(starCount * 3);
+            const palette = [
+                new THREE.Color(0x38bdf8),
+                new THREE.Color(0xf59e0b),
+                new THREE.Color(0x818cf8),
+                new THREE.Color(0xf43f5e)
+            ];
+            for (let i = 0; i < starCount; i++) {
+                const r = 120 + Math.random() * 420;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                starPos[i * 3 + 2] = r * Math.cos(phi);
+                const c = palette[i % palette.length];
+                starCol[i * 3] = c.r;
+                starCol[i * 3 + 1] = c.g;
+                starCol[i * 3 + 2] = c.b;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+            starfieldPoints = new THREE.Points(
+                starGeo,
+                new THREE.PointsMaterial({ size: 1.1, vertexColors: true, transparent: true, opacity: 0.45 })
+            );
+            scene.add(starfieldPoints);
+
+            labGroup = new THREE.Group();
+            scene.add(labGroup);
+
+            launchedGroup = new THREE.Group();
+            scene.add(launchedGroup);
+
+            createDynamicPotentialWell();
+            window.addEventListener('resize', handleWindowResize);
+        }
+
+        // Dynamic 3D Electric Potential Surface Mesh V(x,z):
+        // Positive Charges (+Q) create glowing Red/Amber Potential Hills (+Y),
+        // Negative Charges (-Q) create Cyan/Blue Potential Wells (-Y)!
+        function createDynamicPotentialWell() {
+            if (potentialWellMesh) scene.remove(potentialWellMesh);
+
+            const size = 62;
+            const divisions = 64;
+            const geometry = new THREE.PlaneGeometry(size, size, divisions, divisions);
+            geometry.rotateX(-Math.PI / 2);
+
+            const count = geometry.attributes.position.count;
+            const colors = new Float32Array(count * 3);
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.MeshBasicMaterial({
+                wireframe: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.38
+            });
+
+            potentialWellMesh = new THREE.Mesh(geometry, material);
+            potentialWellMesh.position.y = -6.2;
+            potentialWellMesh.visible = state.showPotentialWell;
+            scene.add(potentialWellMesh);
+
+            updatePotentialWellDeformation();
+        }
+
+        function updatePotentialWellDeformation() {
+            if (!potentialWellMesh) return;
+            potentialWellMesh.visible = state.showPotentialWell;
+            if (!state.showPotentialWell) return;
+
+            const pos = potentialWellMesh.geometry.attributes.position;
+            const col = potentialWellMesh.geometry.attributes.color;
+            const count = pos.count;
+            const id = state.currentLabId;
+            const p = state.params[id];
+
+            const colNeg = new THREE.Color(0x0284c7);  // Negative potential well (-V)
+            const colZero = new THREE.Color(0x4f46e5); // Neutral ground (0 V)
+            const colPos = new THREE.Color(0xf43f5e);  // Positive potential hill (+V)
+
+            for (let i = 0; i < count; i++) {
+                const x = pos.getX(i);
+                const z = pos.getZ(i);
+                let vHeight = 0;
+
+                if (id === 'lab1') {
+                    const sep = p.distance || 8;
+                    const q1 = p.mode === 2 ? (p.nElectrons1 + p.nElectrons2) / 2 : p.nElectrons1;
+                    const q2 = p.mode === 1 ? -p.nElectrons1 : (p.mode === 2 ? q1 : p.nElectrons2);
+                    const d1 = Math.sqrt((x + sep * 0.7) ** 2 + z * z + 6);
+                    const d2 = Math.sqrt((x - sep * 0.7) ** 2 + z * z + 6);
+                    vHeight = (q1 * 1.4) / d1 + (q2 * 1.4) / d2;
+                } else if (id === 'lab2') {
+                    const sep = (p.distD || 14) * 0.65;
+                    const d1 = Math.sqrt((x + sep) ** 2 + z * z + 5);
+                    const d2 = Math.sqrt((x - sep) ** 2 + z * z + 5);
+                    vHeight = (p.q1 * 1.8) / d1 + (p.q2 * 1.8) / d2;
+                } else if (id === 'lab3') {
+                    const d = Math.sqrt(x * x + z * z + 5);
+                    vHeight = (p.sourceQ * 2.1) / d;
+                } else if (id === 'lab4') {
+                    const dHalf = (p.plateDist || 5) * 0.7;
+                    const dPos = Math.sqrt((x + dHalf) ** 2 + (z * 0.4) ** 2 + 6);
+                    const dNeg = Math.sqrt((x - dHalf) ** 2 + (z * 0.4) ** 2 + 6);
+                    vHeight = (p.voltageU * 0.75) / dPos - (p.voltageU * 0.75) / dNeg;
+                } else {
+                    // Electrodynamics labs: gentle voltage gradient across circuit board from + terminal to - terminal
+                    const u = p.voltageU || p.sourceU || p.femE || 20;
+                    vHeight = -x * (u / 320) * Math.exp(-(z * z) / 280);
+                }
+
+                const clampedY = Math.max(-6.5, Math.min(6.5, vHeight));
+                pos.setY(i, clampedY);
+
+                const norm = (clampedY + 5.0) / 10.0;
+                const c = norm < 0.5
+                    ? colNeg.clone().lerp(colZero, Math.max(0, norm * 2))
+                    : colZero.clone().lerp(colPos, Math.min(1, (norm - 0.5) * 2));
+                col.setXYZ(i, c.r, c.g, c.b);
+            }
+
+            pos.needsUpdate = true;
+            col.needsUpdate = true;
+        }
+
+        function handleWindowResize() {
+            const container = document.getElementById('canvas3d-container');
+            if (!container || !renderer) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+            resize2DChartCanvas();
+        }
+
+        function setCameraPreset(preset) {
+            state.followCamera = false;
+            updateFollowCamButtonUI();
+            controls.target.set(0, 0, 0);
+            if (preset === 'iso') camera.position.set(0, 22, 36);
+            else if (preset === 'top') camera.position.set(0, 44, 0.01);
+            else if (preset === 'front') camera.position.set(0, 3, 40);
+            controls.update();
+        }
+
+        function toggleFollowCamera() {
+            state.followCamera = !state.followCamera;
+            if (!state.followCamera) controls.target.set(0, 0, 0);
+            updateFollowCamButtonUI();
+        }
+
+        function updateFollowCamButtonUI() {
+            const btn = document.getElementById('btn-follow-cam');
+            btn.className = state.followCamera
+                ? 'px-2.5 py-1 rounded-lg bg-rose-500 text-white text-[11px] font-semibold transition-all flex items-center gap-1 shadow-lg cursor-pointer'
+                : 'px-2.5 py-1 rounded-lg bg-slate-800/90 hover:bg-rose-500/20 text-slate-200 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer';
+        }
+
+        function toggleCutawayMode() {
+            state.cutawayMode = !state.cutawayMode;
+            const btn = document.getElementById('btn-cutaway');
+            const banner = document.getElementById('cutaway-info-banner');
+            const labCfg = LABS_CONFIG[state.currentLabId];
+
+            if (state.cutawayMode) {
+                btn.classList.add('cutaway-active');
+                banner.classList.remove('hidden');
+                document.getElementById('cutaway-banner-title').textContent = labCfg.cutawayTitle;
+                document.getElementById('cutaway-banner-desc').textContent = labCfg.cutawayDesc;
+            } else {
+                btn.classList.remove('cutaway-active');
+                banner.classList.add('hidden');
+            }
+            rebuildActive3DLabScene();
+        }
+
+        function togglePotentialWell() {
+            state.showPotentialWell = !state.showPotentialWell;
+            const btn = document.getElementById('btn-well');
+            btn.className = state.showPotentialWell
+                ? 'px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer'
+                : 'px-2.5 py-1 rounded-lg bg-slate-800/90 text-slate-400 border border-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer';
+            updatePotentialWellDeformation();
+        }
+
+        function toggleVectorsVisibility() {
+            state.showVectors = !state.showVectors;
+            const btn = document.getElementById('btn-vectors');
+            const legend = document.getElementById('vector-legend-box');
+            if (state.showVectors) {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer';
+                legend.classList.remove('hidden');
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800/90 text-slate-400 border border-slate-700 text-[11px] font-medium transition-all flex items-center gap-1 cursor-pointer';
+                legend.classList.add('hidden');
+            }
+            rebuildActive3DLabScene();
+        }
+
+        function create3DArrow(origin, dir, length, hexColor) {
+            const safeDir = dir.clone();
+            if (safeDir.lengthSq() < 0.0001) safeDir.set(1, 0, 0);
+            safeDir.normalize();
+            const safeLen = Math.max(0.01, length);
+            return new THREE.ArrowHelper(safeDir, origin, safeLen, hexColor, Math.min(1.4, safeLen * 0.28), Math.min(0.85, safeLen * 0.18));
+        }
+
+        function update3DArrow(arrow, origin, dir, length) {
+            if (!arrow) return;
+            arrow.visible = state.showVectors && length > 0.12;
+            if (!arrow.visible) return;
+            arrow.position.copy(origin);
+            const norm = dir.clone();
+            if (norm.lengthSq() < 0.0001) norm.set(1, 0, 0);
+            norm.normalize();
+            arrow.setDirection(norm);
+            const safeLen = Math.max(0.15, length);
+            arrow.setLength(safeLen, Math.min(1.35, safeLen * 0.27), Math.min(0.8, safeLen * 0.18));
+        }
+
+        /***********************************************************************
+         * 5. BUILDERS & UPDATERS FOR ALL 8 3D ELECTRICITY LABORATORIES
+         ***********************************************************************/
+        function clearLabGroup() {
+            while (labGroup.children.length > 0) {
+                labGroup.remove(labGroup.children[0]);
+            }
+        }
+
+        function rebuildActive3DLabScene() {
+            clearLabGroup();
+            updatePotentialWellDeformation();
+            const id = state.currentLabId;
+            if (id === 'lab1') buildLab1ElectrificationScene();
+            else if (id === 'lab2') buildLab2ElectricFieldScene();
+            else if (id === 'lab3') buildLab3ElectricPotentialScene();
+            else if (id === 'lab4') buildLab4CapacitorDischargeScene();
+            else if (id === 'lab5') buildLab5OhmConductorScene();
+            else if (id === 'lab6') buildLab6CircuitsScene();
+            else if (id === 'lab7') buildLab7GeneratorReceptorScene();
+            else if (id === 'lab8') buildLab8FuseSwitchScene();
+        }
+
+        /* =====================================================================
+         * LAB 1: CARGA ELÉTRICA & PROCESSOS DE ELETRIZAÇÃO (ATRITO, CONTATO E INDUÇÃO)
+         * ===================================================================== */
+        function buildLab1ElectrificationScene() {
+            const p = state.params.lab1;
+            const rt = {};
+
+            // Effective charges according to selected Electrification Process
+            let qA = p.nElectrons1;
+            let qB = p.nElectrons2;
+            if (p.mode === 1) {
+                // Atrito: bodies acquire equal and opposite charges
+                qA = p.nElectrons1 || 8;
+                qB = -qA;
+            } else if (p.mode === 2) {
+                // Contato: identical spheres share total charge equally
+                const avg = (p.nElectrons1 + p.nElectrons2) / 2;
+                qA = avg;
+                qB = avg;
+            } else if (p.mode === 3) {
+                // Indução: Inductor A has qA; Induced B is polarized (or opposite charge if grounded)
+                qA = p.nElectrons1 || -8;
+                qB = p.groundSwitch === 1 ? -qA * 0.65 : p.nElectrons2;
+            }
+            rt.qA = qA;
+            rt.qB = qB;
+
+            const halfSep = p.mode === 2 ? Math.max(3.6, p.distance * 0.55) : p.distance * 0.72;
+            const posA = new THREE.Vector3(-halfSep, 1.5, 0);
+            const posB = new THREE.Vector3(halfSep, 1.5, 0);
+            rt.posA = posA;
+            rt.posB = posB;
+
+            const rSphere = 3.2;
+            const phiLen = state.cutawayMode ? Math.PI * 1.45 : Math.PI * 2;
+
+            const createConductorSphere = (pos, chargeVal) => {
+                const group = new THREE.Group();
+                group.position.copy(pos);
+
+                const colHex = chargeVal > 0.2 ? 0xf43f5e : (chargeVal < -0.2 ? 0x38bdf8 : 0x94a3b8);
+                const sphereMesh = new THREE.Mesh(
+                    new THREE.SphereGeometry(rSphere, 36, 28, 0, phiLen, 0, Math.PI),
+                    new THREE.MeshStandardMaterial({
+                        color: colHex,
+                        emissive: colHex,
+                        emissiveIntensity: 0.22,
+                        metalness: 0.65,
+                        roughness: 0.25,
+                        transparent: true,
+                        opacity: state.cutawayMode ? 0.55 : 0.85,
+                        side: THREE.DoubleSide
+                    })
+                );
+                group.add(sphereMesh);
+
+                // Insulating Glass Pedestal
+                const stand = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.45, 0.7, 5.2, 20),
+                    new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3, metalness: 0.5 })
+                );
+                stand.position.y = -4.8;
+                const base = new THREE.Mesh(
+                    new THREE.CylinderGeometry(2.2, 2.5, 0.6, 24),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b })
+                );
+                base.position.y = -7.4;
+                group.add(stand, base);
+
+                // Internal Positive Atomic Lattice Ions (+p) visible especially in Cutaway
+                const latticeGroup = new THREE.Group();
+                for (let ix = -1; ix <= 1; ix++) {
+                    for (let iy = -1; iy <= 1; iy++) {
+                        for (let iz = -1; iz <= 1; iz++) {
+                            if (ix * ix + iy * iy + iz * iz > 2) continue;
+                            const ion = new THREE.Mesh(
+                                new THREE.SphereGeometry(0.24, 12, 12),
+                                new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+                            );
+                            ion.position.set(ix * 1.15, iy * 1.15, iz * 1.15);
+                            latticeGroup.add(ion);
+                        }
+                    }
+                }
+                group.add(latticeGroup);
+
+                return group;
+            };
+
+            rt.sphereA = createConductorSphere(posA, qA);
+            rt.sphereB = createConductorSphere(posB, qB);
+            labGroup.add(rt.sphereA, rt.sphereB);
+
+            // Grounding Wire (Fio Terra) attached to Sphere B when enabled
+            if (p.groundSwitch === 1 || p.mode === 3) {
+                const wireColor = p.groundSwitch === 1 ? 0x10b981 : 0x475569;
+                const wirePts = [
+                    new THREE.Vector3(posB.x + rSphere, posB.y, 0),
+                    new THREE.Vector3(posB.x + rSphere + 3.5, posB.y, 0),
+                    new THREE.Vector3(posB.x + rSphere + 3.5, -6.0, 0)
+                ];
+                labGroup.add(new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(wirePts),
+                    new THREE.LineBasicMaterial({ color: wireColor, linewidth: 2 })
+                ));
+                // Ground Symbol Bars
+                for (let b = 0; b < 3; b++) {
+                    const bar = new THREE.Mesh(
+                        new THREE.BoxGeometry(2.2 - b * 0.6, 0.18, 0.4),
+                        new THREE.MeshBasicMaterial({ color: wireColor })
+                    );
+                    bar.position.set(posB.x + rSphere + 3.5, -6.0 - b * 0.45, 0);
+                    labGroup.add(bar);
+                }
+            }
+
+            // Quantized Surface & Transferring Charge Carriers (1,800 glowing electrons/ions)
+            const carrierCount = 1800;
+            const cGeo = new THREE.BufferGeometry();
+            const cPos = new Float32Array(carrierCount * 3);
+            const cCol = new Float32Array(carrierCount * 3);
+            const cMeta = new Float32Array(carrierCount * 4); // [sphereIdx, theta, phi, speed]
+
+            const colElec = new THREE.Color(0x38bdf8); // Electron (-e)
+            const colHole = new THREE.Color(0xf43f5e); // Positive excess (+p)
+
+            for (let i = 0; i < carrierCount; i++) {
+                const isBridge = i < 350 && (p.mode === 1 || p.mode === 2 || (p.mode === 3 && p.groundSwitch === 1));
+                const sphereIdx = isBridge ? 2 : (i % 2);
+                const th = Math.random() * Math.PI * 2;
+                const ph = Math.acos(2 * Math.random() - 1);
+                cMeta[i * 4] = sphereIdx;
+                cMeta[i * 4 + 1] = th;
+                cMeta[i * 4 + 2] = ph;
+                cMeta[i * 4 + 3] = Math.random();
+
+                const c = sphereIdx === 2 ? colElec : ((sphereIdx === 0 ? qA : qB) >= 0 ? colHole : colElec);
+                cCol[i * 3] = c.r;
+                cCol[i * 3 + 1] = c.g;
+                cCol[i * 3 + 2] = c.b;
+            }
+            cGeo.setAttribute('position', new THREE.BufferAttribute(cPos, 3));
+            cGeo.setAttribute('color', new THREE.BufferAttribute(cCol, 3));
+            cGeo.userData = { cMeta, rSphere };
+
+            const carrierPoints = new THREE.Points(
+                cGeo,
+                new THREE.PointsMaterial({
+                    size: 0.58,
+                    map: glowParticleTexture,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.92,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                })
+            );
+            labGroup.add(carrierPoints);
+            rt.carrierPoints = carrierPoints;
+
+            // Electrostatic Force Arrows between A and B
+            const isRepulsive = (qA * qB) > 0;
+            const dirA = new THREE.Vector3(isRepulsive ? -1 : 1, 0, 0);
+            const dirB = new THREE.Vector3(isRepulsive ? 1 : -1, 0, 0);
+            const fLen = Math.min(6.5, Math.max(1.2, (Math.abs(qA * qB) * 0.4) / Math.max(1, (p.distance / 8))));
+            rt.arrowFA = create3DArrow(posA, dirA, fLen, 0xf59e0b);
+            rt.arrowFB = create3DArrow(posB, dirB, fLen, 0xf59e0b);
+            labGroup.add(rt.arrowFA, rt.arrowFB);
+
+            document.getElementById('hud-particles-count').textContent = '1.800 (Elétrons e Íons)';
+            state.labRuntime = rt;
+        }
+
+        function updateLab1Electrification(dt) {
+            const p = state.params.lab1;
+            const rt = state.labRuntime;
+            if (!rt.carrierPoints) return;
+
+            const posAttr = rt.carrierPoints.geometry.attributes.position;
+            const colAttr = rt.carrierPoints.geometry.attributes.color;
+            const { cMeta, rSphere } = rt.carrierPoints.geometry.userData;
+            const count = posAttr.count;
+
+            for (let i = 0; i < count; i++) {
+                const type = cMeta[i * 4];
+                cMeta[i * 4 + 1] += dt * 1.4;
+                const th = cMeta[i * 4 + 1];
+                const ph = cMeta[i * 4 + 2];
+
+                if (type === 0) {
+                    posAttr.setXYZ(
+                        i,
+                        rt.posA.x + rSphere * 1.03 * Math.sin(ph) * Math.cos(th),
+                        rt.posA.y + rSphere * 1.03 * Math.cos(ph),
+                        rt.posA.z + rSphere * 1.03 * Math.sin(ph) * Math.sin(th)
+                    );
+                } else if (type === 1) {
+                    // In Induction mode (mode=3), polarize electrons on Sphere B toward/away from Inductor A!
+                    let shiftX = 0;
+                    if (p.mode === 3) {
+                        const isNegParticle = i % 3 !== 0;
+                        shiftX = (rt.qA > 0 ? -1 : 1) * (isNegParticle ? 0.55 : -0.55);
+                        if (isNegParticle) colAttr.setXYZ(i, 0.22, 0.74, 0.97);
+                        else colAttr.setXYZ(i, 0.96, 0.25, 0.37);
+                    }
+                    posAttr.setXYZ(
+                        i,
+                        rt.posB.x + shiftX + rSphere * 1.03 * Math.sin(ph) * Math.cos(th),
+                        rt.posB.y + rSphere * 1.03 * Math.cos(ph),
+                        rt.posB.z + rSphere * 1.03 * Math.sin(ph) * Math.sin(th)
+                    );
+                } else {
+                    // Bridge transferring electrons between A & B or Ground Wire
+                    cMeta[i * 4 + 3] = (cMeta[i * 4 + 3] + dt * 0.85) % 1.0;
+                    const prog = cMeta[i * 4 + 3];
+                    if (p.mode === 3 && p.groundSwitch === 1) {
+                        const gx = rt.posB.x + rSphere + prog * 3.5;
+                        const gy = rt.posB.y - Math.max(0, prog - 0.5) * 14.0;
+                        posAttr.setXYZ(i, gx, gy, (Math.random() - 0.5) * 0.35);
+                    } else {
+                        const bx = THREE.MathUtils.lerp(rt.posA.x + rSphere * 0.8, rt.posB.x - rSphere * 0.8, prog);
+                        const by = rt.posA.y + Math.sin(prog * Math.PI) * 1.4;
+                        posAttr.setXYZ(i, bx, by, Math.cos(th) * 0.45);
+                    }
+                }
+            }
+            posAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+
+            const eElem = 1.6e-19;
+            const n1 = Math.abs(rt.qA * 1e-6) / eElem;
+            const n2 = Math.abs(rt.qB * 1e-6) / eElem;
+            const dMeters = p.distance * 0.01;
+            const forceN = (8.99e9 * Math.abs(rt.qA * 1e-6 * rt.qB * 1e-6)) / (dMeters * dMeters);
+
+            pushChartPoint(state.simTime, rt.qA, rt.qB, forceN * 0.1);
+
+            const modeNames = { 1: 'Atrito', 2: 'Contato', 3: 'Indução' };
+            setHUDMetrics([
+                `Modo: ${modeNames[p.mode]}`,
+                `Carga Q_A: ${rt.qA >= 0 ? '+' : ''}${rt.qA.toFixed(1)} μC`,
+                `Carga Q_B: ${rt.qB >= 0 ? '+' : ''}${rt.qB.toFixed(1)} μC`,
+                `Força Fe: ${forceN.toFixed(1)} N`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Quantização da Carga Elétrica (Q = ± n · e)',
+                    formula: 'n = |Q| / e   onde   e = 1,6 × 10⁻¹⁹ C',
+                    calc: `Corpo A: |Q_A| = ${Math.abs(rt.qA).toFixed(1)} × 10⁻⁶ C  ⇒  n_A = ${(n1 / 1e13).toFixed(2)} × 10¹³ portadores\nCorpo B: |Q_B| = ${Math.abs(rt.qB).toFixed(1)} × 10⁻⁶ C  ⇒  n_B = ${(n2 / 1e13).toFixed(2)} × 10¹³ portadores`,
+                    result: `Q_A = ${rt.qA >= 0 ? '+' : ''}${rt.qA.toFixed(1)} μC  |  Q_B = ${rt.qB >= 0 ? '+' : ''}${rt.qB.toFixed(1)} μC`
+                },
+                {
+                    title: `2. Balanço de Carga na Eletrização por ${modeNames[p.mode]}`,
+                    formula: p.mode === 2 ? 'Q_final = (Q₁_inicial + Q₂_inicial) / 2' : (p.mode === 1 ? 'Q_A + Q_B = 0  (Cargas Opostas no Atrito)' : 'Indução: Separação Dipolar + Fio Terra'),
+                    calc: p.mode === 2
+                        ? `Soma inicial = (${p.nElectrons1}) + (${p.nElectrons2}) = ${p.nElectrons1 + p.nElectrons2} μC\nApós o contato: Q_A = Q_B = (${p.nElectrons1 + p.nElectrons2}) / 2 = ${rt.qA.toFixed(1)} μC`
+                        : `Conservação da carga: elétrons migram do corpo de menor afinidade para o de maior potencial.`,
+                    result: `Interação: ${(rt.qA * rt.qB) < 0 ? 'ATRAÇÃO Eletrostática' : ((rt.qA * rt.qB) > 0 ? 'REPULSÃO Eletrostática' : 'Polarização por Indução')}`
+                },
+                {
+                    title: '3. Força Eletrostática entre as Esferas (Lei de Coulomb)',
+                    formula: 'Fe = (k₀ · |Q_A| · |Q_B|) / d²',
+                    calc: `Fe = (8,99×10⁹ × ${Math.abs(rt.qA).toFixed(1)}×10⁻⁶ × ${Math.abs(rt.qB).toFixed(1)}×10⁻⁶) / (${dMeters.toFixed(2)} m)²`,
+                    result: `Força Elétrica Resultante = ${forceN.toFixed(2)} Newtons`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 2: LEI DE COULOMB, CAMPO ELÉTRICO & LINHAS DE FORÇA 3D
+         * ===================================================================== */
+        function buildLab2ElectricFieldScene() {
+            const p = state.params.lab2;
+            const rt = {};
+
+            const halfD = p.distD * 0.65;
+            const pos1 = new THREE.Vector3(-halfD, 1.0, 0);
+            const pos2 = new THREE.Vector3(halfD, 1.0, 0);
+            rt.pos1 = pos1;
+            rt.pos2 = pos2;
+
+            const createChargeSphere = (pos, qVal) => {
+                const col = qVal > 0 ? 0xf43f5e : (qVal < 0 ? 0x38bdf8 : 0x94a3b8);
+                const r = 1.35 + Math.abs(qVal) * 0.08;
+                const phi = state.cutawayMode ? Math.PI * 1.4 : Math.PI * 2;
+                const grp = new THREE.Group();
+                grp.position.copy(pos);
+                grp.add(new THREE.Mesh(
+                    new THREE.SphereGeometry(r, 32, 24, 0, phi, 0, Math.PI),
+                    new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.55, roughness: 0.2, side: THREE.DoubleSide })
+                ));
+                grp.add(new THREE.Mesh(
+                    new THREE.SphereGeometry(r * 1.28, 24, 20),
+                    new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending })
+                ));
+                return grp;
+            };
+
+            labGroup.add(createChargeSphere(pos1, p.q1), createChargeSphere(pos2, p.q2));
+
+            // 3D Volumetric Field Lines (Linhas de Força) traced by RK2 integration
+            const numSeeds = p.lineDensity;
+            const fieldLinesGroup = new THREE.Group();
+            const traceSeeds = [];
+
+            const addSeedsAround = (center, qVal) => {
+                if (Math.abs(qVal) < 0.1) return;
+                const sign = Math.sign(qVal);
+                for (let i = 0; i < numSeeds; i++) {
+                    const az = (i / numSeeds) * Math.PI * 2;
+                    for (let el of [-0.55, 0, 0.55]) {
+                        traceSeeds.push({
+                            start: new THREE.Vector3(
+                                center.x + 1.6 * Math.cos(el) * Math.cos(az),
+                                center.y + 1.6 * Math.sin(el),
+                                center.z + 1.6 * Math.cos(el) * Math.sin(az)
+                            ),
+                            traceDir: sign
+                        });
+                    }
+                }
+            };
+
+            addSeedsAround(pos1, p.q1);
+            if (p.q1 * p.q2 >= 0) addSeedsAround(pos2, p.q2);
+
+            const calcEVector = (pt) => {
+                const v1 = new THREE.Vector3().subVectors(pt, pos1);
+                const v2 = new THREE.Vector3().subVectors(pt, pos2);
+                const d1 = Math.max(1.2, v1.length());
+                const d2 = Math.max(1.2, v2.length());
+                const e1 = v1.normalize().multiplyScalar(p.q1 / (d1 * d1));
+                const e2 = v2.normalize().multiplyScalar(p.q2 / (d2 * d2));
+                return e1.add(e2);
+            };
+
+            traceSeeds.forEach(seed => {
+                let curr = seed.start.clone();
+                const pts = [curr.clone()];
+                for (let step = 0; step < 68; step++) {
+                    const eVec = calcEVector(curr);
+                    if (eVec.lengthSq() < 1e-5) break;
+                    const dir = eVec.clone().normalize().multiplyScalar(seed.traceDir * 0.55);
+                    curr.add(dir);
+                    pts.push(curr.clone());
+                    if (curr.distanceTo(pos1) < 1.3 || curr.distanceTo(pos2) < 1.3 || curr.length() > 30) break;
+                    if (state.showVectors && step === 16) {
+                        fieldLinesGroup.add(create3DArrow(curr.clone(), eVec, 1.5, 0x10b981));
+                    }
+                }
+                const colLine = (p.q1 * p.q2 < 0) ? 0x38bdf8 : 0xf59e0b;
+                fieldLinesGroup.add(new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(pts),
+                    new THREE.LineBasicMaterial({ color: colLine, transparent: true, opacity: 0.52 })
+                ));
+            });
+            labGroup.add(fieldLinesGroup);
+
+            // Action-Reaction Coulomb Force Vectors
+            const isRepel = (p.q1 * p.q2) >= 0;
+            const fLen = Math.min(7.5, Math.max(1.5, (Math.abs(p.q1 * p.q2) * 1.4) / Math.max(2, p.distD)));
+            if (Math.abs(p.q1 * p.q2) > 0.1) {
+                labGroup.add(
+                    create3DArrow(pos1, new THREE.Vector3(isRepel ? -1 : 1, 0, 0), fLen, 0xf59e0b),
+                    create3DArrow(pos2, new THREE.Vector3(isRepel ? 1 : -1, 0, 0), fLen, 0xf59e0b)
+                );
+            }
+
+            // 3,200 Animated Field-Line Test Particles flowing from +Q to -Q
+            const fluxCount = 3200;
+            const fGeo = new THREE.BufferGeometry();
+            const fPos = new Float32Array(fluxCount * 3);
+            const fCol = new Float32Array(fluxCount * 3);
+
+            const resetFieldParticle = (idx) => {
+                const spawnNear1 = (idx % 2 === 0 && Math.abs(p.q1) > 0) || Math.abs(p.q2) === 0;
+                const center = spawnNear1 ? pos1 : pos2;
+                const r = 1.8 + Math.random() * 14.0;
+                const th = Math.random() * Math.PI * 2;
+                const y = (Math.random() - 0.5) * 8.0;
+                fPos[idx * 3] = center.x * 0.4 + r * Math.cos(th);
+                fPos[idx * 3 + 1] = 1.0 + y;
+                fPos[idx * 3 + 2] = r * Math.sin(th);
+                fCol[idx * 3] = 0.25;
+                fCol[idx * 3 + 1] = 0.92;
+                fCol[idx * 3 + 2] = 0.65;
+            };
+            for (let i = 0; i < fluxCount; i++) resetFieldParticle(i);
+
+            fGeo.setAttribute('position', new THREE.BufferAttribute(fPos, 3));
+            fGeo.setAttribute('color', new THREE.BufferAttribute(fCol, 3));
+            fGeo.userData = { calcEVector, resetFieldParticle };
+
+            const fluxPoints = new THREE.Points(
+                fGeo,
+                new THREE.PointsMaterial({
+                    size: 0.62,
+                    map: glowParticleTexture,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.88,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                })
+            );
+            labGroup.add(fluxPoints);
+            rt.fluxPoints = fluxPoints;
+
+            document.getElementById('hud-particles-count').textContent = '3.200 (Fluxo de Campo E)';
+            state.labRuntime = rt;
+        }
+
+        function updateLab2ElectricField(dt) {
+            const p = state.params.lab2;
+            const rt = state.labRuntime;
+            if (!rt.fluxPoints) return;
+
+            const posAttr = rt.fluxPoints.geometry.attributes.position;
+            const colAttr = rt.fluxPoints.geometry.attributes.color;
+            const { calcEVector, resetFieldParticle } = rt.fluxPoints.geometry.userData;
+            const count = posAttr.count;
+            const tmp = new THREE.Vector3();
+
+            for (let i = 0; i < count; i++) {
+                tmp.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+                const eVec = calcEVector(tmp);
+                const mag = eVec.length();
+                if (tmp.distanceTo(rt.pos1) < 1.55 || tmp.distanceTo(rt.pos2) < 1.55 || tmp.length() > 28 || mag < 0.002) {
+                    resetFieldParticle(i);
+                    continue;
+                }
+                eVec.normalize().multiplyScalar(Math.min(14, 3.5 + mag * 35) * dt);
+                tmp.add(eVec);
+                posAttr.setXYZ(i, tmp.x, tmp.y, tmp.z);
+
+                const heat = Math.min(1, mag * 6);
+                colAttr.setXYZ(i, 0.2 + heat * 0.8, 0.9 - heat * 0.3, 1.0 - heat * 0.6);
+            }
+            posAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+
+            const dMeters = p.distD * 0.01;
+            const rMid = dMeters / 2;
+            const k0 = 8.99e9;
+            const forceCoulomb = (k0 * Math.abs(p.q1 * 1e-6 * p.q2 * 1e-6)) / (dMeters * dMeters);
+            const e1Mid = (k0 * Math.abs(p.q1 * 1e-6)) / (rMid * rMid);
+            const e2Mid = (k0 * Math.abs(p.q2 * 1e-6)) / (rMid * rMid);
+            const eResultMid = (p.q1 * p.q2 < 0) ? (e1Mid + e2Mid) : Math.abs(e1Mid - e2Mid);
+
+            pushChartPoint(state.simTime, eResultMid / 1e6, forceCoulomb, (e1Mid + e2Mid) / 1e6);
+
+            setHUDMetrics([
+                `Força Fe: ${forceCoulomb.toFixed(1)} N`,
+                `E_centro: ${(eResultMid / 1e6).toFixed(2)} MV/m`,
+                `Q₁: ${p.q1 >= 0 ? '+' : ''}${p.q1} μC`,
+                `Q₂: ${p.q2 >= 0 ? '+' : ''}${p.q2} μC`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Vetor Campo Elétrico no Ponto Médio entre Q₁ e Q₂',
+                    formula: 'E = (k₀ · |Q|) / r²   onde   r = d / 2',
+                    calc: `r = ${(dMeters / 2).toFixed(3)} m  |  E₁ = ${(e1Mid / 1e6).toFixed(2)}×10⁶ N/C  |  E₂ = ${(e2Mid / 1e6).toFixed(2)}×10⁶ N/C\n${p.q1 * p.q2 < 0 ? 'Cargas de sinais opostos: E₁ e E₂ apontam para o mesmo lado (SOMAM-SE)' : 'Cargas de mesmo sinal: E₁ e E₂ têm sentidos opostos (SUBTRAEM-SE)'}`,
+                    result: `Campo Resultante no Centro = ${(eResultMid / 1e6).toFixed(2)} × 10⁶ N/C (ou V/m)`
+                },
+                {
+                    title: '2. Força Eletrostática Mútua (Lei de Coulomb)',
+                    formula: 'Fe = (k₀ · |Q₁| · |Q₂|) / d²',
+                    calc: `Fe = (8,99×10⁹ × ${Math.abs(p.q1)}×10⁻⁶ × ${Math.abs(p.q2)}×10⁻⁶) / (${dMeters.toFixed(2)} m)²`,
+                    result: `Força Fe = ${forceCoulomb.toFixed(2)} N (${p.q1 * p.q2 < 0 ? 'Atração Dipolar' : 'Repulsão Eletrostática'})`
+                },
+                {
+                    title: '3. Propriedade das Linhas de Força de Faraday',
+                    formula: 'Fluxo Elétrico Φ_E = Q_interna / ε₀',
+                    calc: `Linhas configuradas: ${p.lineDensity * 3} curvas tridimensionais.\nSaem de cargas positivas (+Q) e entram em cargas negativas (-Q).`,
+                    result: `Densidade de linhas máxima na região central de maior campo |E|`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 3: POTENCIAL ELÉTRICO, SUPERFÍCIES EQUIPOTENCIAIS & DDP (U = V_A - V_B)
+         * ===================================================================== */
+        function buildLab3ElectricPotentialScene() {
+            const p = state.params.lab3;
+            const rt = {};
+
+            const qCol = p.sourceQ >= 0 ? 0xf43f5e : 0x38bdf8;
+            const coreSphere = new THREE.Mesh(
+                new THREE.SphereGeometry(1.6, 32, 24),
+                new THREE.MeshStandardMaterial({ color: qCol, emissive: qCol, emissiveIntensity: 0.7 })
+            );
+            labGroup.add(coreSphere);
+
+            // Concentric 3D Equipotential Spherical Shells (r_A, r_mid, r_B)
+            const phiShell = state.cutawayMode ? Math.PI * 1.35 : Math.PI * 2;
+            const radiiList = [
+                { r: p.radiusA, col: 0xf59e0b, opacity: 0.26 },
+                { r: (p.radiusA + p.radiusB) * 0.5, col: 0xa855f7, opacity: 0.16 },
+                { r: p.radiusB, col: 0x10b981, opacity: 0.22 }
+            ];
+
+            radiiList.forEach(item => {
+                const shell = new THREE.Mesh(
+                    new THREE.SphereGeometry(item.r, 36, 24, 0, phiShell, 0, Math.PI),
+                    new THREE.MeshStandardMaterial({
+                        color: item.col,
+                        transparent: true,
+                        opacity: item.opacity,
+                        wireframe: !state.cutawayMode,
+                        side: THREE.DoubleSide
+                    })
+                );
+                labGroup.add(shell);
+
+                // Equatorial Equipotential Ring
+                const ringPts = [];
+                for (let i = 0; i <= 64; i++) {
+                    const a = (i / 64) * Math.PI * 2;
+                    ringPts.push(new THREE.Vector3(item.r * Math.cos(a), 0, item.r * Math.sin(a)));
+                }
+                labGroup.add(new THREE.Line(
+                    new THREE.BufferGeometry().setFromPoints(ringPts),
+                    new THREE.LineBasicMaterial({ color: item.col })
+                ));
+            });
+
+            // Radial Electric Field Vectors perpendicular to Equipotential Surfaces
+            if (state.showVectors) {
+                for (let i = 0; i < 8; i++) {
+                    const ang = (i / 8) * Math.PI * 2;
+                    const dir = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang)).multiplyScalar(p.sourceQ >= 0 ? 1 : -1);
+                    const origin = new THREE.Vector3(Math.cos(ang) * 2.2, 0, Math.sin(ang) * 2.2);
+                    labGroup.add(create3DArrow(origin, dir, p.radiusB - 1.5, 0x38bdf8));
+                }
+            }
+
+            // Moving Test Charge q traveling between Equipotential Surface A and Surface B
+            const testChargeGroup = new THREE.Group();
+            testChargeGroup.add(new THREE.Mesh(
+                new THREE.SphereGeometry(0.68, 24, 24),
+                new THREE.MeshBasicMaterial({ color: 0xfef08a })
+            ));
+            testChargeGroup.add(new THREE.Mesh(
+                new THREE.SphereGeometry(1.1, 20, 20),
+                new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending })
+            ));
+            labGroup.add(testChargeGroup);
+            rt.testChargeGroup = testChargeGroup;
+
+            rt.arrowForceQ = create3DArrow(new THREE.Vector3(p.radiusA, 0, 0), new THREE.Vector3(1, 0, 0), 3.5, 0xf43f5e);
+            labGroup.add(rt.arrowForceQ);
+
+            document.getElementById('hud-particles-count').textContent = '3 Cascas Equipotenciais';
+            state.labRuntime = rt;
+        }
+
+        function updateLab3ElectricPotential(dt) {
+            const p = state.params.lab3;
+            const rt = state.labRuntime;
+            if (!rt.testChargeGroup) return;
+
+            // Oscillate test charge q smoothly between r_A and r_B while orbiting slightly
+            const osc = 0.5 + 0.5 * Math.sin(state.simTime * 1.6);
+            const rCurr = THREE.MathUtils.lerp(p.radiusA, p.radiusB, osc);
+            const ang = state.simTime * 0.45;
+            const qPos = new THREE.Vector3(rCurr * Math.cos(ang), 0, rCurr * Math.sin(ang));
+            rt.testChargeGroup.position.copy(qPos);
+
+            const fDir = qPos.clone().normalize().multiplyScalar(p.sourceQ >= 0 ? 1 : -1);
+            update3DArrow(rt.arrowForceQ, qPos, fDir, Math.max(1.5, 28 / rCurr));
+
+            if (state.followCamera) controls.target.lerp(qPos, 0.1);
+
+            const k0 = 8.99e9;
+            const Q_C = p.sourceQ * 1e-6;
+            const q_C = p.testChargeQ * 1e-6;
+            const rA_m = p.radiusA * 0.01;
+            const rB_m = p.radiusB * 0.01;
+            const rCurr_m = rCurr * 0.01;
+
+            const VA = (k0 * Q_C) / rA_m;
+            const VB = (k0 * Q_C) / rB_m;
+            const VCurr = (k0 * Q_C) / rCurr_m;
+            const ddpU = VA - VB;
+            const workAB = q_C * ddpU;
+
+            pushChartPoint(state.simTime, VCurr / 1e5, VA / 1e5, VB / 1e5);
+
+            setHUDMetrics([
+                `V_A: ${(VA / 1e3).toFixed(0)} kV`,
+                `V_B: ${(VB / 1e3).toFixed(0)} kV`,
+                `ddp U_AB: ${(ddpU / 1e3).toFixed(0)} kV`,
+                `Trabalho W: ${workAB.toFixed(2)} J`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Potencial Elétrico nas Equipotenciais A e B',
+                    formula: 'V = (k₀ · Q) / r',
+                    calc: `V_A = (8,99×10⁹ × ${p.sourceQ}×10⁻⁶ C) / ${rA_m.toFixed(3)} m = ${(VA / 1e3).toFixed(1)} kV\nV_B = (8,99×10⁹ × ${p.sourceQ}×10⁻⁶ C) / ${rB_m.toFixed(3)} m = ${(VB / 1e3).toFixed(1)} kV`,
+                    result: `V_A = ${(VA / 1e3).toFixed(1)} kV   |   V_B = ${(VB / 1e3).toFixed(1)} kV`
+                },
+                {
+                    title: '2. Diferença de Potencial (ddp / Tensão U_AB)',
+                    formula: 'U_AB = V_A - V_B',
+                    calc: `U_AB = (${(VA / 1e3).toFixed(1)} kV) - (${(VB / 1e3).toFixed(1)} kV) = ${(ddpU / 1e3).toFixed(1)} kV`,
+                    result: `ddp entre as Cascas A e B = ${(ddpU / 1e3).toFixed(1)} kV (${ddpU.toFixed(0)} V)`
+                },
+                {
+                    title: '3. Trabalho da Força Elétrica sobre a Carga de Prova (q)',
+                    formula: 'W_AB = q · (V_A - V_B) = q · U_AB',
+                    calc: `W_AB = (${p.testChargeQ.toFixed(1)} × 10⁻⁶ C) × (${ddpU.toFixed(0)} V)`,
+                    result: `Trabalho W_AB = ${workAB.toFixed(3)} Joules (${workAB >= 0 ? 'Movimento Espontâneo' : 'Movimento Forçado'})`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 4: CAPACITORES DE PLACAS PARALELAS, DIELÉTRICO & DESCARGA ELÉTRICA
+         * ===================================================================== */
+        function buildLab4CapacitorDischargeScene() {
+            const p = state.params.lab4;
+            const rt = {};
+
+            const plateSide = Math.sqrt(p.plateArea) * 2.6;
+            const halfGap = p.plateDist * 0.85;
+            rt.plateSide = plateSide;
+            rt.halfGap = halfGap;
+
+            // Left Positive Plate (+Q) & Right Negative Plate (-Q)
+            const plateGeo = new THREE.BoxGeometry(0.65, plateSide, plateSide);
+            const leftPlate = new THREE.Mesh(
+                plateGeo,
+                new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0x9f1239, emissiveIntensity: 0.4, metalness: 0.75, roughness: 0.25 })
+            );
+            leftPlate.position.set(-halfGap, 2.0, 0);
+
+            const rightPlate = new THREE.Mesh(
+                plateGeo,
+                new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x075985, emissiveIntensity: 0.4, metalness: 0.75, roughness: 0.25 })
+            );
+            rightPlate.position.set(halfGap, 2.0, 0);
+            labGroup.add(leftPlate, rightPlate);
+
+            // Dielectric Block between Plates (when dielectricK > 1.0)
+            if (p.dielectricK > 1.05) {
+                const dielecWidth = state.cutawayMode ? plateSide * 0.55 : plateSide * 0.92;
+                const dielecMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(halfGap * 1.75, plateSide * 0.92, dielecWidth),
+                    new THREE.MeshStandardMaterial({
+                        color: 0xa855f7,
+                        transparent: true,
+                        opacity: state.cutawayMode ? 0.28 : 0.48,
+                        roughness: 0.2
+                    })
+                );
+                dielecMesh.position.set(0, 2.0, state.cutawayMode ? -plateSide * 0.2 : 0);
+                labGroup.add(dielecMesh);
+
+                // Polarized Molecular Dipoles inside Dielectric Slab
+                const dipoleGroup = new THREE.Group();
+                for (let iy = -1; iy <= 1; iy++) {
+                    for (let iz = -1; iz <= 1; iz++) {
+                        const dip = new THREE.Group();
+                        dip.position.set(0, 2.0 + iy * (plateSide * 0.28), iz * (plateSide * 0.28));
+                        const negPole = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                        negPole.position.x = -0.42; // Attracted toward Left Positive Plate
+                        const posPole = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+                        posPole.position.x = 0.42;  // Attracted toward Right Negative Plate
+                        dip.add(negPole, posPole);
+                        dipoleGroup.add(dip);
+                    }
+                }
+                labGroup.add(dipoleGroup);
+            }
+
+            // Uniform Electric Field Arrows E = U / d from + Plate to - Plate
+            if (state.showVectors) {
+                for (let iy = -1; iy <= 1; iy++) {
+                    for (let iz = -1; iz <= 1; iz++) {
+                        const origin = new THREE.Vector3(-halfGap + 0.5, 2.0 + iy * (plateSide * 0.3), iz * (plateSide * 0.3));
+                        labGroup.add(create3DArrow(origin, new THREE.Vector3(1, 0, 0), halfGap * 2 - 1.0, 0x10b981));
+                    }
+                }
+            }
+
+            // 3D Lightning / Dielectric Breakdown Arcs Group (Descarga Elétrica!)
+            const arcsGroup = new THREE.Group();
+            labGroup.add(arcsGroup);
+            rt.arcsGroup = arcsGroup;
+
+            document.getElementById('hud-particles-count').textContent = 'Campo Uniforme + Arcos';
+            state.labRuntime = rt;
+        }
+
+        function updateLab4CapacitorDischarge(dt) {
+            const p = state.params.lab4;
+            const rt = state.labRuntime;
+            if (!rt.arcsGroup) return;
+
+            // Dielectric Breakdown Check: E_actual (kV/mm) vs Breakdown Strength (3.0 kV/mm * sqrt(kappa))
+            const eFieldKVmm = p.voltageU / p.plateDist;
+            const eBreakdownLimit = 3.0 * Math.sqrt(p.dielectricK);
+            const isDischarging = eFieldKVmm >= eBreakdownLimit;
+
+            // Rebuild jagged 3D plasma lightning arcs when breakdown occurs
+            while (rt.arcsGroup.children.length > 0) {
+                rt.arcsGroup.remove(rt.arcsGroup.children[0]);
+            }
+
+            if (isDischarging) {
+                if (Math.random() < 0.35) {
+                    state.eventsCount++;
+                    document.getElementById('hud-events-count').textContent = state.eventsCount.toLocaleString();
+                }
+                const numBolts = 4;
+                for (let b = 0; b < numBolts; b++) {
+                    const yStart = 2.0 + (Math.random() - 0.5) * rt.plateSide * 0.75;
+                    const zStart = (Math.random() - 0.5) * rt.plateSide * 0.75;
+                    const boltPts = [];
+                    const segments = 12;
+                    for (let s = 0; s <= segments; s++) {
+                        const frac = s / segments;
+                        const x = THREE.MathUtils.lerp(-rt.halfGap, rt.halfGap, frac);
+                        const jitter = (s === 0 || s === segments) ? 0 : 0.75;
+                        boltPts.push(new THREE.Vector3(
+                            x,
+                            yStart + (Math.random() - 0.5) * jitter,
+                            zStart + (Math.random() - 0.5) * jitter
+                        ));
+                    }
+                    rt.arcsGroup.add(new THREE.Line(
+                        new THREE.BufferGeometry().setFromPoints(boltPts),
+                        new THREE.LineBasicMaterial({ color: b % 2 === 0 ? 0xe0f2fe : 0x38bdf8 })
+                    ));
+                }
+            }
+
+            const eps0 = 8.854e-12;
+            const areaM2 = p.plateArea * 1e-4;
+            const distM = p.plateDist * 1e-3;
+            const capFarad = (p.dielectricK * eps0 * areaM2) / distM;
+            const capPicoF = capFarad * 1e12;
+            const uVolts = p.voltageU * 1000;
+            const chargeMicroC = (capFarad * uVolts) * 1e6;
+            const energyMilliJ = 0.5 * capFarad * uVolts * uVolts * 1e3;
+
+            pushChartPoint(state.simTime, eFieldKVmm * 5, eBreakdownLimit * 5, energyMilliJ * 10);
+
+            setHUDMetrics([
+                `Cap. C: ${capPicoF.toFixed(2)} pF`,
+                `Carga Q: ${chargeMicroC.toFixed(2)} μC`,
+                `Campo E: ${eFieldKVmm.toFixed(2)} kV/mm`,
+                isDischarging ? `⚡ DESCARGA ATIVA!` : `Isolamento OK`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Capacitância Plana com Dielétrico (C = κ · ε₀ · A / d)',
+                    formula: 'C = (κ · ε₀ · A) / d   onde   ε₀ = 8,854 × 10⁻¹² F/m',
+                    calc: `C = (${p.dielectricK.toFixed(1)} × 8,854×10⁻¹² × ${p.plateArea}×10⁻⁴ m²) / (${p.plateDist.toFixed(1)}×10⁻³ m)`,
+                    result: `Capacitância C = ${capPicoF.toFixed(2)} pF  |  Carga Armazenada Q = C·U = ${chargeMicroC.toFixed(2)} μC`
+                },
+                {
+                    title: '2. Energia Potencial Eletrostática Armazenada',
+                    formula: 'E_cap = (C · U²) / 2 = (Q · U) / 2',
+                    calc: `E_cap = 0,5 × (${capPicoF.toFixed(2)}×10⁻¹² F) × (${uVolts.toLocaleString('pt-BR')} V)²`,
+                    result: `Energia Armazenada = ${energyMilliJ.toFixed(2)} mJ (${(energyMilliJ / 1000).toFixed(5)} Joules)`
+                },
+                {
+                    title: '3. Campo Elétrico Uniforme e Ruptura Dielétrica (Descarga)',
+                    formula: 'E = U / d   vs   Rigidez Dielétrica Crítica (E_ruptura)',
+                    calc: `Campo Atual E = ${p.voltageU} kV / ${p.plateDist.toFixed(1)} mm = ${eFieldKVmm.toFixed(2)} kV/mm\nLimite de Ruptura do Meio = ${eBreakdownLimit.toFixed(2)} kV/mm`,
+                    result: isDischarging
+                        ? `RUPTURA DIELÉTRICA! Arco Voltaico / Descarga Elétrica entre as placas!`
+                        : `Isolante Intacto (E_atual < ${eBreakdownLimit.toFixed(2)} kV/mm)`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 5: CORRENTE ELÉTRICA, RESISTÊNCIA, RESISTORES & 1ª E 2ª LEIS DE OHM
+         * ===================================================================== */
+        function buildLab5OhmConductorScene() {
+            const p = state.params.lab5;
+            const rt = {};
+
+            const wireLen = p.lengthL * 1.15;
+            const wireRadius = Math.sqrt(p.areaA) * 1.15;
+            rt.wireLen = wireLen;
+            rt.wireRadius = wireRadius;
+
+            const resistanceOhms = (p.resistivityRho * p.lengthL) / p.areaA;
+            const currentAmps = p.voltageU / resistanceOhms;
+            const powerWatts = p.voltageU * currentAmps;
+            const heatRatio = Math.min(1, powerWatts / 180);
+
+            // Cylindrical Conductor / Color-Banded Resistor Body
+            const phiCyl = state.cutawayMode ? Math.PI * 1.35 : Math.PI * 2;
+            const cylGeo = new THREE.CylinderGeometry(wireRadius, wireRadius, wireLen, 36, 1, false, 0, phiCyl);
+            cylGeo.rotateZ(Math.PI / 2);
+
+            const bodyColor = new THREE.Color(0x334155).lerp(new THREE.Color(0xea580c), heatRatio);
+            const emitColor = new THREE.Color(0x000000).lerp(new THREE.Color(0xf97316), heatRatio);
+
+            const conductorMesh = new THREE.Mesh(
+                cylGeo,
+                new THREE.MeshStandardMaterial({
+                    color: bodyColor,
+                    emissive: emitColor,
+                    emissiveIntensity: heatRatio * 0.85,
+                    transparent: true,
+                    opacity: state.cutawayMode ? 0.35 : 0.48,
+                    roughness: 0.3,
+                    metalness: 0.5,
+                    side: THREE.DoubleSide
+                })
+            );
+            conductorMesh.position.y = 1.5;
+            labGroup.add(conductorMesh);
+
+            // Resistor Color Code Rings on Outer Surface (when not in full Cutaway)
+            if (!state.cutawayMode) {
+                const bandColors = [0xef4444, 0xa855f7, 0xf59e0b, 0xfacc15];
+                bandColors.forEach((bHex, idx) => {
+                    const ring = new THREE.Mesh(
+                        new THREE.CylinderGeometry(wireRadius * 1.03, wireRadius * 1.03, 0.55, 32),
+                        new THREE.MeshBasicMaterial({ color: bHex, transparent: true, opacity: 0.85 })
+                    );
+                    ring.rotation.z = Math.PI / 2;
+                    ring.position.set(-wireLen * 0.28 + idx * (wireLen * 0.18), 1.5, 0);
+                    labGroup.add(ring);
+                });
+            }
+
+            // 3D Crystal Lattice Cations (+ions that vibrate with Joule heating!)
+            const ionList = [];
+            const ionGroup = new THREE.Group();
+            const stepX = 2.4;
+            for (let x = -wireLen * 0.44; x <= wireLen * 0.44; x += stepX) {
+                for (let rRing of [0, wireRadius * 0.58]) {
+                    const countAng = rRing === 0 ? 1 : 6;
+                    for (let k = 0; k < countAng; k++) {
+                        const a = (k / countAng) * Math.PI * 2;
+                        const iy = 1.5 + rRing * Math.cos(a);
+                        const iz = rRing * Math.sin(a);
+                        const ionMesh = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.28, 12, 12),
+                            new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+                        );
+                        ionMesh.position.set(x, iy, iz);
+                        ionMesh.userData = { bx: x, by: iy, bz: iz, phase: Math.random() * Math.PI * 2 };
+                        ionGroup.add(ionMesh);
+                        ionList.push(ionMesh);
+                    }
+                }
+            }
+            labGroup.add(ionGroup);
+            rt.ionList = ionList;
+
+            // 2,600 Drifting Free Conduction Electrons (-e)
+            const elecCount = 2600;
+            const eGeo = new THREE.BufferGeometry();
+            const ePos = new Float32Array(elecCount * 3);
+            const eCol = new Float32Array(elecCount * 3);
+
+            for (let i = 0; i < elecCount; i++) {
+                const rx = (Math.random() - 0.5) * wireLen * 0.94;
+                const rr = Math.sqrt(Math.random()) * wireRadius * 0.88;
+                const ra = Math.random() * Math.PI * 2;
+                ePos[i * 3] = rx;
+                ePos[i * 3 + 1] = 1.5 + rr * Math.cos(ra);
+                ePos[i * 3 + 2] = rr * Math.sin(ra);
+                eCol[i * 3] = 0.22;
+                eCol[i * 3 + 1] = 0.78;
+                eCol[i * 3 + 2] = 1.0;
+            }
+            eGeo.setAttribute('position', new THREE.BufferAttribute(ePos, 3));
+            eGeo.setAttribute('color', new THREE.BufferAttribute(eCol, 3));
+
+            const electronPoints = new THREE.Points(
+                eGeo,
+                new THREE.PointsMaterial({
+                    size: 0.55,
+                    map: glowParticleTexture,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.92,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                })
+            );
+            labGroup.add(electronPoints);
+            rt.electronPoints = electronPoints;
+
+            // Conventional Current (i) Arrow vs Real Electron Drift (v_d) Arrow
+            if (state.showVectors) {
+                labGroup.add(
+                    create3DArrow(new THREE.Vector3(-wireLen * 0.4, 1.5 + wireRadius + 1.4, 0), new THREE.Vector3(1, 0, 0), wireLen * 0.8, 0x10b981),
+                    create3DArrow(new THREE.Vector3(wireLen * 0.4, 1.5 - wireRadius - 1.4, 0), new THREE.Vector3(-1, 0, 0), wireLen * 0.8, 0x38bdf8)
+                );
+            }
+
+            document.getElementById('hud-particles-count').textContent = '2.600 Elétrons Livres';
+            state.labRuntime = rt;
+        }
+
+        function updateLab5OhmConductor(dt) {
+            const p = state.params.lab5;
+            const rt = state.labRuntime;
+            if (!rt.electronPoints) return;
+
+            const resistanceOhms = (p.resistivityRho * p.lengthL) / p.areaA;
+            const currentAmps = p.voltageU / resistanceOhms;
+            const powerWatts = p.voltageU * currentAmps;
+            const driftSpeed = Math.min(22, 1.2 + currentAmps * 1.1);
+
+            // Vibrate crystal lattice cations proportionally to Joule thermal dissipation
+            const vibAmp = Math.min(0.32, 0.03 + (powerWatts / 250) * 0.25);
+            rt.ionList.forEach(ion => {
+                const ud = ion.userData;
+                ion.position.set(
+                    ud.bx + Math.sin(state.simTime * 18 + ud.phase) * vibAmp,
+                    ud.by + Math.cos(state.simTime * 16 + ud.phase) * vibAmp,
+                    ud.bz + Math.sin(state.simTime * 20 - ud.phase) * vibAmp
+                );
+            });
+
+            // Move conduction electrons from right (-) to left (+) while convencional current points left -> right
+            const posAttr = rt.electronPoints.geometry.attributes.position;
+            const halfL = rt.wireLen * 0.47;
+            for (let i = 0; i < posAttr.count; i++) {
+                let x = posAttr.getX(i) - driftSpeed * dt;
+                if (x < -halfL) x = halfL;
+                posAttr.setX(i, x);
+            }
+            posAttr.needsUpdate = true;
+
+            const chargePerMinuteC = currentAmps * 60;
+            const nElectronsPerSec = currentAmps / 1.6e-19;
+
+            setHUDMetrics([
+                `Resistência R: ${resistanceOhms.toFixed(2)} Ω`,
+                `Corrente i: ${currentAmps.toFixed(2)} A`,
+                `Potência P: ${powerWatts.toFixed(1)} W`,
+                `Tensão U: ${p.voltageU} V`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Segunda Lei de Ohm (Resistência Geométrica do Condutor)',
+                    formula: 'R = ρ · (L / A)',
+                    calc: `R = (${p.resistivityRho.toFixed(1)} × ${p.lengthL} m) / (${p.areaA.toFixed(1)} mm²) = ${resistanceOhms.toFixed(2)} Ω`,
+                    result: `Resistência Ôhmica R = ${resistanceOhms.toFixed(2)} Ω`
+                },
+                {
+                    title: '2. Primeira Lei de Ohm (Corrente Elétrica no Resistor)',
+                    formula: 'i = U / R   ⇔   U = R · i',
+                    calc: `i = ${p.voltageU} V / ${resistanceOhms.toFixed(2)} Ω = ${currentAmps.toFixed(2)} A`,
+                    result: `Corrente i = ${currentAmps.toFixed(2)} A (${(nElectronsPerSec / 1e19).toFixed(2)}×10¹⁹ elétrons/s)`
+                },
+                {
+                    title: '3. Quantidade de Carga (ΔQ) e Dissipação Térmica (Joule)',
+                    formula: 'ΔQ = i · Δt   |   P_Joule = R · i² = U · i',
+                    calc: `Em Δt = 60 s: ΔQ = ${currentAmps.toFixed(2)} A × 60 s = ${chargePerMinuteC.toFixed(1)} Coulombs\nPotência Dissipada P = ${p.voltageU} V × ${currentAmps.toFixed(2)} A = ${powerWatts.toFixed(1)} W`,
+                    result: `Calor Dissipado (Efeito Joule) = ${powerWatts.toFixed(1)} Watts (J/s)`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 6: CIRCUITOS ELÉTRICOS: SÉRIE, PARALELO & CIRCUITOS MISTOS
+         * ===================================================================== */
+        function buildLab6CircuitsScene() {
+            const p = state.params.lab6;
+            const rt = {};
+
+            // Calculate exact circuit physics for Topology 1 (Série), 2 (Paralelo), 3 (Misto: R1 + R2//R3)
+            let req = 1, iTot = 0, i1 = 0, i2 = 0, i3 = 0, u1 = 0, u2 = 0, u3 = 0;
+            if (p.topology === 1) {
+                req = p.r1 + p.r2 + p.r3;
+                iTot = p.sourceU / req;
+                i1 = i2 = i3 = iTot;
+                u1 = p.r1 * i1; u2 = p.r2 * i2; u3 = p.r3 * i3;
+            } else if (p.topology === 2) {
+                req = 1 / (1 / p.r1 + 1 / p.r2 + 1 / p.r3);
+                u1 = u2 = u3 = p.sourceU;
+                i1 = u1 / p.r1; i2 = u2 / p.r2; i3 = u3 / p.r3;
+                iTot = i1 + i2 + i3;
+            } else {
+                const rPar = (p.r2 * p.r3) / (p.r2 + p.r3);
+                req = p.r1 + rPar;
+                iTot = p.sourceU / req;
+                i1 = iTot;
+                u1 = p.r1 * i1;
+                u2 = u3 = p.sourceU - u1;
+                i2 = u2 / p.r2;
+                i3 = u3 / p.r3;
+            }
+            rt.metrics = { req, iTot, i1, i2, i3, u1, u2, u3 };
+
+            // 3D Insulated Circuit Board Base
+            const board = new THREE.Mesh(
+                new THREE.BoxGeometry(32, 0.6, 22),
+                new THREE.MeshStandardMaterial({ color: 0x06281e, roughness: 0.7, metalness: 0.2 })
+            );
+            board.position.y = -0.5;
+            labGroup.add(board);
+
+            // Voltage Source DC Battery on Left Side (-13, 1.2, 0)
+            const batGroup = new THREE.Group();
+            batGroup.position.set(-13, 1.2, 0);
+            batGroup.add(new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.0, 4.8), new THREE.MeshStandardMaterial({ color: 0x1e293b })));
+            const posTerm = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.8, 16), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+            posTerm.position.set(0, 1.8, -1.4);
+            const negTerm = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.8, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            negTerm.position.set(0, 1.8, 1.4);
+            batGroup.add(posTerm, negTerm);
+            labGroup.add(batGroup);
+
+            // Helper to create 3D Glowing Lamp + Resistor Element
+            const createCircuitLamp = (x, z, rVal, iVal, uVal) => {
+                const power = uVal * iVal;
+                const glowIntensity = Math.min(1, power / 60);
+                const lampGroup = new THREE.Group();
+                lampGroup.position.set(x, 0.8, z);
+
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 1.0, 20), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8 }));
+                const bulbColor = new THREE.Color(0x334155).lerp(new THREE.Color(0xfef08a), glowIntensity);
+                const bulb = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.45, 24, 24),
+                    new THREE.MeshStandardMaterial({
+                        color: bulbColor,
+                        emissive: 0xf59e0b,
+                        emissiveIntensity: glowIntensity * 1.4,
+                        transparent: true,
+                        opacity: state.cutawayMode ? 0.35 : 0.85
+                    })
+                );
+                bulb.position.y = 1.4;
+
+                // Internal Tungsten Filament
+                const fil = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.55, 0.1, 12, 24),
+                    new THREE.MeshBasicMaterial({ color: glowIntensity > 0.1 ? 0xffffff : 0x64748b })
+                );
+                fil.position.y = 1.3;
+                lampGroup.add(base, bulb, fil);
+                labGroup.add(lampGroup);
+            };
+
+            const addTrackSegment = (x1, z1, x2, z2) => {
+                const dx = x2 - x1, dz = z2 - z1;
+                const len = Math.hypot(dx, dz);
+                const track = new THREE.Mesh(
+                    new THREE.BoxGeometry(len + 0.35, 0.18, 0.42),
+                    new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.8, roughness: 0.25 })
+                );
+                track.position.set((x1 + x2) / 2, -0.1, (z1 + z2) / 2);
+                track.rotation.y = -Math.atan2(dz, dx);
+                labGroup.add(track);
+            };
+
+            // Build topology tracks & lamp placements
+            const paths = [];
+            if (p.topology === 1) {
+                // SÉRIE: Single rectangular loop
+                addTrackSegment(-13, -8, 12, -8);
+                addTrackSegment(12, -8, 12, 8);
+                addTrackSegment(12, 8, -13, 8);
+                addTrackSegment(-13, 8, -13, -8);
+
+                createCircuitLamp(-4, -8, p.r1, i1, u1);
+                createCircuitLamp(6, -8, p.r2, i2, u2);
+                createCircuitLamp(12, 0, p.r3, i3, u3);
+
+                paths.push({
+                    pts: [new THREE.Vector3(-13, 0.3, -8), new THREE.Vector3(12, 0.3, -8), new THREE.Vector3(12, 0.3, 8), new THREE.Vector3(-13, 0.3, 8)],
+                    speed: iTot
+                });
+            } else if (p.topology === 2) {
+                // PARALELO: 3 parallel horizontal branches at Z = -6, Z = 0, Z = +6
+                addTrackSegment(-13, -6, 12, -6);
+                addTrackSegment(-13, 6, 12, 6);
+                addTrackSegment(-6, -6, -6, 6);
+                addTrackSegment(12, -6, 12, 6);
+                addTrackSegment(-6, 0, 12, 0);
+                addTrackSegment(-13, -6, -13, 6);
+
+                createCircuitLamp(3, -6, p.r1, i1, u1);
+                createCircuitLamp(3, 0, p.r2, i2, u2);
+                createCircuitLamp(3, 6, p.r3, i3, u3);
+
+                paths.push(
+                    { pts: [new THREE.Vector3(-13, 0.3, -6), new THREE.Vector3(12, 0.3, -6), new THREE.Vector3(12, 0.3, 6), new THREE.Vector3(-13, 0.3, 6)], speed: i1 },
+                    { pts: [new THREE.Vector3(-6, 0.3, -6), new THREE.Vector3(-6, 0.3, 0), new THREE.Vector3(12, 0.3, 0), new THREE.Vector3(12, 0.3, 6)], speed: i2 },
+                    { pts: [new THREE.Vector3(-6, 0.3, 0), new THREE.Vector3(-6, 0.3, 6), new THREE.Vector3(12, 0.3, 6), new THREE.Vector3(-13, 0.3, 6)], speed: i3 }
+                );
+            } else {
+                // MISTO: R1 in series on top left, splitting at node X=0 into parallel branches R2 (Z=-5) and R3 (Z=+3)
+                addTrackSegment(-13, -5, 0, -5);
+                addTrackSegment(0, -5, 0, 3);
+                addTrackSegment(0, -5, 12, -5);
+                addTrackSegment(0, 3, 12, 3);
+                addTrackSegment(12, -5, 12, 8);
+                addTrackSegment(12, 8, -13, 8);
+                addTrackSegment(-13, 8, -13, -5);
+
+                createCircuitLamp(-6.5, -5, p.r1, i1, u1);
+                createCircuitLamp(6, -5, p.r2, i2, u2);
+                createCircuitLamp(6, 3, p.r3, i3, u3);
+
+                paths.push(
+                    { pts: [new THREE.Vector3(-13, 0.3, -5), new THREE.Vector3(12, 0.3, -5), new THREE.Vector3(12, 0.3, 8), new THREE.Vector3(-13, 0.3, 8)], speed: i2 },
+                    { pts: [new THREE.Vector3(-13, 0.3, -5), new THREE.Vector3(0, 0.3, -5), new THREE.Vector3(0, 0.3, 3), new THREE.Vector3(12, 0.3, 3), new THREE.Vector3(12, 0.3, 8), new THREE.Vector3(-13, 0.3, 8)], speed: i3 }
+                );
+            }
+
+            // Animated Current Flow Particles along Paths
+            const pCount = 1200;
+            const cGeo = new THREE.BufferGeometry();
+            const cPos = new Float32Array(pCount * 3);
+            const cCol = new Float32Array(pCount * 3);
+            const cProg = new Float32Array(pCount);
+
+            for (let i = 0; i < pCount; i++) {
+                cProg[i] = Math.random();
+                cCol[i * 3] = 0.2;
+                cCol[i * 3 + 1] = 0.95;
+                cCol[i * 3 + 2] = 0.65;
+            }
+            cGeo.setAttribute('position', new THREE.BufferAttribute(cPos, 3));
+            cGeo.setAttribute('color', new THREE.BufferAttribute(cCol, 3));
+            cGeo.userData = { cProg, paths };
+
+            const currentParticles = new THREE.Points(
+                cGeo,
+                new THREE.PointsMaterial({
+                    size: 0.72,
+                    map: glowParticleTexture,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.95,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                })
+            );
+            labGroup.add(currentParticles);
+            rt.currentParticles = currentParticles;
+
+            document.getElementById('hud-particles-count').textContent = '1.200 Portadores nos Ramos';
+            state.labRuntime = rt;
+        }
+
+        function updateLab6Circuits(dt) {
+            const p = state.params.lab6;
+            const rt = state.labRuntime;
+            if (!rt.currentParticles) return;
+
+            const posAttr = rt.currentParticles.geometry.attributes.position;
+            const { cProg, paths } = rt.currentParticles.geometry.userData;
+            const count = posAttr.count;
+
+            for (let i = 0; i < count; i++) {
+                const pathObj = paths[i % paths.length];
+                const pts = pathObj.pts;
+                const segCount = pts.length;
+                cProg[i] = (cProg[i] + dt * 0.08 * Math.max(0.4, pathObj.speed)) % 1.0;
+
+                const scaled = cProg[i] * segCount;
+                const segIdx = Math.floor(scaled) % segCount;
+                const localT = scaled - Math.floor(scaled);
+                const pA = pts[segIdx];
+                const pB = pts[(segIdx + 1) % segCount];
+
+                posAttr.setXYZ(
+                    i,
+                    THREE.MathUtils.lerp(pA.x, pB.x, localT),
+                    0.35,
+                    THREE.MathUtils.lerp(pA.z, pB.z, localT)
+                );
+            }
+            posAttr.needsUpdate = true;
+
+            const m = rt.metrics;
+            pushChartPoint(state.simTime, m.iTot, m.i1, m.i2 + m.i3);
+
+            const topNames = { 1: 'SÉRIE', 2: 'PARALELO', 3: 'MISTO' };
+            setHUDMetrics([
+                `Modo: ${topNames[p.topology]}`,
+                `R_eq: ${m.req.toFixed(2)} Ω`,
+                `i_total: ${m.iTot.toFixed(2)} A`,
+                `Potência: ${(p.sourceU * m.iTot).toFixed(1)} W`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: `1. Resistência Equivalente (${topNames[p.topology]})`,
+                    formula: p.topology === 1
+                        ? 'R_eq = R₁ + R₂ + R₃'
+                        : (p.topology === 2 ? '1/R_eq = 1/R₁ + 1/R₂ + 1/R₃' : 'R_eq = R₁ + (R₂ · R₃)/(R₂ + R₃)'),
+                    calc: p.topology === 1
+                        ? `R_eq = ${p.r1} + ${p.r2} + ${p.r3} = ${m.req.toFixed(2)} Ω`
+                        : (p.topology === 2
+                            ? `1/R_eq = 1/${p.r1} + 1/${p.r2} + 1/${p.r3}  ⇒  R_eq = ${m.req.toFixed(2)} Ω`
+                            : `R_paralelo = (${p.r2}×${p.r3})/(${p.r2}+${p.r3}) = ${((p.r2 * p.r3) / (p.r2 + p.r3)).toFixed(2)} Ω  ⇒  R_eq = ${p.r1} + ${((p.r2 * p.r3) / (p.r2 + p.r3)).toFixed(2)} = ${m.req.toFixed(2)} Ω`),
+                    result: `Resistência Equivalente R_eq = ${m.req.toFixed(2)} Ω`
+                },
+                {
+                    title: '2. Corrente Total e Divisão nos Ramos (1ª Lei de Kirchhoff)',
+                    formula: 'i_total = U_fonte / R_eq',
+                    calc: `i_total = ${p.sourceU} V / ${m.req.toFixed(2)} Ω = ${m.iTot.toFixed(2)} A\nRamo 1: i₁ = ${m.i1.toFixed(2)} A  |  Ramo 2: i₂ = ${m.i2.toFixed(2)} A  |  Ramo 3: i₃ = ${m.i3.toFixed(2)} A`,
+                    result: `i₁ = ${m.i1.toFixed(2)} A  |  i₂ = ${m.i2.toFixed(2)} A  |  i₃ = ${m.i3.toFixed(2)} A`
+                },
+                {
+                    title: '3. Tensões Parciais e Potência em Cada Lâmpada',
+                    formula: 'U_k = R_k · i_k   |   P_k = U_k · i_k',
+                    calc: `U₁ = ${m.u1.toFixed(1)} V (${(m.u1 * m.i1).toFixed(1)} W) | U₂ = ${m.u2.toFixed(1)} V (${(m.u2 * m.i2).toFixed(1)} W) | U₃ = ${m.u3.toFixed(1)} V (${(m.u3 * m.i3).toFixed(1)} W)`,
+                    result: `Potência Total do Circuito = ${(p.sourceU * m.iTot).toFixed(1)} Watts`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 7: POTÊNCIA ELÉTRICA, ENERGIA (kWh), GERADORES E RECEPTORES
+         * ===================================================================== */
+        function buildLab7GeneratorReceptorScene() {
+            const p = state.params.lab7;
+            const rt = {};
+
+            const netE = Math.max(0, p.femE - p.fcemEPrime);
+            const totalR = p.intRGen + p.intRRec;
+            const currentI = netE / totalR;
+            rt.currentI = currentI;
+
+            // Left: 3D Electrochemical Generator (Battery with internal resistance r)
+            const genGroup = new THREE.Group();
+            genGroup.position.set(-10, 1.5, 0);
+            const phiGen = state.cutawayMode ? Math.PI * 1.35 : Math.PI * 2;
+            const casing = new THREE.Mesh(
+                new THREE.CylinderGeometry(3.2, 3.2, 7.5, 32, 1, false, 0, phiGen),
+                new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.6, side: THREE.DoubleSide })
+            );
+            const topCap = new THREE.Mesh(
+                new THREE.CylinderGeometry(3.22, 3.22, 1.8, 32, 1, false, 0, phiGen),
+                new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.6, side: THREE.DoubleSide })
+            );
+            topCap.position.y = 3.2;
+            const coreRod = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.1, 1.1, 7.8, 20),
+                new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x059669, emissiveIntensity: 0.45 })
+            );
+            genGroup.add(casing, topCap, coreRod);
+            labGroup.add(genGroup);
+
+            // Right: 3D Electric Motor Receptor (Spinning Rotor + Magnetic Stator + Fan Blades)
+            const motorGroup = new THREE.Group();
+            motorGroup.position.set(10, 1.5, 0);
+
+            const statorShell = new THREE.Mesh(
+                new THREE.CylinderGeometry(3.5, 3.5, 6.2, 32, 1, false, 0, phiGen),
+                new THREE.MeshStandardMaterial({ color: 0x1e3a8a, metalness: 0.7, roughness: 0.3, side: THREE.DoubleSide })
+            );
+            statorShell.rotation.z = Math.PI / 2;
+            motorGroup.add(statorShell);
+
+            const rotorGroup = new THREE.Group();
+            const shaft = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.55, 0.55, 9.5, 20),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9 })
+            );
+            shaft.rotation.z = Math.PI / 2;
+            const copperCoil = new THREE.Mesh(
+                new THREE.CylinderGeometry(2.2, 2.2, 4.2, 16),
+                new THREE.MeshStandardMaterial({ color: 0xea580c, emissive: 0x9a3412, emissiveIntensity: 0.35, wireframe: state.cutawayMode })
+            );
+            copperCoil.rotation.z = Math.PI / 2;
+            rotorGroup.add(shaft, copperCoil);
+
+            // External Propeller Blades to visualize mechanical work P_útil = E' * i
+            for (let b = 0; b < 4; b++) {
+                const blade = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.25, 3.8, 0.95),
+                    new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.5 })
+                );
+                blade.position.x = 4.6;
+                blade.rotation.x = (b / 4) * Math.PI * 2;
+                rotorGroup.add(blade);
+            }
+            motorGroup.add(rotorGroup);
+            labGroup.add(motorGroup);
+            rt.rotorGroup = rotorGroup;
+
+            // Connecting Cables Top & Bottom + Flowing Energy Particles
+            const topCable = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 20, 12), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+            topCable.rotation.z = Math.PI / 2;
+            topCable.position.set(0, 4.5, 0);
+            const botCable = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 20, 12), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            botCable.rotation.z = Math.PI / 2;
+            botCable.position.set(0, -1.5, 0);
+            labGroup.add(topCable, botCable);
+
+            const pCount = 900;
+            const pGeo = new THREE.BufferGeometry();
+            const pPos = new Float32Array(pCount * 3);
+            const pCol = new Float32Array(pCount * 3);
+            const pProg = new Float32Array(pCount);
+            for (let i = 0; i < pCount; i++) {
+                pProg[i] = Math.random();
+                pCol[i * 3] = 1.0; pCol[i * 3 + 1] = 0.82; pCol[i * 3 + 2] = 0.2;
+            }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+            pGeo.userData = { pProg };
+
+            const flowPts = new THREE.Points(
+                pGeo,
+                new THREE.PointsMaterial({ size: 0.68, map: glowParticleTexture, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending })
+            );
+            labGroup.add(flowPts);
+            rt.flowPts = flowPts;
+
+            document.getElementById('hud-particles-count').textContent = 'Gerador + Motor 3D';
+            state.labRuntime = rt;
+        }
+
+        function updateLab7GeneratorReceptor(dt) {
+            const p = state.params.lab7;
+            const rt = state.labRuntime;
+            if (!rt.rotorGroup) return;
+
+            const currentI = Math.max(0, (p.femE - p.fcemEPrime) / (p.intRGen + p.intRRec));
+            const uTerm = p.femE - p.intRGen * currentI;
+            const pGenTotal = p.femE * currentI;
+            const pMechUseful = p.fcemEPrime * currentI;
+            const pJouleTotal = (p.intRGen + p.intRRec) * currentI * currentI;
+            const effSystem = pGenTotal > 0.01 ? (pMechUseful / pGenTotal) * 100 : 0;
+
+            // Monthly Energy Consumption in kWh (30 days)
+            const pUsefulKW = (uTerm * currentI) / 1000;
+            const monthlyKWh = pUsefulKW * p.hoursDay * 30;
+
+            // Spin motor rotor proportionally to mechanical useful power
+            const spinSpeed = p.fcemEPrime > 0 ? (0.8 + pMechUseful * 0.18) : 0;
+            rt.rotorGroup.rotation.x += spinSpeed * dt;
+
+            if (rt.flowPts) {
+                const posAttr = rt.flowPts.geometry.attributes.position;
+                const { pProg } = rt.flowPts.geometry.userData;
+                for (let i = 0; i < posAttr.count; i++) {
+                    pProg[i] = (pProg[i] + dt * 0.05 * currentI) % 1.0;
+                    const t = pProg[i];
+                    if (t < 0.5) {
+                        posAttr.setXYZ(i, THREE.MathUtils.lerp(-10, 10, t * 2), 4.5, (Math.random() - 0.5) * 0.3);
+                    } else {
+                        posAttr.setXYZ(i, THREE.MathUtils.lerp(10, -10, (t - 0.5) * 2), -1.5, (Math.random() - 0.5) * 0.3);
+                    }
+                }
+                posAttr.needsUpdate = true;
+            }
+
+            pushChartPoint(state.simTime, uTerm, pMechUseful * 0.25, pJouleTotal * 0.25);
+
+            setHUDMetrics([
+                `Tensão U: ${uTerm.toFixed(1)} V`,
+                `Corrente i: ${currentI.toFixed(2)} A`,
+                `P_útil Motor: ${pMechUseful.toFixed(1)} W`,
+                `Consumo: ${monthlyKWh.toFixed(1)} kWh/mês`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Equação do Gerador (U = E - r·i) e do Receptor (U = E\' + r\'·i)',
+                    formula: 'i = (E - E\') / (r + r\')   |   U_terminais = E - r · i',
+                    calc: `i = (${p.femE} V - ${p.fcemEPrime} V) / (${p.intRGen.toFixed(1)} Ω + ${p.intRRec.toFixed(1)} Ω) = ${currentI.toFixed(2)} A\nTensão nos Terminais U = ${p.femE} - (${p.intRGen.toFixed(1)} × ${currentI.toFixed(2)}) = ${uTerm.toFixed(2)} V`,
+                    result: `Corrente i = ${currentI.toFixed(2)} A  |  Tensão U = ${uTerm.toFixed(2)} V  |  i_cc = ${(p.femE / p.intRGen).toFixed(1)} A`
+                },
+                {
+                    title: '2. Balanço de Potências e Rendimento Elétrico (η)',
+                    formula: 'P_gerada = E · i   |   P_mecânica = E\' · i   |   P_dissipada = (r + r\') · i²',
+                    calc: `P_total = ${pGenTotal.toFixed(1)} W  |  P_mecânica (Motor) = ${pMechUseful.toFixed(1)} W  |  P_Joule = ${pJouleTotal.toFixed(1)} W`,
+                    result: `Rendimento Global η = ${effSystem.toFixed(1)}%`
+                },
+                {
+                    title: '3. Consumo de Energia Elétrica Mensal (E = P · Δt)',
+                    formula: 'E_mês (kWh) = Potência (kW) × Horas/dia × 30 dias',
+                    calc: `Potência Entregue = ${(uTerm * currentI).toFixed(1)} W = ${pUsefulKW.toFixed(3)} kW\nE_mês = ${pUsefulKW.toFixed(3)} kW × ${p.hoursDay} h/dia × 30 dias`,
+                    result: `Consumo = ${monthlyKWh.toFixed(2)} kWh/mês (${(monthlyKWh * 3.6).toFixed(1)} MJ)`
+                }
+            ]);
+        }
+
+        /* =====================================================================
+         * LAB 8: SEGURANÇA E MANOBRA: FUSÍVEIS E CHAVES ELÉTRICAS EM AÇÃO
+         * ===================================================================== */
+        function buildLab8FuseSwitchScene() {
+            const p = state.params.lab8;
+            const rt = {};
+
+            const rEff = p.shortCircuit === 1 ? 0.45 : p.loadR;
+            const prospectiveI = p.switchClosed === 1 ? (p.sourceU / rEff) : 0;
+            const fuseBlown = prospectiveI > p.fuseRating;
+            const actualI = fuseBlown ? 0 : prospectiveI;
+
+            rt.prospectiveI = prospectiveI;
+            rt.fuseBlown = fuseBlown;
+            rt.actualI = actualI;
+
+            if (fuseBlown) {
+                state.eventsCount++;
+                document.getElementById('hud-events-count').textContent = state.eventsCount.toLocaleString();
+            }
+
+            // 1. Interactive 3D Knife Switch (Chave Elétrica Seccionadora) at Left (-9, 1, 0)
+            const switchGroup = new THREE.Group();
+            switchGroup.position.set(-9, 0.5, 0);
+            const swBase = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.7, 3.4), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+            const postLeft = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.8, 1.2), new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.8 }));
+            postLeft.position.set(-2.2, 1.1, 0);
+            const postRight = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.8, 1.2), new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.8 }));
+            postRight.position.set(2.2, 1.1, 0);
+
+            const bladePivot = new THREE.Group();
+            bladePivot.position.set(-2.2, 1.7, 0);
+            const knifeBlade = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.28, 0.65), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.85 }));
+            knifeBlade.position.set(2.3, 0, 0);
+            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 1.8, 16), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+            handle.rotation.z = Math.PI / 2;
+            handle.position.set(5.1, 0, 0);
+            bladePivot.add(knifeBlade, handle);
+            bladePivot.rotation.z = p.switchClosed === 1 ? 0 : 0.78; // Physically open/closed in 3D!
+
+            switchGroup.add(swBase, postLeft, postRight, bladePivot);
+            labGroup.add(switchGroup);
+            rt.bladePivot = bladePivot;
+
+            // 2. Transparent Glass Cartridge Fuse (Fusível de Proteção) at Center (0, 1.6, 0)
+            const fuseGroup = new THREE.Group();
+            fuseGroup.position.set(0, 1.6, 0);
+
+            const capLeft = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 1.6, 24), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 }));
+            capLeft.rotation.z = Math.PI / 2;
+            capLeft.position.x = -3.8;
+
+            const capRight = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 1.6, 24), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 }));
+            capRight.rotation.z = Math.PI / 2;
+            capRight.position.x = 3.8;
+
+            const glassTube = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.38, 1.38, 6.4, 32, 1, true),
+                new THREE.MeshStandardMaterial({ color: 0xe0f2fe, transparent: true, opacity: state.cutawayMode ? 0.18 : 0.35, side: THREE.DoubleSide })
+            );
+            glassTube.rotation.z = Math.PI / 2;
+
+            // Internal Metallic Fuse Filament (Intact vs Melted/Snapped!)
+            const loadRatio = Math.min(1, actualI / p.fuseRating);
+            const filColor = new THREE.Color(0x94a3b8).lerp(new THREE.Color(0xf97316), loadRatio);
+
+            if (!fuseBlown) {
+                const filament = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.16, 0.16, 6.4, 16),
+                    new THREE.MeshBasicMaterial({ color: filColor })
+                );
+                filament.rotation.z = Math.PI / 2;
+                fuseGroup.add(filament);
+            } else {
+                // Melted broken ends + spark burst!
+                const stub1 = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 2.1, 12), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+                stub1.rotation.z = Math.PI / 2;
+                stub1.position.x = -2.1;
+                const stub2 = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.16, 2.1, 12), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+                stub2.rotation.z = Math.PI / 2;
+                stub2.position.x = 2.1;
+                fuseGroup.add(stub1, stub2);
+
+                const sparkGlow = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.2, 20, 20),
+                    new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending })
+                );
+                fuseGroup.add(sparkGlow);
+                rt.sparkGlow = sparkGlow;
+            }
+
+            fuseGroup.add(capLeft, capRight, glassTube);
+            labGroup.add(fuseGroup);
+
+            // 3. Protected Load Lamp at Right (10, 1.2, 0)
+            const lampGlow = Math.min(1, (actualI * p.sourceU) / 120);
+            const lampGroup = new THREE.Group();
+            lampGroup.position.set(10, 1.2, 0);
+            lampGroup.add(new THREE.Mesh(
+                new THREE.SphereGeometry(2.1, 28, 28),
+                new THREE.MeshStandardMaterial({
+                    color: lampGlow > 0.05 ? 0xfef08a : 0x334155,
+                    emissive: 0xf59e0b,
+                    emissiveIntensity: lampGlow * 1.4,
+                    transparent: true,
+                    opacity: 0.88
+                })
+            ));
+            labGroup.add(lampGroup);
+
+            // Connecting Tracks & Current Particles
+            const trackMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.8 });
+            const t1 = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.2, 0.4), trackMat); t1.position.set(-4.5, 1.6, 0);
+            const t2 = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.2, 0.4), trackMat); t2.position.set(6.5, 1.6, 0);
+            labGroup.add(t1, t2);
+
+            const pCount = 800;
+            const cGeo = new THREE.BufferGeometry();
+            const cPos = new Float32Array(pCount * 3);
+            const cCol = new Float32Array(pCount * 3);
+            for (let i = 0; i < pCount; i++) {
+                cPos[i * 3] = (Math.random() - 0.5) * 24;
+                cPos[i * 3 + 1] = 1.6 + (Math.random() - 0.5) * 0.35;
+                cPos[i * 3 + 2] = (Math.random() - 0.5) * 0.35;
+                cCol[i * 3] = actualI > 0 ? 0.2 : 0.4;
+                cCol[i * 3 + 1] = actualI > 0 ? 0.95 : 0.4;
+                cCol[i * 3 + 2] = actualI > 0 ? 0.7 : 0.5;
+            }
+            cGeo.setAttribute('position', new THREE.BufferAttribute(cPos, 3));
+            cGeo.setAttribute('color', new THREE.BufferAttribute(cCol, 3));
+            const wireParticles = new THREE.Points(
+                cGeo,
+                new THREE.PointsMaterial({ size: 0.6, map: glowParticleTexture, vertexColors: true, transparent: true, opacity: actualI > 0 ? 0.95 : 0.25, blending: THREE.AdditiveBlending })
+            );
+            labGroup.add(wireParticles);
+            rt.wireParticles = wireParticles;
+
+            document.getElementById('hud-particles-count').textContent = fuseBlown ? 'FUSÍVEL ROMPIDO (0 A)' : 'Circuito Protegido';
+            state.labRuntime = rt;
+        }
+
+        function updateLab8FuseSwitch(dt) {
+            const p = state.params.lab8;
+            const rt = state.labRuntime;
+            if (!rt.wireParticles) return;
+
+            if (rt.sparkGlow) {
+                rt.sparkGlow.scale.setScalar(0.8 + 0.35 * Math.sin(state.simTime * 28));
+            }
+
+            if (rt.actualI > 0) {
+                const posAttr = rt.wireParticles.geometry.attributes.position;
+                for (let i = 0; i < posAttr.count; i++) {
+                    let x = posAttr.getX(i) + rt.actualI * 1.8 * dt;
+                    if (x > 12) x = -12;
+                    posAttr.setX(i, x);
+                }
+                posAttr.needsUpdate = true;
+            }
+
+            pushChartPoint(state.simTime, rt.actualI, p.fuseRating, rt.prospectiveI);
+
+            let statusTxt = 'CIRCUITO NORMAL';
+            if (p.switchClosed === 0) statusTxt = 'CHAVE ABERTA (OFF)';
+            else if (rt.fuseBlown) statusTxt = '🔥 FUSÍVEL QUEIMADO!';
+
+            setHUDMetrics([
+                `${statusTxt}`,
+                `Corrente i: ${rt.actualI.toFixed(2)} A`,
+                `Limite Fusível: ${p.fuseRating.toFixed(1)} A`,
+                `i_presumida: ${rt.prospectiveI.toFixed(1)} A`
+            ]);
+
+            renderCalculationsHTML([
+                {
+                    title: '1. Estado da Chave Elétrica (Interruptor de Manobra)',
+                    formula: 'Chave Fechada: i = U / R_carga   |   Chave Aberta: i = 0 A',
+                    calc: p.switchClosed === 0
+                        ? `Chave Elétrica ABERTA (OFF): Impedância infinita entre os contatos.\nCorrente no circuito i = 0,00 A (Tensão nos contatos da chave = ${p.sourceU} V)`
+                        : `Chave Elétrica FECHADA (ON): Tensão ${p.sourceU} V aplicada sobre R = ${(p.shortCircuit === 1 ? 0.45 : p.loadR).toFixed(2)} Ω`,
+                    result: p.switchClosed === 0 ? 'Circuito Desenergizado pela Chave (i = 0 A)' : `Corrente Solicitada pela Carga = ${rt.prospectiveI.toFixed(2)} A`
+                },
+                {
+                    title: '2. Verificação Térmica do Fusível de Proteção',
+                    formula: 'Condição de Fusão: i_solicitada > i_nominal_fusível',
+                    calc: `Corrente Solicitada = ${rt.prospectiveI.toFixed(2)} A   vs   Corrente Nominal = ${p.fuseRating.toFixed(1)} A`,
+                    result: rt.fuseBlown
+                        ? `SOBRECORRENTE DETECTADA (${rt.prospectiveI.toFixed(1)} A > ${p.fuseRating.toFixed(1)} A)! Filamento fundiu e abriu o circuito (i = 0 A)!`
+                        : `Fusível Intacto: Corrente real i = ${rt.actualI.toFixed(2)} A dentro do limite seguro`
+                },
+                {
+                    title: '3. Potência na Carga Protegida',
+                    formula: 'P_carga = U · i_real',
+                    calc: `P_carga = ${p.sourceU} V × ${rt.actualI.toFixed(2)} A = ${(p.sourceU * rt.actualI).toFixed(1)} W`,
+                    result: `Potência Consumida = ${(p.sourceU * rt.actualI).toFixed(1)} Watts`
+                }
+            ]);
+        }
+
+        /***********************************************************************
+         * 6. CUSTOM 3D TEST CHARGE INJECTOR MODAL
+         ***********************************************************************/
+        function toggleLauncherModal(show) {
+            const modal = document.getElementById('launcher-modal');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        function launchCustomChargeBody() {
+            const type = document.getElementById('launch-type').value;
+            const qMag = parseFloat(document.getElementById('launch-charge').value);
+            const speed = parseFloat(document.getElementById('launch-speed').value);
+
+            const bodyGroup = new THREE.Group();
+            let sign = 1;
+
+            if (type === 'proton') {
+                sign = 1;
+                bodyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.65, 20, 20), new THREE.MeshBasicMaterial({ color: 0xf43f5e })));
+                bodyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.05, 16, 16), new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending })));
+            } else if (type === 'electron') {
+                sign = -1;
+                bodyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 20), new THREE.MeshBasicMaterial({ color: 0x38bdf8 })));
+                bodyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.95, 16, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending })));
+            } else if (type === 'alpha') {
+                sign = 2;
+                bodyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.85, 20, 20), new THREE.MeshBasicMaterial({ color: 0xf59e0b })));
+            } else {
+                sign = 1;
+                const p1 = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), new THREE.MeshBasicMaterial({ color: 0xf43f5e }));
+                p1.position.x = 0.45;
+                const p2 = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                p2.position.x = -0.45;
+                bodyGroup.add(p1, p2);
+            }
+
+            bodyGroup.position.set(-18, 2.0, (Math.random() - 0.5) * 8);
+            bodyGroup.userData = {
+                q: sign * qMag,
+                vx: speed * 0.9,
+                vy: 0,
+                vz: (Math.random() - 0.5) * 3.0
+            };
+
+            launchedGroup.add(bodyGroup);
+            state.launchedBodies.push(bodyGroup);
+            toggleLauncherModal(false);
+        }
+
+        function updateLaunchedBodies(dt) {
+            for (let i = state.launchedBodies.length - 1; i >= 0; i--) {
+                const body = state.launchedBodies[i];
+                const pos = body.position;
+                const r = Math.sqrt(pos.x * pos.x + pos.z * pos.z + 4);
+
+                const p = state.params[state.currentLabId] || {};
+                const centralQ = p.sourceQ || p.q1 || p.nElectrons1 || 8;
+                const fe = (body.userData.q * centralQ * 1.8) / (r * r);
+
+                body.userData.vx += fe * (pos.x / r) * dt;
+                body.userData.vz += fe * (pos.z / r) * dt;
+
+                pos.x += body.userData.vx * dt;
+                pos.z += body.userData.vz * dt;
+                body.rotation.y += 4.0 * dt;
+
+                if (r > 65) {
+                    launchedGroup.remove(body);
+                    state.launchedBodies.splice(i, 1);
+                }
+            }
+        }
+
+        /***********************************************************************
+         * 7. REAL-TIME 2D OSCILLOSCOPE & SCIENTIFIC GRAPHS
+         ***********************************************************************/
+        let chartCtx = null;
+
+        function init2DChartCanvas() {
+            const canvas = document.getElementById('realtime-chart');
+            chartCtx = canvas.getContext('2d');
+            resize2DChartCanvas();
+        }
+
+        function resize2DChartCanvas() {
+            const canvas = document.getElementById('realtime-chart');
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = (rect.width - 12) * Math.min(window.devicePixelRatio, 2);
+            canvas.height = (rect.height - 12) * Math.min(window.devicePixelRatio, 2);
+        }
+
+        function clearChartHistory() {
+            state.chartHistory = [];
+        }
+
+        function pushChartPoint(t, y1, y2, y3) {
+            state.chartHistory.push({ t, y1, y2, y3 });
+            if (state.chartHistory.length > 150) state.chartHistory.shift();
+        }
+
+        function drawRealtimeChart() {
+            if (!chartCtx) return;
+            const canvas = chartCtx.canvas;
+            const w = canvas.width;
+            const h = canvas.height;
+            chartCtx.clearRect(0, 0, w, h);
+
+            chartCtx.strokeStyle = '#1e293b';
+            chartCtx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                const gy = (h / 4) * i;
+                chartCtx.beginPath();
+                chartCtx.moveTo(0, gy);
+                chartCtx.lineTo(w, gy);
+                chartCtx.stroke();
+            }
+
+            const id = state.currentLabId;
+
+            // Special Characteristic Curves for Lab 5 (1st Law of Ohm U x i)
+            if (id === 'lab5') {
+                const p = state.params.lab5;
+                const R = (p.resistivityRho * p.lengthL) / p.areaA;
+
+                // Linear Ohmic Curve i(U)
+                chartCtx.strokeStyle = '#10b981';
+                chartCtx.lineWidth = 2.6;
+                chartCtx.beginPath();
+                for (let px = 0; px <= w; px += 4) {
+                    const uVal = (px / w) * 30;
+                    const iVal = uVal / R;
+                    const py = h * 0.88 - Math.min(h * 0.8, iVal * (h * 0.045));
+                    if (px === 0) chartCtx.moveTo(px, py);
+                    else chartCtx.lineTo(px, py);
+                }
+                chartCtx.stroke();
+
+                // Operating Point Marker (U_atual, i_atual)
+                const opX = (p.voltageU / 30) * w;
+                const opY = h * 0.88 - Math.min(h * 0.8, (p.voltageU / R) * (h * 0.045));
+                chartCtx.fillStyle = '#f59e0b';
+                chartCtx.beginPath();
+                chartCtx.arc(opX, opY, 6, 0, Math.PI * 2);
+                chartCtx.fill();
+                return;
+            }
+
+            const pts = state.chartHistory;
+            if (pts.length < 2) return;
+
+            let maxAbs = 10;
+            for (let i = 0; i < pts.length; i++) {
+                maxAbs = Math.max(maxAbs, Math.abs(pts[i].y1), Math.abs(pts[i].y2), Math.abs(pts[i].y3));
+            }
+            const zeroY = (id === 'lab1' || id === 'lab3') ? h * 0.52 : h * 0.84;
+            const scaleY = ((id === 'lab1' || id === 'lab3') ? h * 0.4 : h * 0.72) / maxAbs;
+
+            const plotLine = (key, hex) => {
+                chartCtx.strokeStyle = hex;
+                chartCtx.lineWidth = 2.2;
+                chartCtx.beginPath();
+                for (let i = 0; i < pts.length; i++) {
+                    const px = (i / (pts.length - 1)) * w;
+                    const py = zeroY - pts[i][key] * scaleY;
+                    if (i === 0) chartCtx.moveTo(px, py);
+                    else chartCtx.lineTo(px, py);
+                }
+                chartCtx.stroke();
+            };
+
+            plotLine('y1', '#38bdf8');
+            plotLine('y2', '#10b981');
+            plotLine('y3', '#f59e0b');
+        }
+
+        function updateChartLegendForActiveLab() {
+            const titles = {
+                lab1: 'Balanço de Cargas Q_A, Q_B e Força de Coulomb',
+                lab2: 'Intensidade do Campo Elétrico |E| e Força Fe',
+                lab3: 'Potencial Elétrico V(r) entre as Cascas V_A e V_B',
+                lab4: 'Campo E (kV/mm) vs Rigidez Dielétrica e Energia',
+                lab5: 'Curva Característica Ôhmica (1ª Lei de Ohm: i × U)',
+                lab6: 'Corrente Total (i_tot) e Divisão nos Ramos (i₁, i₂+i₃)',
+                lab7: 'Tensão U, Potência Mecânica Útil (Motor) e Perda Joule',
+                lab8: 'Corrente Real vs Limite do Fusível (i_nominal)'
+            };
+            document.getElementById('chart-title').textContent = titles[state.currentLabId];
+
+            const legends = {
+                lab1: ['Carga Q_A (μC)', 'Carga Q_B (μC)', 'Força Fe'],
+                lab2: ['Campo E_centro', 'Força Fe (N)', 'Soma |E₁|+|E₂|'],
+                lab3: ['Potencial V(t)', 'Equipotencial V_A', 'Equipotencial V_B'],
+                lab4: ['Campo E_atual', 'Limite Ruptura', 'Energia E_cap'],
+                lab5: ['Reta Ôhmica i = U/R', 'Ponto de Operação (U, i)', ''],
+                lab6: ['Corrente Total', 'Corrente i₁', 'Ramos Paralelos'],
+                lab7: ['Tensão U (V)', 'Potência Motor (W)', 'Perda Joule (W)'],
+                lab8: ['Corrente Real (A)', 'Limite Fusível (A)', 'i_presumida (A)']
+            };
+            const items = legends[state.currentLabId] || [];
+            const colors = ['bg-sky-400', 'bg-emerald-400', 'bg-amber-400'];
+            document.getElementById('chart-legend').innerHTML = items.filter(Boolean).map((lbl, idx) => `
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full ${colors[idx]} inline-block"></span>
+                    <span class="text-slate-300">${lbl}</span>
+                </div>
+            `).join('');
+        }
+
+        /***********************************************************************
+         * 8. UI CONTROLLERS, NAVIGATION, SLIDERS & ENCYCLOPEDIA
+         ***********************************************************************/
+        function renderExperimentSelectorBar() {
+            const bar = document.getElementById('experiment-selector-bar');
+            bar.innerHTML = Object.values(LABS_CONFIG).map(lab => {
+                const isActive = lab.id === state.currentLabId;
+                return `
+                    <button onclick="selectLab('${lab.id}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                        isActive
+                            ? 'lab-tab-active'
+                            : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    }">
+                        <span>${lab.shortTitle}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectLab(labId, focusConceptId = null) {
+            state.currentLabId = labId;
+            const labCfg = LABS_CONFIG[labId];
+            state.simTime = 0;
+            state.chartHistory = [];
+
+            if (state.cutawayMode) {
+                document.getElementById('cutaway-banner-title').textContent = labCfg.cutawayTitle;
+                document.getElementById('cutaway-banner-desc').textContent = labCfg.cutawayDesc;
+            }
+
+            document.getElementById('active-module-badge').textContent = labCfg.badge;
+            document.getElementById('active-lab-title').textContent = labCfg.fullTitle;
+            document.getElementById('active-lab-summary').textContent = labCfg.summary;
+
+            renderExperimentSelectorBar();
+            renderPresetsAndSliders();
+            renderConceptPillsForActiveLab(focusConceptId);
+            updateChartLegendForActiveLab();
+            setCameraPreset('iso');
+            rebuildActive3DLabScene();
+        }
+
+        function renderPresetsAndSliders() {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            document.getElementById('lab-presets-container').innerHTML = `
+                <span class="text-[10px] font-mono uppercase text-slate-400">Cenários Rápidos Clássicos:</span>
+                <div class="flex flex-wrap gap-1.5">
+                    ${labCfg.presets.map((pr, idx) => `
+                        <button onclick="applyLabPreset(${idx})" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-amber-500/20 hover:text-amber-300 border border-slate-700 text-[11px] font-medium text-slate-200 transition-all cursor-pointer">
+                            ${pr.label}
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+
+            const currParams = state.params[state.currentLabId];
+            document.getElementById('sliders-container').innerHTML = labCfg.sliders.map(s => `
+                <div class="flex flex-col gap-1 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-medium text-slate-300">${s.label}</span>
+                        <span id="val-${s.key}" class="font-mono font-bold text-amber-400">${currParams[s.key]} ${s.unit}</span>
+                    </div>
+                    <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${currParams[s.key]}"
+                        oninput="onSliderInput('${s.key}', this.value, '${s.unit}')">
+                </div>
+            `).join('');
+        }
+
+        function onSliderInput(key, val, unit) {
+            const num = parseFloat(val);
+            state.params[state.currentLabId][key] = num;
+            const span = document.getElementById(`val-${key}`);
+            if (span) span.textContent = `${num} ${unit}`;
+            rebuildActive3DLabScene();
+        }
+
+        function applyLabPreset(presetIndex) {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            const preset = labCfg.presets[presetIndex];
+            if (!preset) return;
+            Object.keys(preset.values).forEach(k => {
+                state.params[state.currentLabId][k] = preset.values[k];
+            });
+            state.simTime = 0;
+            state.chartHistory = [];
+            renderPresetsAndSliders();
+            rebuildActive3DLabScene();
+        }
+
+        function resetCurrentLabParameters() {
+            const labCfg = LABS_CONFIG[state.currentLabId];
+            labCfg.sliders.forEach(s => {
+                state.params[state.currentLabId][s.key] = s.default;
+            });
+            state.simTime = 0;
+            state.chartHistory = [];
+            renderPresetsAndSliders();
+            rebuildActive3DLabScene();
+        }
+
+        function renderConceptPillsForActiveLab(focusConceptId = null) {
+            const concepts = CONCEPTS_DB.filter(c => c.labId === state.currentLabId);
+            document.getElementById('concepts-count-badge').textContent = `${concepts.length} conceito(s)`;
+
+            if (focusConceptId) {
+                state.selectedConceptId = focusConceptId;
+            } else if (!concepts.some(c => c.id === state.selectedConceptId) && concepts.length > 0) {
+                state.selectedConceptId = concepts[0].id;
+            }
+
+            document.getElementById('active-lab-concept-pills').innerHTML = concepts.map(c => {
+                const active = c.id === state.selectedConceptId;
+                return `
+                    <button onclick="selectConceptPill('${c.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer border ${
+                        active
+                            ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-sm'
+                            : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-500'
+                    }">
+                        ${c.number}. ${c.title.split('(')[0].trim()}
+                    </button>
+                `;
+            }).join('');
+
+            const selectedObj = CONCEPTS_DB.find(c => c.id === state.selectedConceptId) || concepts[0];
+            if (selectedObj) {
+                document.getElementById('selected-concept-detail').innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="text-xs font-bold text-amber-300">${selectedObj.number}. ${selectedObj.title}</h4>
+                        <span class="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">${selectedObj.category}</span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">${selectedObj.definition}</p>
+                    <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-sky-300">
+                        <span class="text-slate-500">Equação: </span>${selectedObj.formula}
+                    </div>
+                    <p class="text-[11px] text-emerald-300/90 leading-snug">
+                        <i class="fa-solid fa-eye mr-1"></i><strong>Como observar no 3D:</strong> ${selectedObj.howToSeeIn3D}
+                    </p>
+                `;
+            }
+        }
+
+        function selectConceptPill(conceptId) {
+            state.selectedConceptId = conceptId;
+            renderConceptPillsForActiveLab(conceptId);
+        }
+
+        function setHUDMetrics(items) {
+            document.getElementById('hud-live-metrics').innerHTML = items.map(txt => `<div class="truncate">${txt}</div>`).join('');
+        }
+
+        function renderCalculationsHTML(blocks) {
+            document.getElementById('live-calculations-container').innerHTML = blocks.map(b => `
+                <div class="math-box p-3 rounded-r-xl flex flex-col gap-1.5 border border-slate-800/80">
+                    <span class="text-[11px] font-sans font-bold text-amber-400">${b.title}</span>
+                    <div class="text-[10px] font-sans text-sky-300 bg-slate-900/90 px-2 py-1 rounded border border-slate-800">
+                        <strong>Fórmula:</strong> ${b.formula}
+                    </div>
+                    ${b.calc ? `<div class="text-[11px] text-slate-300 whitespace-pre-line leading-relaxed pl-1 border-l-2 border-slate-700">${b.calc}</div>` : ''}
+                    <div class="text-xs font-bold text-emerald-400 bg-emerald-950/30 px-2 py-1 rounded border border-emerald-500/30">
+                        ⇒ ${b.result}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleSimulationPlay() {
+            state.isPlaying = !state.isPlaying;
+            document.getElementById('icon-play-pause').className = state.isPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play';
+            document.getElementById('hud-sim-status').textContent = state.isPlaying ? 'LABORATÓRIO ELETRODINÂMICO ATIVO' : 'SIMULAÇÃO PAUSADA';
+        }
+
+        function restartSimulation() {
+            state.simTime = 0;
+            state.eventsCount = 0;
+            state.chartHistory = [];
+            document.getElementById('hud-events-count').textContent = '0';
+            rebuildActive3DLabScene();
+        }
+
+        function stepSimulationFrame() {
+            state.isPlaying = false;
+            document.getElementById('icon-play-pause').className = 'fa-solid fa-play';
+            document.getElementById('hud-sim-status').textContent = 'PASSO MANUAL';
+            advancePhysicsStep(0.04);
+        }
+
+        function setSimSpeed(speed) {
+            state.simSpeed = speed;
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.className = 'speed-btn px-2 py-0.5 rounded text-[11px] font-mono text-slate-300 hover:bg-slate-800 cursor-pointer';
+            });
+            const idMap = { 0.25: 'speed-025', 0.5: 'speed-05', 1: 'speed-10', 2.5: 'speed-25' };
+            const active = document.getElementById(idMap[speed]);
+            if (active) {
+                active.className = 'speed-btn px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-pointer';
+            }
+        }
+
+        function toggleEncyclopediaModal(show) {
+            const modal = document.getElementById('encyclopedia-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+                renderEncyclopediaCards();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderEncyclopediaCards() {
+            const query = (document.getElementById('encyclopedia-search').value || '').toLowerCase().trim();
+            const filtered = CONCEPTS_DB.filter(c => {
+                return !query ||
+                    c.title.toLowerCase().includes(query) ||
+                    c.category.toLowerCase().includes(query) ||
+                    c.definition.toLowerCase().includes(query) ||
+                    c.example.toLowerCase().includes(query);
+            });
+
+            document.getElementById('encyclopedia-grid').innerHTML = filtered.map(c => `
+                <div class="bg-slate-950/90 border border-slate-800 hover:border-amber-500/50 rounded-xl p-4 flex flex-col justify-between gap-3 transition-all">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                #${c.number} • ${c.category}
+                            </span>
+                            <span class="text-[10px] font-mono text-slate-400">${c.unit}</span>
+                        </div>
+                        <h3 class="text-sm font-bold text-white">${c.title}</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">${c.definition}</p>
+                        <div class="p-2 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-sky-300">
+                            ${c.formula}
+                        </div>
+                        <p class="text-[11px] text-slate-400 italic">
+                            <strong>Exemplo prático:</strong> ${c.example}
+                        </p>
+                    </div>
+                    <button onclick="openConceptIn3DLab('${c.labId}', '${c.id}')" class="w-full py-2 rounded-lg bg-amber-500/15 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>Experimentar no 3D (${LABS_CONFIG[c.labId].shortTitle})</span>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function openConceptIn3DLab(labId, conceptId) {
+            toggleEncyclopediaModal(false);
+            selectLab(labId, conceptId);
+        }
+
+        /***********************************************************************
+         * 9. MAIN ANIMATION & ELECTRODYNAMICS LOOP
+         ***********************************************************************/
+        let lastFrameTime = performance.now();
+
+        function advancePhysicsStep(dt) {
+            state.simTime += dt;
+            document.getElementById('hud-sim-time').textContent = `t = ${state.simTime.toFixed(1)}s`;
+
+            const id = state.currentLabId;
+            if (id === 'lab1') updateLab1Electrification(dt);
+            else if (id === 'lab2') updateLab2ElectricField(dt);
+            else if (id === 'lab3') updateLab3ElectricPotential(dt);
+            else if (id === 'lab4') updateLab4CapacitorDischarge(dt);
+            else if (id === 'lab5') updateLab5OhmConductor(dt);
+            else if (id === 'lab6') updateLab6Circuits(dt);
+            else if (id === 'lab7') updateLab7GeneratorReceptor(dt);
+            else if (id === 'lab8') updateLab8FuseSwitch(dt);
+
+            updateLaunchedBodies(dt);
+        }
+
+        function animateLoop(now) {
+            requestAnimationFrame(animateLoop);
+            const rawDt = Math.min(0.05, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+
+            if (state.isPlaying) {
+                advancePhysicsStep(rawDt * state.simSpeed);
+            }
+
+            if (controls) controls.update();
+            renderer.render(scene, camera);
+            drawRealtimeChart();
+        }
+
+        window.onload = function () {
+            initThreeJS();
+            init2DChartCanvas();
+            selectLab('lab1'); // Inicia no Lab 1 (Carga Elétrica e Processos de Eletrização)
+            lastFrameTime = performance.now();
+            animateLoop(lastFrameTime);
+        };
+    </script>
+</body>
+</html>
