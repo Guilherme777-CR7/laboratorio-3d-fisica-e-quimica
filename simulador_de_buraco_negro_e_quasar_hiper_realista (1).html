@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buraco Negro & Quasar Hiper-realista</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000000;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .font-space {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            transition: transform 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        /* Custom Color Input */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+        }
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(12, 14, 22, 0.68);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+        }
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="relative text-white antialiased">
+
+    <!-- WebGL Container -->
+    <div id="canvas-container" class="w-full h-full"></div>
+
+    <!-- Top Header / Telemetry -->
+    <header class="fixed top-4 left-4 right-4 md:left-6 md:right-auto z-10 pointer-events-none flex flex-col gap-1">
+        <div class="glass-panel px-4 py-3 rounded-2xl pointer-events-auto inline-flex items-center gap-3">
+            <div id="status-dot" class="w-3 h-3 rounded-full bg-orange-500 animate-pulse shadow-[0_0_12px_#f97316]"></div>
+            <div>
+                <h1 class="font-space font-bold text-base md:text-lg tracking-wider uppercase leading-none text-white flex items-center gap-2">
+                    Singularidade <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-white/10 text-white/80">Raymarching Relativístico</span>
+                </h1>
+                <p class="text-xs text-gray-400 mt-1">Arraste para orbitar • Scroll/Pinça para zoom</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Toggle UI Button for Mobile / Clean View -->
+    <button id="toggle-ui-btn" class="fixed bottom-4 right-4 md:top-6 md:bottom-auto md:right-6 z-20 glass-panel p-3 rounded-full hover:bg-white/10 transition active:scale-95 flex items-center gap-2 text-xs font-medium px-4" title="Mostrar/Ocultar Controles">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+        <span id="toggle-ui-text">Ocultar Painel</span>
+    </button>
+
+    <!-- Control Panel -->
+    <aside id="control-panel" class="fixed bottom-16 right-4 left-4 md:left-auto md:top-20 md:bottom-auto md:right-6 md:w-88 z-10 glass-panel rounded-3xl p-5 transition-all duration-300 max-h-[75vh] overflow-y-auto flex flex-col gap-5">
+        
+        <!-- Mode Switcher (Black Hole vs Quasar) -->
+        <div>
+            <label class="text-xs font-semibold uppercase tracking-wider text-gray-400 block mb-2">Modo Astrofísico</label>
+            <div class="grid grid-cols-2 gap-2 p-1 bg-black/40 rounded-xl border border-white/10">
+                <button id="mode-bh" class="py-2 px-3 rounded-lg text-xs font-semibold transition-all bg-white/15 text-white shadow">
+                    Buraco Negro (Gargantua)
+                </button>
+                <button id="mode-quasar" class="py-2 px-3 rounded-lg text-xs font-semibold transition-all text-gray-400 hover:text-white">
+                    Quasar Ativo (Jato Relativístico)
+                </button>
+            </div>
+        </div>
+
+        <!-- Light Color Customization -->
+        <div class="border-t border-white/10 pt-4">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wider text-gray-300 block">Cor da Luz e Espectro RGB</label>
+                    <span class="text-[11px] text-gray-400">Personalize os canais R, G, B ou ative o Prisma</span>
+                </div>
+                <input type="color" id="color-picker" value="#ff6a00" title="Escolher cor personalizada">
+            </div>
+
+            <!-- RGB Individual Sliders -->
+            <div class="bg-black/40 p-3 rounded-2xl border border-white/10 mb-3 flex flex-col gap-2.5">
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-4 font-bold text-red-400 font-mono">R</span>
+                    <input type="range" id="slider-r" min="0" max="255" value="255" class="accent-red-500">
+                    <span id="val-r" class="w-8 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-4 font-bold text-green-400 font-mono">G</span>
+                    <input type="range" id="slider-g" min="0" max="255" value="106" class="accent-green-500">
+                    <span id="val-g" class="w-8 text-right font-mono text-[11px] text-gray-300">106</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-4 font-bold text-blue-400 font-mono">B</span>
+                    <input type="range" id="slider-b" min="0" max="255" value="0" class="accent-blue-500">
+                    <span id="val-b" class="w-8 text-right font-mono text-[11px] text-gray-300">0</span>
+                </div>
+            </div>
+
+            <!-- Dynamic RGB & Prismatic Controls -->
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button id="btn-rgb-cycle" class="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-[11px] font-semibold transition flex items-center justify-center gap-1.5 text-gray-300">
+                    <span class="w-2 h-2 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500 animate-spin"></span>
+                    Ciclo RGB: OFF
+                </button>
+                <button id="btn-rgb-prism" class="py-2 px-2.5 rounded-xl bg-gradient-to-r from-red-500/20 via-green-500/20 to-blue-500/20 hover:from-red-500/30 hover:to-blue-500/30 border border-white/20 text-[11px] font-semibold transition text-white shadow">
+                    Prisma Espectral: ON
+                </button>
+            </div>
+
+            <!-- Spectral Prism Dispersion Slider -->
+            <div class="mb-3">
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-300 font-medium">Dispersão Multicor (Espectro RGB)</span>
+                    <span id="val-prism" class="text-gray-400 font-mono">65%</span>
+                </div>
+                <input type="range" id="slider-prism" min="0.0" max="1.5" step="0.05" value="0.65">
+            </div>
+
+            <!-- Preset Color Swatches -->
+            <div class="grid grid-cols-6 gap-2 mt-2">
+                <button data-color="#ff6a00" class="color-preset h-7 rounded-lg border-2 border-white transition transform hover:scale-105" style="background: linear-gradient(135deg, #fff5cc, #ff6a00, #660000);" title="Laranja Relativístico (Interstellar)"></button>
+                <button data-color="#00ccff" class="color-preset h-7 rounded-lg border border-white/20 transition transform hover:scale-105" style="background: linear-gradient(135deg, #e0ffff, #00ccff, #001a4d);" title="Quasar Azul Hiper-Quente (O-Type)"></button>
+                <button data-color="#a855f7" class="color-preset h-7 rounded-lg border border-white/20 transition transform hover:scale-105" style="background: linear-gradient(135deg, #f3e8ff, #a855f7, #2e004f);" title="Raios Gama / Púrpura"></button>
+                <button data-color="#10b981" class="color-preset h-7 rounded-lg border border-white/20 transition transform hover:scale-105" style="background: linear-gradient(135deg, #d1fae5, #10b981, #022c22);" title="Nebulosa Esmeralda"></button>
+                <button data-color="#f43f5e" class="color-preset h-7 rounded-lg border border-white/20 transition transform hover:scale-105" style="background: linear-gradient(135deg, #ffe4e6, #f43f5e, #4c0519);" title="Redshift Extremo / Carmesim"></button>
+                <button data-color="#ffffff" data-prism="1.25" class="color-preset h-7 rounded-lg border border-white/20 transition transform hover:scale-105" style="background: linear-gradient(135deg, #ff0055, #00ff66, #0066ff);" title="Hiper-Prisma RGB Completo"></button>
+            </div>
+        </div>
+
+        <!-- Sliders Section -->
+        <div class="border-t border-white/10 pt-4 flex flex-col gap-4">
+            <!-- Quasar Jet Power -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-gray-300 font-medium">Potência do Jato (Quasar)</span>
+                    <span id="val-jet" class="text-gray-400 font-mono">120%</span>
+                </div>
+                <input type="range" id="slider-jet" min="0" max="2.0" step="0.01" value="1.2">
+            </div>
+
+            <!-- Event Horizon Visibility / Contrast -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-gray-300 font-medium">Nitidez do Horizonte de Eventos</span>
+                    <span id="val-horizon" class="text-gray-400 font-mono">100%</span>
+                </div>
+                <input type="range" id="slider-horizon" min="0.2" max="1.5" step="0.05" value="1.0">
+            </div>
+
+            <!-- Accretion Disk Brightness -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-gray-300 font-medium">Intensidade Luminosa</span>
+                    <span id="val-intensity" class="text-gray-400 font-mono">1.4x</span>
+                </div>
+                <input type="range" id="slider-intensity" min="0.2" max="3.0" step="0.05" value="1.4">
+            </div>
+
+            <!-- Gravitational Lensing -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-gray-300 font-medium">Massa / Lente Gravitacional</span>
+                    <span id="val-lensing" class="text-gray-400 font-mono">1.00 Rs</span>
+                </div>
+                <input type="range" id="slider-lensing" min="0.5" max="1.6" step="0.02" value="1.0">
+            </div>
+
+            <!-- Relativistic Doppler Beaming -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-gray-300 font-medium">Efeito Doppler Relativístico</span>
+                    <span id="val-doppler" class="text-gray-400 font-mono">Ativo</span>
+                </div>
+                <input type="range" id="slider-doppler" min="0.0" max="1.5" step="0.05" value="0.85">
+            </div>
+
+            <!-- Rotation Speed -->
+            <div>
+                <div class="flex justify-between text-xs mb-1.5">
+                    <span class="text-gray-300 font-medium">Velocidade do Plasma (Spin)</span>
+                    <span id="val-speed" class="text-gray-400 font-mono">1.0x</span>
+                </div>
+                <input type="range" id="slider-speed" min="0.0" max="3.0" step="0.1" value="1.0">
+            </div>
+        </div>
+
+        <!-- Camera Presets -->
+        <div class="border-t border-white/10 pt-3 flex items-center justify-between gap-2">
+            <button id="btn-cinematic" class="flex-1 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-medium transition">
+                Ângulo Cinematográfico
+            </button>
+            <button id="btn-autorotate" class="py-2 px-3 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-300 hover:bg-orange-500/30 text-xs font-medium transition">
+                Auto-Órbita: ON
+            </button>
+        </div>
+    </aside>
+
+    <!-- Shaders -->
+    <script id="vertexShader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+
+        varying vec2 vUv;
+        uniform vec2 uResolution;
+        uniform float uTime;
+        uniform vec3 uCamPos;
+        uniform vec3 uCamTarget;
+        uniform float uCamRoll;
+        
+        uniform vec3 uLightColor;
+        uniform float uJetIntensity;
+        uniform float uDiskIntensity;
+        uniform float uGravity;
+        uniform float uDoppler;
+        uniform float uHorizonContrast;
+        uniform float uPrismSpread;
+
+        #define MAX_STEPS 140
+        #define PI 3.14159265359
+
+        // Fast 3D hash and value noise for turbulent relativistic plasma
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        // Fractional Brownian Motion (4 octaves for detailed spiral filaments)
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            vec3 shift = vec3(100.0);
+            for (int i = 0; i < 4; ++i) {
+                v += a * noise(p);
+                p = p * 2.05 + shift;
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        // Procedural Starfield & Background Nebula distorted by gravitational lensing
+        vec3 getBackground(vec3 dir, vec3 tint) {
+            // Subtle space dust / Milky way band
+            float band = exp(-abs(dir.y * 3.5 + dir.x * 1.2));
+            float dust = fbm(dir * 3.5);
+            vec3 spaceCol = mix(vec3(0.003, 0.005, 0.012), tint * 0.12 + vec3(0.03, 0.05, 0.1), band * dust * 0.65);
+
+            // Multi-layered crisp stars
+            vec3 p = dir * 160.0;
+            vec3 id = floor(p);
+            vec3 f = fract(p) - 0.5;
+            float h = hash(id);
+            if (h > 0.965) {
+                float d = length(f);
+                float star = smoothstep(0.35, 0.0, d) * pow((h - 0.965) / 0.035, 2.0);
+                vec3 starTint = mix(vec3(1.0, 0.8, 0.6), vec3(0.6, 0.85, 1.0), fract(h * 43.2));
+                spaceCol += starTint * star * 3.5;
+            }
+
+            // Second star layer
+            p = dir * 320.0;
+            id = floor(p);
+            f = fract(p) - 0.5;
+            h = hash(id);
+            if (h > 0.975) {
+                float d = length(f);
+                float star = smoothstep(0.28, 0.0, d);
+                spaceCol += vec3(0.95) * star * 1.8;
+            }
+
+            return spaceCol;
+        }
+
+        // Smooth Cosine Rainbow / RGB Spectrum Palette
+        vec3 getRainbowSpectrum(float t) {
+            vec3 a = vec3(0.55, 0.55, 0.55);
+            vec3 b = vec3(0.45, 0.45, 0.45);
+            vec3 c = vec3(1.0, 1.0, 1.0);
+            vec3 d = vec3(0.00, 0.33, 0.67);
+            return a + b * cos(6.28318 * (c * t + d));
+        }
+
+        // Physical thermal color mapping + Prismatic RGB multi-band dispersion
+        vec3 getThermalSpectrum(float temp, vec3 baseColor, float dopplerShift, float spectralPhase) {
+            // Ensure rich dynamic range even if user picks a dark color
+            vec3 c = max(baseColor, vec3(0.04));
+            float maxComp = max(c.r, max(c.g, c.b));
+            vec3 normCol = c / maxComp;
+
+            // Blend base RGB color with full multi-color prismatic bands across the disk
+            vec3 prismColor = getRainbowSpectrum(spectralPhase - uTime * 0.12);
+            vec3 activeCol = mix(normCol, prismColor * 1.25, clamp(uPrismSpread, 0.0, 1.0));
+            if (uPrismSpread > 1.0) {
+                activeCol = mix(activeCol, prismColor * 1.6, uPrismSpread - 1.0);
+            }
+
+            // Outer cooler edges -> Mid main color -> White-hot inner core
+            vec3 outerEdge = pow(activeCol, vec3(2.0)) * 0.42;
+            vec3 midCore   = activeCol * 1.4;
+            vec3 hotCenter = mix(activeCol, vec3(1.0, 1.0, 1.0), 0.72) * 2.5;
+
+            vec3 col = mix(outerEdge, midCore, smoothstep(0.0, 0.45, temp));
+            col = mix(col, hotCenter, smoothstep(0.45, 1.0, temp));
+
+            // Relativistic Doppler shift (approaching side shifts towards blue-violet, receding shifts towards deep red-magenta)
+            vec3 blueShift = mix(col, col * vec3(0.75, 1.1, 1.45) + vec3(0.12, 0.22, 0.4), 0.5);
+            vec3 redShift  = col * vec3(1.3, 0.5, 0.35) * 0.48;
+            
+            float dFactor = clamp(dopplerShift * 0.5 + 0.5, 0.0, 1.0);
+            col = mix(redShift, blueShift, dFactor);
+
+            return col;
+        }
+
+        void main() {
+            // Normalized screen coordinates
+            vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
+
+            // Camera Matrix with cinematic roll angle
+            vec3 ro = uCamPos;
+            vec3 forward = normalize(uCamTarget - ro);
+            vec3 worldUp = vec3(sin(uCamRoll), cos(uCamRoll), 0.0);
+            vec3 right = normalize(cross(forward, worldUp));
+            vec3 up = cross(right, forward);
+
+            // Field of view
+            vec3 rd = normalize(forward * 1.35 + right * uv.x + up * uv.y);
+
+            // Black hole physical radii (Schwarzschild units)
+            float rs = 1.05; // Event Horizon radius clearly sized
+            float photonSphere = 1.52 * rs * uGravity;
+            float isco = 2.45; // Clear gap between Event Horizon and inner Accretion Disk so the Black Hole stands out
+            float diskOuter = 11.0;
+
+            vec3 pos = ro;
+            vec3 dir = rd;
+
+            vec3 accumGlow = vec3(0.0);
+            float transmittance = 1.0;
+            bool swallowed = false;
+            float minRadiusReached = 1000.0;
+
+            // Subtle frame jitter to break any banding
+            float dither = hash(vec3(gl_FragCoord.xy, fract(uTime))) * 0.025;
+
+            for (int i = 0; i < MAX_STEPS; i++) {
+                float r = length(pos);
+                minRadiusReached = min(minRadiusReached, r);
+
+                // 1. Event Horizon Capture (Pure Black Singularity Shadow)
+                if (r < rs) {
+                    swallowed = true;
+                    break;
+                }
+
+                // Escape condition
+                if (r > 26.0 && dot(pos, dir) > 0.0) {
+                    break;
+                }
+
+                // Adaptive step size: fine precision near the photon sphere, thin disk plane, and polar jet axis
+                float distToDiskPlane = abs(pos.y);
+                float distToJetAxis = length(pos.xz);
+
+                float stepSize = max(0.024, (r - rs * 0.88) * 0.08);
+                if (r < diskOuter + 1.5) {
+                    stepSize = min(stepSize, max(0.022, distToDiskPlane * 0.36));
+                }
+                if (uJetIntensity > 0.01 && abs(pos.y) > 0.9) {
+                    stepSize = min(stepSize, max(0.032, distToJetAxis * 0.35));
+                }
+                stepSize = min(stepSize, 0.5);
+
+                if (i == 0) stepSize *= (1.0 + dither);
+
+                // 2. Relativistic Gravitational Lensing (Geodesic bending)
+                vec3 hVec = cross(pos, dir);
+                float h2 = dot(hVec, hVec);
+                vec3 gravAccel = -1.5 * h2 * uGravity * pos / pow(r * r + 0.0001, 2.5);
+
+                vec3 nextDir = normalize(dir + gravAccel * stepSize);
+                vec3 midPos = pos + dir * (stepSize * 0.5);
+                float midR = length(midPos);
+
+                // Suppress foreground haze right in front of the event horizon so the black core stays ultra-visible
+                float foregroundMask = 1.0;
+                if (dot(midPos, ro) > 0.0 && length(cross(midPos, normalize(ro))) < rs * 1.15) {
+                    foregroundMask = mix(1.0, 0.12, clamp(uHorizonContrast, 0.0, 1.0));
+                }
+
+                // ==========================================================
+                // 3. VOLUMETRIC ACCRETION DISK
+                // ==========================================================
+                float diskRadius = length(midPos.xz);
+                float diskHeight = 0.05 + (diskRadius - isco) * 0.02;
+
+                if (diskRadius > isco * 0.88 && diskRadius < diskOuter && abs(midPos.y) < diskHeight * 3.5) {
+                    float radialFade = smoothstep(isco * 0.88, isco * 1.28, diskRadius) *
+                                       smoothstep(diskOuter, diskOuter * 0.42, diskRadius);
+                    float verticalFade = exp(-pow(midPos.y / diskHeight, 2.0) * 2.4);
+
+                    // Keplerian differential rotation
+                    float angle = atan(midPos.z, midPos.x);
+                    float angularVel = 5.5 / pow(max(diskRadius, 1.0), 1.15);
+                    float spiralPhase = angle + uTime * angularVel - log(diskRadius) * 4.8;
+
+                    vec3 noiseCoord = vec3(
+                        cos(spiralPhase) * diskRadius * 1.15,
+                        sin(spiralPhase) * diskRadius * 1.15,
+                        midPos.y * 7.0 + diskRadius * 1.5 - uTime * 0.4
+                    );
+
+                    float plasmaTurb = fbm(noiseCoord * 1.45);
+                    float fineRings = sin(diskRadius * 15.0 - plasmaTurb * 5.0) * 0.5 + 0.5;
+                    
+                    float density = radialFade * verticalFade * mix(0.25, 1.0, plasmaTurb) * mix(0.6, 1.2, fineRings);
+
+                    if (density > 0.002) {
+                        vec3 tangentVel = normalize(vec3(-midPos.z, 0.0, midPos.x));
+                        float beta = clamp(sqrt(0.65 / max(diskRadius, isco * 0.8)), 0.0, 0.65);
+                        float cosTheta = dot(dir, tangentVel);
+                        
+                        float dopplerShift = -cosTheta * beta * uDoppler * 2.4;
+                        float beamingBoost = pow(clamp(1.0 + dopplerShift * 0.65, 0.25, 2.5), 3.0);
+
+                        float temperature = clamp(pow(1.0 - (diskRadius - isco) / (diskOuter - isco), 1.4) + plasmaTurb * 0.35, 0.0, 1.0);
+                        float spectralPhase = (diskRadius - isco) * 0.32 + plasmaTurb * 0.65 + angle * 0.159;
+
+                        vec3 plasmaColor = getThermalSpectrum(temperature, uLightColor, dopplerShift, spectralPhase);
+                        plasmaColor *= beamingBoost * uDiskIntensity;
+
+                        // Keep a thin razor-like crossing band in front of the black hole without washing out the shadow
+                        float crossingMask = (dot(midPos, ro) > 0.0 && abs(midPos.y) > diskHeight * 0.85) ? foregroundMask : 1.0;
+
+                        float alpha = clamp(density * stepSize * 4.8 * crossingMask, 0.0, 1.0);
+                        accumGlow += transmittance * plasmaColor * density * stepSize * 7.8 * crossingMask;
+                        transmittance *= (1.0 - alpha);
+                    }
+                }
+
+                // ==========================================================
+                // 4. RELATIVISTIC QUASAR JETS (Blandford-Znajek Mechanism)
+                // ==========================================================
+                if (uJetIntensity > 0.005) {
+                    float absY = abs(midPos.y);
+                    float cylR = length(midPos.xz);
+
+                    // Collimated magnetic helix cone launching cleanly from outside the poles of the event horizon
+                    float jetRadius = 0.12 + pow(max(0.0, absY - 1.05) * 0.13, 0.88) + 0.025 * sin(absY * 3.0 - uTime * 8.0);
+
+                    if (absY > 1.12 && cylR < jetRadius * 2.6 && absY < 24.0) {
+                        float coreProfile = exp(-pow(cylR / (jetRadius * 0.4), 2.0) * 2.8);
+                        float sheathProfile = exp(-pow(cylR / (jetRadius * 1.3), 2.0) * 1.5);
+
+                        float jetAngle = atan(midPos.z, midPos.x);
+                        float helixTwist = jetAngle * 2.0 + absY * 1.6 - uTime * 9.5;
+                        vec3 jetSamplePos = vec3(
+                            cos(helixTwist) * cylR * 2.2,
+                            absY * 0.85 - uTime * 7.0,
+                            sin(helixTwist) * cylR * 2.2
+                        );
+
+                        float jetShock = fbm(jetSamplePos * 2.2);
+                        float shockKnots = pow(sin(absY * 1.8 - uTime * 11.0 + jetShock * 3.0) * 0.5 + 0.5, 2.0);
+
+                        // Smooth launch outside the black hole shadow so the sphere remains crisp
+                        float polarLaunch = smoothstep(1.12, 1.85, absY) * exp(-absY * 0.07);
+                        float jetDensity = (coreProfile * 1.65 + sheathProfile * jetShock * 0.85) * polarLaunch * (0.65 + 0.65 * shockKnots);
+                        jetDensity *= foregroundMask;
+
+                        if (jetDensity > 0.001) {
+                            vec3 jetVelDir = vec3(0.0, sign(midPos.y), 0.0);
+                            float jetDoppler = -dot(dir, jetVelDir) * 0.5 * uDoppler;
+                            float jetBeaming = pow(clamp(1.0 + jetDoppler, 0.45, 2.2), 2.2);
+
+                            vec3 baseCol = max(uLightColor, vec3(0.05));
+                            baseCol /= max(baseCol.r, max(baseCol.g, baseCol.b));
+                            
+                            vec3 jetRainbow = getRainbowSpectrum(absY * 0.12 - uTime * 0.35 + jetShock * 0.5);
+                            vec3 activeJetCol = mix(baseCol, jetRainbow * 1.3, clamp(uPrismSpread, 0.0, 1.0));
+                            
+                            vec3 synchOuter = mix(activeJetCol, vec3(0.25, 0.65, 1.0), 0.25) * 1.45;
+                            vec3 synchCore  = mix(activeJetCol, vec3(1.0, 1.0, 1.0), 0.82) * 3.2;
+
+                            vec3 jetCol = mix(synchOuter, synchCore, clamp(coreProfile + shockKnots * 0.35, 0.0, 1.0));
+                            jetCol *= uJetIntensity * jetBeaming;
+
+                            float jetAlpha = clamp(jetDensity * stepSize * 1.6 * uJetIntensity, 0.0, 1.0);
+                            accumGlow += transmittance * jetCol * jetDensity * stepSize * 4.8;
+                            transmittance *= (1.0 - jetAlpha * 0.65);
+                        }
+                    }
+
+                    // Magnetospheric Polar Launch Ring (positioned strictly at the poles outside the shadow)
+                    float polarDist = length(midPos - vec3(0.0, sign(midPos.y) * 1.35, 0.0));
+                    if (polarDist < 0.75 && midR > rs * 1.18) {
+                        float baseFlash = exp(-polarDist * 5.5) * uJetIntensity * 0.28 * foregroundMask;
+                        vec3 flashCol = mix(uLightColor, vec3(1.0), 0.75);
+                        accumGlow += transmittance * flashCol * baseFlash * stepSize * 3.5;
+                    }
+                }
+
+                // ==========================================================
+                // 5. SHARP RELATIVISTIC PHOTON RING (Outlines the Black Hole)
+                // ==========================================================
+                float distToPhotonSphere = abs(midR - photonSphere);
+                if (distToPhotonSphere < 0.32 && (!swallowed)) {
+                    float ringPulse = exp(-pow(distToPhotonSphere / 0.042, 2.0));
+                    float ringAngle = atan(midPos.y, midPos.x) * 0.159;
+                    vec3 ringSpectrum = mix(uLightColor, getRainbowSpectrum(ringAngle - uTime * 0.2), clamp(uPrismSpread * 0.7, 0.0, 1.0));
+                    vec3 ringCol = mix(ringSpectrum, vec3(1.0), 0.72) * (uDiskIntensity * 1.35 + 0.4);
+                    // Boost photon ring on tangential grazing rays so the black silhouette has a razor-sharp glowing rim
+                    float grazing = 1.0 - abs(dot(normalize(midPos), dir));
+                    accumGlow += transmittance * ringCol * ringPulse * pow(grazing, 2.0) * stepSize * 2.4;
+                }
+
+                // Advance ray along curved spacetime
+                pos += dir * stepSize;
+                dir = nextDir;
+
+                if (transmittance < 0.01) break;
+            }
+
+            // Background stars (only visible if the photon wasn't swallowed by the event horizon)
+            vec3 finalColor = vec3(0.0);
+            if (!swallowed) {
+                finalColor += transmittance * getBackground(dir, uLightColor);
+            } else {
+                // Carve out a deep, high-contrast abyss inside the Event Horizon shadow
+                // while preserving only the razor-thin equatorial accretion band passing directly in front
+                float shadowCarve = clamp(1.0 - uHorizonContrast * 0.78, 0.08, 1.0);
+                accumGlow *= mix(shadowCarve, 1.0, clamp(1.0 - transmittance, 0.0, 1.0) * 0.65);
+            }
+
+            // Add accumulated volumetric emission from disk, photon ring, and quasar jets
+            finalColor += accumGlow;
+
+            // Subtle volumetric atmospheric bloom strictly outside the event horizon
+            if (!swallowed) {
+                float closestDist = max(0.0, minRadiusReached - rs);
+                float halo = exp(-closestDist * 0.85) * 0.12 * (uDiskIntensity * 0.5 + uJetIntensity * 0.3);
+                finalColor += uLightColor * halo;
+            }
+
+            // ACES Filmic Tone Mapping for cinematic HDR highlights without harsh clipping
+            vec3 x = finalColor * 0.85;
+            float a = 2.51;
+            float b = 0.03;
+            float c = 2.43;
+            float d = 0.59;
+            float e = 0.14;
+            finalColor = clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+
+            // Gamma correction
+            finalColor = pow(finalColor, vec3(1.0 / 2.2));
+
+            gl_FragColor = vec4(finalColor, 1.0);
+        }
+    </script>
+
+    <!-- Main Application Script -->
+    <script>
+        window.onload = function () {
+            const container = document.getElementById('canvas-container');
+
+            // Scene, Orthographic Camera & WebGLRenderer for fullscreen raymarching quad
+            const scene = new THREE.Scene();
+            const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+            const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
+            renderer.setPixelRatio(pixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Spherical Orbit Camera State
+            const camState = {
+                theta: 0.45,           // Horizontal angle
+                phi: 1.42,             // Vertical angle (near equatorial plane to show strong lensing)
+                radius: 11.5,          // Distance from singularity
+                roll: -0.22,           // Cinematic tilt angle
+                targetTheta: 0.45,
+                targetPhi: 1.42,
+                targetRadius: 11.5,
+                targetRoll: -0.22,
+                autoRotate: true
+            };
+
+            // Simulation Parameters
+            const simParams = {
+                time: 0,
+                speed: 1.0,
+                lightColor: new THREE.Color('#ff6a00'),
+                jetIntensity: 1.2,     // Starts with Quasar active as requested
+                targetJetIntensity: 1.2,
+                diskIntensity: 1.4,
+                gravity: 1.0,
+                doppler: 0.85,
+                horizonContrast: 1.0,
+                prismSpread: 0.65,
+                rgbCycle: false,
+                rgbHue: 0.06
+            };
+
+            // Shader Uniforms
+            const uniforms = {
+                uResolution: { value: new THREE.Vector2(window.innerWidth * pixelRatio, window.innerHeight * pixelRatio) },
+                uTime: { value: 0 },
+                uCamPos: { value: new THREE.Vector3() },
+                uCamTarget: { value: new THREE.Vector3(0, 0, 0) },
+                uCamRoll: { value: camState.roll },
+                uLightColor: { value: simParams.lightColor },
+                uJetIntensity: { value: simParams.jetIntensity },
+                uDiskIntensity: { value: simParams.diskIntensity },
+                uGravity: { value: simParams.gravity },
+                uDoppler: { value: simParams.doppler },
+                uHorizonContrast: { value: simParams.horizonContrast },
+                uPrismSpread: { value: simParams.prismSpread }
+            };
+
+            // Fullscreen Shader Material
+            const material = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('vertexShader').textContent,
+                fragmentShader: document.getElementById('fragmentShader').textContent,
+                uniforms: uniforms,
+                depthWrite: false,
+                depthTest: false
+            });
+
+            const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+            scene.add(quad);
+
+            // ============================================================================
+            // MOUSE & TOUCH CAMERA CONTROLS
+            // ============================================================================
+            let isDragging = false;
+            let prevX = 0;
+            let prevY = 0;
+            let initialPinchDist = null;
+
+            const domElem = renderer.domElement;
+
+            domElem.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                prevX = e.clientX;
+                prevY = e.clientY;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - prevX;
+                const dy = e.clientY - prevY;
+                prevX = e.clientX;
+                prevY = e.clientY;
+
+                camState.targetTheta -= dx * 0.0065;
+                camState.targetPhi = Math.max(0.12, Math.min(Math.PI - 0.12, camState.targetPhi - dy * 0.0065));
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            domElem.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                camState.targetRadius = Math.max(3.8, Math.min(22.0, camState.targetRadius + e.deltaY * 0.008));
+            }, { passive: false });
+
+            // Touch Support (Orbit + Pinch Zoom)
+            domElem.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    isDragging = false;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    initialPinchDist = Math.hypot(dx, dy);
+                }
+            }, { passive: true });
+
+            domElem.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isDragging) {
+                    const dx = e.touches[0].clientX - prevX;
+                    const dy = e.touches[0].clientY - prevY;
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+
+                    camState.targetTheta -= dx * 0.007;
+                    camState.targetPhi = Math.max(0.12, Math.min(Math.PI - 0.12, camState.targetPhi - dy * 0.007));
+                } else if (e.touches.length === 2 && initialPinchDist !== null) {
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const dist = Math.hypot(dx, dy);
+                    const delta = initialPinchDist - dist;
+                    camState.targetRadius = Math.max(3.8, Math.min(22.0, camState.targetRadius + delta * 0.025));
+                    initialPinchDist = dist;
+                }
+            }, { passive: true });
+
+            domElem.addEventListener('touchend', () => {
+                isDragging = false;
+                initialPinchDist = null;
+            });
+
+            // ============================================================================
+            // UI CONTROLS BINDING
+            // ============================================================================
+            const colorPicker = document.getElementById('color-picker');
+            const statusDot = document.getElementById('status-dot');
+            const presetButtons = document.querySelectorAll('.color-preset');
+            
+            const sliderR = document.getElementById('slider-r');
+            const sliderG = document.getElementById('slider-g');
+            const sliderB = document.getElementById('slider-b');
+            const valR = document.getElementById('val-r');
+            const valG = document.getElementById('val-g');
+            const valB = document.getElementById('val-b');
+
+            const btnRgbCycle = document.getElementById('btn-rgb-cycle');
+            const btnRgbPrism = document.getElementById('btn-rgb-prism');
+            const sliderPrism = document.getElementById('slider-prism');
+            const valPrism = document.getElementById('val-prism');
+
+            const modeBhBtn = document.getElementById('mode-bh');
+            const modeQuasarBtn = document.getElementById('mode-quasar');
+
+            const sliderJet = document.getElementById('slider-jet');
+            const valJet = document.getElementById('val-jet');
+
+            const sliderHorizon = document.getElementById('slider-horizon');
+            const valHorizon = document.getElementById('val-horizon');
+
+            const sliderIntensity = document.getElementById('slider-intensity');
+            const valIntensity = document.getElementById('val-intensity');
+
+            const sliderLensing = document.getElementById('slider-lensing');
+            const valLensing = document.getElementById('val-lensing');
+
+            const sliderDoppler = document.getElementById('slider-doppler');
+            const valDoppler = document.getElementById('slider-doppler');
+
+            const sliderSpeed = document.getElementById('slider-speed');
+            const valSpeed = document.getElementById('val-speed');
+
+            function syncRgbSlidersFromColor(threeColor) {
+                const r = Math.round(threeColor.r * 255);
+                const g = Math.round(threeColor.g * 255);
+                const b = Math.round(threeColor.b * 255);
+                sliderR.value = r;
+                sliderG.value = g;
+                sliderB.value = b;
+                valR.textContent = r;
+                valG.textContent = g;
+                valB.textContent = b;
+            }
+
+            function updateLightColor(hexColor, syncSliders = true) {
+                simParams.lightColor.set(hexColor);
+                const formattedHex = '#' + simParams.lightColor.getHexString();
+                colorPicker.value = formattedHex;
+                statusDot.style.backgroundColor = formattedHex;
+                statusDot.style.boxShadow = `0 0 12px ${formattedHex}`;
+
+                if (syncSliders) {
+                    syncRgbSlidersFromColor(simParams.lightColor);
+                }
+
+                presetButtons.forEach(btn => {
+                    if (btn.dataset.color.toLowerCase() === formattedHex.toLowerCase()) {
+                        btn.classList.add('border-2', 'border-white');
+                        btn.classList.remove('border', 'border-white/20');
+                    } else {
+                        btn.classList.remove('border-2', 'border-white');
+                        btn.classList.add('border', 'border-white/20');
+                    }
+                });
+            }
+
+            function updateFromRgbSliders() {
+                const r = parseInt(sliderR.value, 10);
+                const g = parseInt(sliderG.value, 10);
+                const b = parseInt(sliderB.value, 10);
+                valR.textContent = r;
+                valG.textContent = g;
+                valB.textContent = b;
+                simParams.lightColor.setRGB(r / 255, g / 255, b / 255);
+                const hex = '#' + simParams.lightColor.getHexString();
+                colorPicker.value = hex;
+                statusDot.style.backgroundColor = hex;
+                statusDot.style.boxShadow = `0 0 12px ${hex}`;
+            }
+
+            sliderR.addEventListener('input', updateFromRgbSliders);
+            sliderG.addEventListener('input', updateFromRgbSliders);
+            sliderB.addEventListener('input', updateFromRgbSliders);
+
+            colorPicker.addEventListener('input', (e) => {
+                updateLightColor(e.target.value, true);
+            });
+
+            function updatePrismUI(v) {
+                simParams.prismSpread = v;
+                uniforms.uPrismSpread.value = v;
+                sliderPrism.value = v;
+                valPrism.textContent = Math.round(v * 100) + "%";
+                if (v > 0.05) {
+                    btnRgbPrism.textContent = "Prisma Espectral: ON";
+                    btnRgbPrism.className = "py-2 px-2.5 rounded-xl bg-gradient-to-r from-red-500/25 via-green-500/25 to-blue-500/25 border border-white/30 text-[11px] font-semibold transition text-white shadow";
+                } else {
+                    btnRgbPrism.textContent = "Prisma Espectral: OFF";
+                    btnRgbPrism.className = "py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-[11px] font-semibold transition text-gray-400";
+                }
+            }
+
+            sliderPrism.addEventListener('input', (e) => {
+                updatePrismUI(parseFloat(e.target.value));
+            });
+
+            btnRgbPrism.addEventListener('click', () => {
+                updatePrismUI(simParams.prismSpread > 0.05 ? 0.0 : 0.85);
+            });
+
+            btnRgbCycle.addEventListener('click', () => {
+                simParams.rgbCycle = !simParams.rgbCycle;
+                if (simParams.rgbCycle) {
+                    btnRgbCycle.innerHTML = `<span class="w-2 h-2 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500 animate-spin"></span> Ciclo RGB: ON`;
+                    btnRgbCycle.className = "py-2 px-2.5 rounded-xl bg-white/20 border border-white/40 text-[11px] font-semibold transition flex items-center justify-center gap-1.5 text-white shadow";
+                } else {
+                    btnRgbCycle.innerHTML = `<span class="w-2 h-2 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500"></span> Ciclo RGB: OFF`;
+                    btnRgbCycle.className = "py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-[11px] font-semibold transition flex items-center justify-center gap-1.5 text-gray-300";
+                }
+            });
+
+            presetButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    updateLightColor(btn.dataset.color, true);
+                    if (btn.dataset.prism) {
+                        updatePrismUI(parseFloat(btn.dataset.prism));
+                    }
+                });
+            });
+
+            function updateModeUI(isQuasar) {
+                if (isQuasar) {
+                    modeQuasarBtn.className = "py-2 px-3 rounded-lg text-xs font-semibold transition-all bg-white/15 text-white shadow";
+                    modeBhBtn.className = "py-2 px-3 rounded-lg text-xs font-semibold transition-all text-gray-400 hover:text-white";
+                } else {
+                    modeBhBtn.className = "py-2 px-3 rounded-lg text-xs font-semibold transition-all bg-white/15 text-white shadow";
+                    modeQuasarBtn.className = "py-2 px-3 rounded-lg text-xs font-semibold transition-all text-gray-400 hover:text-white";
+                }
+            }
+
+            // Initialize Quasar mode button active state
+            updateModeUI(true);
+
+            modeBhBtn.addEventListener('click', () => {
+                simParams.targetJetIntensity = 0.0;
+                sliderJet.value = 0.0;
+                valJet.textContent = "0%";
+                updateModeUI(false);
+            });
+
+            modeQuasarBtn.addEventListener('click', () => {
+                simParams.targetJetIntensity = 1.35;
+                sliderJet.value = 1.35;
+                valJet.textContent = "135%";
+                updateModeUI(true);
+            });
+
+            sliderJet.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                simParams.targetJetIntensity = v;
+                valJet.textContent = Math.round(v * 100) + "%";
+                updateModeUI(v > 0.05);
+            });
+
+            sliderHorizon.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                simParams.horizonContrast = v;
+                uniforms.uHorizonContrast.value = v;
+                valHorizon.textContent = Math.round(v * 100) + "%";
+            });
+
+            sliderIntensity.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                simParams.diskIntensity = v;
+                uniforms.uDiskIntensity.value = v;
+                valIntensity.textContent = v.toFixed(2) + "x";
+            });
+
+            sliderLensing.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                simParams.gravity = v;
+                uniforms.uGravity.value = v;
+                valLensing.textContent = v.toFixed(2) + " Rs";
+            });
+
+            sliderDoppler.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                simParams.doppler = v;
+                uniforms.uDoppler.value = v;
+                valDoppler.textContent = v === 0 ? "Desativado" : (v * 100).toFixed(0) + "%";
+            });
+
+            sliderSpeed.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                simParams.speed = v;
+                valSpeed.textContent = v.toFixed(1) + "x";
+            });
+
+            // Camera Preset & Auto-rotate Buttons
+            document.getElementById('btn-cinematic').addEventListener('click', () => {
+                camState.targetPhi = 1.44;
+                camState.targetRadius = 10.5;
+                camState.targetRoll = -0.24;
+            });
+
+            const autoRotateBtn = document.getElementById('btn-autorotate');
+            autoRotateBtn.addEventListener('click', () => {
+                camState.autoRotate = !camState.autoRotate;
+                if (camState.autoRotate) {
+                    autoRotateBtn.textContent = "Auto-Órbita: ON";
+                    autoRotateBtn.className = "py-2 px-3 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-300 hover:bg-orange-500/30 text-xs font-medium transition";
+                } else {
+                    autoRotateBtn.textContent = "Auto-Órbita: OFF";
+                    autoRotateBtn.className = "py-2 px-3 rounded-xl bg-white/10 border border-white/10 text-gray-300 hover:bg-white/20 text-xs font-medium transition";
+                }
+            });
+
+            // Show / Hide Control Panel
+            const controlPanel = document.getElementById('control-panel');
+            const toggleUiBtn = document.getElementById('toggle-ui-btn');
+            const toggleUiText = document.getElementById('toggle-ui-text');
+            let panelVisible = true;
+
+            toggleUiBtn.addEventListener('click', () => {
+                panelVisible = !panelVisible;
+                if (panelVisible) {
+                    controlPanel.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+                    toggleUiText.textContent = "Ocultar Painel";
+                } else {
+                    controlPanel.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+                    toggleUiText.textContent = "Mostrar Painel";
+                }
+            });
+
+            // Responsive Resize Handling
+            window.addEventListener('resize', () => {
+                const pr = Math.min(window.devicePixelRatio || 1, 1.75);
+                renderer.setPixelRatio(pr);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                uniforms.uResolution.value.set(window.innerWidth * pr, window.innerHeight * pr);
+            });
+
+            // ============================================================================
+            // ANIMATION LOOP
+            // ============================================================================
+            let lastTime = performance.now();
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                const now = performance.now();
+                const dt = Math.min((now - lastTime) * 0.001, 0.1);
+                lastTime = now;
+
+                // Advance simulation time
+                simParams.time += dt * simParams.speed;
+                uniforms.uTime.value = simParams.time;
+
+                // Optional smooth RGB Chroma Cycling
+                if (simParams.rgbCycle) {
+                    simParams.rgbHue = (simParams.rgbHue + dt * 0.12) % 1.0;
+                    simParams.lightColor.setHSL(simParams.rgbHue, 1.0, 0.55);
+                    const hex = '#' + simParams.lightColor.getHexString();
+                    colorPicker.value = hex;
+                    statusDot.style.backgroundColor = hex;
+                    statusDot.style.boxShadow = `0 0 12px ${hex}`;
+                    syncRgbSlidersFromColor(simParams.lightColor);
+                }
+
+                // Smoothly interpolate Quasar Jet intensity
+                simParams.jetIntensity += (simParams.targetJetIntensity - simParams.jetIntensity) * 0.08;
+                uniforms.uJetIntensity.value = simParams.jetIntensity;
+
+                // Gentle orbital camera motion
+                if (camState.autoRotate && !isDragging) {
+                    camState.targetTheta += dt * 0.12;
+                }
+
+                // Smooth damping for camera movement
+                camState.theta += (camState.targetTheta - camState.theta) * 0.08;
+                camState.phi += (camState.targetPhi - camState.phi) * 0.08;
+                camState.radius += (camState.targetRadius - camState.radius) * 0.08;
+                camState.roll += (camState.targetRoll - camState.roll) * 0.08;
+
+                // Convert spherical coordinates to Cartesian camera position
+                const sinPhi = Math.sin(camState.phi);
+                const x = camState.radius * sinPhi * Math.sin(camState.theta);
+                const y = camState.radius * Math.cos(camState.phi);
+                const z = camState.radius * sinPhi * Math.cos(camState.theta);
+
+                uniforms.uCamPos.value.set(x, y, z);
+                uniforms.uCamRoll.value = camState.roll;
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        };
+    </script>
+</body>
+</html>
