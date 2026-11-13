@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratório 3D: Estrelas de Nêutrons & Pulsares</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #02040a;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .font-space {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(10, 14, 26, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+        }
+        /* Custom Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 15px;
+            width: 15px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -4.5px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+            transition: transform 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .type-card.active {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.18));
+            border-color: rgba(56, 189, 248, 0.7);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="relative text-white antialiased">
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container" class="w-full h-full"></div>
+
+    <!-- Top Header -->
+    <header id="top-header" class="fixed top-4 left-4 right-4 md:right-auto z-10 pointer-events-none flex flex-col sm:flex-row items-start sm:items-center gap-3 transition-all duration-300">
+        <div class="glass-panel px-4 py-3 rounded-2xl pointer-events-auto flex items-center gap-3">
+            <div id="status-indicator" class="w-3.5 h-3.5 rounded-full bg-cyan-400 animate-ping"></div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 id="header-title" class="font-space font-bold text-base md:text-lg tracking-wider uppercase text-white">
+                        Pulsar
+                    </h1>
+                    <span id="header-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300">
+                        1.4 Massas Solares • ~20 km
+                    </span>
+                    <span id="header-hz-live" class="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-white">
+                        1.50 Hz (1.5 giros/s)
+                    </span>
+                </div>
+                <p id="header-desc" class="text-xs text-gray-300 mt-0.5">
+                    Emite pulsos regulares de radiação eletromagnética pelos polos magnéticos.
+                </p>
+                <p class="text-[11px] text-cyan-300/80 mt-1">
+                    Câmera Livre 360°: Arraste (Esq) para girar • Arraste (Dir/Shift) para mover • Scroll para Zoom
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Right Action Bar: Scientific Pulsar Sound + Hide All Panels -->
+    <div class="fixed top-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+        <!-- Scientific Pulsar Radio Sound Button -->
+        <button id="toggle-sound-btn" class="glass-panel px-4 py-2.5 rounded-full hover:bg-white/15 border border-emerald-400/40 transition-all duration-300 active:scale-95 flex items-center gap-2 text-xs font-semibold shadow-lg text-emerald-300" title="Ouvir o som real acústico captado por radiotelescópio">
+            <svg id="icon-sound-off" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+            <svg id="icon-sound-on" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-400 hidden animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+            <span id="toggle-sound-text" class="text-gray-200">Som do Pulsar: OFF</span>
+        </button>
+
+        <!-- Toggle All UI Panels Button -->
+        <button id="toggle-ui-btn" class="glass-panel px-4 py-2.5 rounded-full hover:bg-white/15 border border-cyan-400/30 transition-all duration-300 active:scale-95 flex items-center gap-2 text-xs font-semibold shadow-lg" title="Atalho: Tecla H">
+            <svg id="icon-eye-open" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
+            <svg id="icon-eye-closed" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span id="toggle-ui-text">Esconder Painéis</span>
+        </button>
+    </div>
+
+    <!-- Left Classification Selector (The 5 Neutron Star Types) -->
+    <nav id="types-panel" class="fixed bottom-4 left-4 right-4 md:right-auto md:top-24 md:bottom-auto md:w-80 z-10 glass-panel rounded-3xl p-4 transition-all duration-300 max-h-[44vh] md:max-h-[78vh] overflow-y-auto flex flex-col gap-2.5">
+        <div class="flex items-center justify-between px-1 mb-1">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-300">Classificação Astrofísica</span>
+            <span class="text-[11px] text-gray-400">Clique para alternar</span>
+        </div>
+
+        <!-- 1. Pulsar -->
+        <button data-type="pulsar" class="type-card active text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0 mt-0.5 text-cyan-300 font-bold text-xs">01</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Pulsar</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Emite pulsos regulares de radiação.</div>
+            </div>
+        </button>
+
+        <!-- 2. Magnetar -->
+        <button data-type="magnetar" class="type-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center shrink-0 mt-0.5 text-purple-300 font-bold text-xs">02</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Magnetar</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Possui campo magnético extremamente intenso.</div>
+            </div>
+        </button>
+
+        <!-- 3. Pulsar de Milissegundo -->
+        <button data-type="millisecond" class="type-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0 mt-0.5 text-emerald-300 font-bold text-xs">03</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Pulsar de milissegundo</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Gira centenas de vezes por segundo.</div>
+            </div>
+        </button>
+
+        <!-- 4. Pulsar de Raios X -->
+        <button data-type="xray" class="type-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-400/40 flex items-center justify-center shrink-0 mt-0.5 text-orange-300 font-bold text-xs">04</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Pulsar de raios X</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Emite raios X devido à matéria atraída de uma companheira.</div>
+            </div>
+        </button>
+
+        <!-- 5. Estrela Isolada -->
+        <button data-type="isolated" class="type-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center shrink-0 mt-0.5 text-blue-300 font-bold text-xs">05</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Estrela isolada</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Não apresenta necessariamente pulsos detectáveis de rádio.</div>
+            </div>
+        </button>
+    </nav>
+
+    <!-- Right Physical Parameters & RGB Control Panel -->
+    <aside id="controls-panel" class="hidden md:flex fixed top-20 right-4 w-80 z-10 glass-panel rounded-3xl p-4 transition-all duration-300 max-h-[80vh] overflow-y-auto flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-300">Controles Físicos & RGB</span>
+            <button id="btn-reset-cam" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-medium text-cyan-300 transition">
+                Centralizar Câmera
+            </button>
+        </div>
+
+        <button id="btn-flare" class="hidden w-full py-2 px-3 rounded-xl bg-purple-500/30 border border-purple-400 text-xs font-semibold text-purple-200 hover:bg-purple-500/50 transition animate-pulse">
+            ⚡ Disparar Explosão de Raios Gama
+        </button>
+
+        <!-- RGB Custom Controls -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs text-gray-300 font-medium">Cor da Radiação (RGB)</span>
+                <button id="btn-rgb-cycle" class="text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition">
+                    Ciclo RGB: OFF
+                </button>
+            </div>
+            <div class="bg-black/40 p-2.5 rounded-2xl border border-white/10 flex flex-col gap-2">
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-red-400 font-mono">R</span>
+                    <input type="range" id="slider-r" min="0" max="255" value="0">
+                    <span id="val-r" class="w-7 text-right font-mono text-[11px] text-gray-300">0</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-green-400 font-mono">G</span>
+                    <input type="range" id="slider-g" min="0" max="255" value="220">
+                    <span id="val-g" class="w-7 text-right font-mono text-[11px] text-gray-300">220</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-blue-400 font-mono">B</span>
+                    <input type="range" id="slider-b" min="0" max="255" value="255">
+                    <span id="val-b" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rotation Speed in Hz (Rotations Per Second) -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Frequência de Spin (Giros/s)</span>
+                <span id="val-spin" class="text-cyan-300 font-mono font-bold">1.50 Hz</span>
+            </div>
+            <input type="range" id="slider-spin" min="0.1" max="700.0" step="0.1" value="1.5">
+            <div class="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
+                <span>0.1 Hz (Lento)</span>
+                <span>Pulsar Vela (~11 Hz)</span>
+                <span>700 Hz (Máx)</span>
+            </div>
+        </div>
+
+        <!-- Magnetic Axis Tilt -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Inclinação do Eixo Magnético</span>
+                <span id="val-tilt" class="text-gray-400 font-mono">32°</span>
+            </div>
+            <input type="range" id="slider-tilt" min="0" max="85" step="1" value="32">
+        </div>
+
+        <!-- Magnetic Field Strength -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Intensidade do Campo Magnético</span>
+                <span id="val-mag" class="text-gray-400 font-mono">100%</span>
+            </div>
+            <input type="range" id="slider-mag" min="0.0" max="2.5" step="0.05" value="1.0">
+        </div>
+
+        <!-- Radiation Beam Power -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Potência dos Feixes Polares</span>
+                <span id="val-beam" class="text-gray-400 font-mono">100%</span>
+            </div>
+            <input type="range" id="slider-beam" min="0.0" max="2.5" step="0.05" value="1.0">
+        </div>
+
+        <!-- Pulsar Radio Audio Volume -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Volume do Rádio-Telescópio</span>
+                <span id="val-vol" class="text-emerald-300 font-mono">80%</span>
+            </div>
+            <input type="range" id="slider-vol" min="0.0" max="1.0" step="0.02" value="0.8">
+        </div>
+
+        <!-- Scientific Data Card -->
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-xs flex flex-col gap-1.5">
+            <div class="flex justify-between">
+                <span class="text-gray-400">Campo Magnético:</span>
+                <span id="stat-bfield" class="font-mono font-semibold text-white">10¹² Gauss</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Período de 1 Giro:</span>
+                <span id="stat-period" class="font-mono font-semibold text-white">666.7 ms</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Emissão Dominante:</span>
+                <span id="stat-emission" class="font-mono font-semibold text-cyan-300">Rádio / Óptico</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Custom Shaders for Neutron Star Surface & Volumetric Radiation Beams -->
+    <script id="starVertexShader" type="x-shader/x-vertex">
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            vNormal = normalize(normalMatrix * normal);
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    </script>
+
+    <script id="starFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec2 vUv;
+
+        uniform float uTime;
+        uniform vec3 uColor;
+        uniform float uCrustCrack;
+        uniform float uHotspotIntensity;
+
+        // 3D Simplex-like noise for neutron star crust & magnetic hotspots
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p *= 2.1;
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        void main() {
+            vec3 normPos = normalize(vPosition);
+            float n = fbm(normPos * 4.5 + uTime * 0.15);
+            float fine = fbm(normPos * 12.0 - uTime * 0.3);
+
+            // Magnetic North & South Polar Hotspots (along Y axis of the magnetic group)
+            float polarCap = pow(abs(normPos.y), 4.0) * uHotspotIntensity;
+
+            // Magnetar crust fractures (starquakes)
+            float cracks = smoothstep(0.45, 0.52, abs(fine - 0.5) * 4.0);
+            float magma = (1.0 - cracks) * uCrustCrack * 2.5;
+
+            // Fresnel atmospheric X-ray limb glow
+            float fresnel = pow(1.0 - max(0.0, dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.2);
+
+            vec3 baseSurface = mix(uColor * 0.35, uColor * 1.4, n);
+            vec3 hotCore = mix(uColor, vec3(1.0, 1.0, 1.0), 0.78);
+
+            vec3 col = baseSurface;
+            col += hotCore * polarCap * 1.8;
+            col += mix(vec3(1.0, 0.3, 0.8), vec3(1.0, 0.9, 0.5), n) * magma;
+            col += uColor * fresnel * 1.5 + vec3(0.85, 0.95, 1.0) * pow(fresnel, 4.0);
+
+            gl_FragColor = vec4(col, 1.0);
+        }
+    </script>
+
+    <script id="beamVertexShader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        varying vec3 vPos;
+        varying vec3 vNormal;
+        void main() {
+            vUv = uv;
+            vPos = position;
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    </script>
+
+    <script id="beamFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+        varying vec2 vUv;
+        varying vec3 vPos;
+        varying vec3 vNormal;
+
+        uniform float uTime;
+        uniform vec3 uColor;
+        uniform float uPower;
+        uniform float uPulseFreq;
+
+        void main() {
+            // Distance along the cone (0 at star pole, 1 at far tip)
+            float dist = abs(vPos.y) / 16.0;
+            float radial = 1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0)));
+
+            // Travelling relativistic plasma waves along the pulsar beam
+            float wave1 = sin(dist * 28.0 - uTime * uPulseFreq) * 0.5 + 0.5;
+            float wave2 = sin(dist * 60.0 - uTime * uPulseFreq * 1.7) * 0.5 + 0.5;
+            float pulse = mix(0.65, 1.35, wave1 * 0.7 + wave2 * 0.3);
+
+            float fadeOut = exp(-dist * 2.2) * smoothstep(0.0, 0.08, dist);
+            float coreIntensity = pow(max(0.0, abs(dot(vNormal, vec3(0.0, 0.0, 1.0)))), 1.6);
+
+            vec3 beamCol = mix(uColor, vec3(1.0), coreIntensity * 0.7);
+            float alpha = fadeOut * coreIntensity * pulse * uPower * 0.85;
+
+            gl_FragColor = vec4(beamCol * 1.8, clamp(alpha, 0.0, 1.0));
+        }
+    </script>
+
+    <script>
+        window.onload = function () {
+            const container = document.getElementById('canvas-container');
+
+            // ============================================================================
+            // ASTROPHYSICAL PRESETS FOR THE 5 NEUTRON STAR TYPES (Spin in Real Hz)
+            // ============================================================================
+            const ASTRO_TYPES = {
+                pulsar: {
+                    name: "Pulsar",
+                    badge: "Rotação Regular • Farol Cósmico",
+                    desc: "Emite pulsos regulares de radiação eletromagnética pelos polos magnéticos (Ex: Pulsar de Vela / Caranguejo).",
+                    color: [0, 220, 255],
+                    spinHz: 1.5,          // 1.5 rotações completas por segundo
+                    tiltDeg: 32,
+                    magStrength: 1.0,
+                    beamPower: 1.35,
+                    crustCrack: 0.0,
+                    hotspot: 1.2,
+                    hasCompanion: false,
+                    bfield: "10¹² Gauss",
+                    emission: "Pulsos de Rádio / Óptico"
+                },
+                magnetar: {
+                    name: "Magnetar",
+                    badge: "Campo Magnético Extremo",
+                    desc: "Possui campo magnético extremamente intenso capaz de distorcer átomos e fraturar a crosta estelar.",
+                    color: [195, 70, 255],
+                    spinHz: 0.35,         // 0.35 rotações por segundo (~2.8s por giro)
+                    tiltDeg: 18,
+                    magStrength: 2.4,
+                    beamPower: 0.55,
+                    crustCrack: 1.0,
+                    hotspot: 1.5,
+                    hasCompanion: false,
+                    bfield: "10¹⁵ Gauss (1 Quadrilhão)",
+                    emission: "Surtos de Raios Gama / Raios X"
+                },
+                millisecond: {
+                    name: "Pulsar de milissegundo",
+                    badge: "Ultra-Rotação Relativística (100–700 Hz)",
+                    desc: "Gira centenas de vezes por segundo! Seu som acústico no radiotelescópio parece uma nota musical contínua.",
+                    color: [16, 245, 160],
+                    spinHz: 310.0,        // 310 rotações completas por segundo!
+                    tiltDeg: 42,
+                    magStrength: 0.65,
+                    beamPower: 1.65,
+                    crustCrack: 0.0,
+                    hotspot: 1.6,
+                    hasCompanion: false,
+                    bfield: "10⁸ Gauss",
+                    emission: "Rádio / Gama Ultra-Rápido"
+                },
+                xray: {
+                    name: "Pulsar de raios X",
+                    badge: "Sistema Binário em Acreção",
+                    desc: "Emite raios X intensos devido ao gás superaquecido atraído gravitacionalmente de uma estrela companheira.",
+                    color: [255, 115, 25],
+                    spinHz: 4.2,          // 4.2 rotações por segundo
+                    tiltDeg: 26,
+                    magStrength: 1.15,
+                    beamPower: 1.5,
+                    crustCrack: 0.25,
+                    hotspot: 2.0,
+                    hasCompanion: true,
+                    bfield: "10¹² Gauss",
+                    emission: "Raios X de Alta Energia"
+                },
+                isolated: {
+                    name: "Estrela isolada",
+                    badge: "Emissão Térmica Silenciosa",
+                    desc: "Não apresenta necessariamente pulsos detectáveis de rádio; brilha suavemente pelo resfriamento térmico de sua superfície.",
+                    color: [90, 155, 255],
+                    spinHz: 0.2,          // 0.2 rotações por segundo
+                    tiltDeg: 6,
+                    magStrength: 0.18,
+                    beamPower: 0.0,
+                    crustCrack: 0.0,
+                    hotspot: 0.25,
+                    hasCompanion: false,
+                    bfield: "10¹⁰ – 10¹¹ Gauss",
+                    emission: "Térmica Suave (Sem Pulsos de Rádio)"
+                }
+            };
+
+            // ============================================================================
+            // THREE.JS SCENE SETUP
+            // ============================================================================
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Generate procedural soft radial glow texture for particles and halos
+            function createGlowTexture() {
+                const c = document.createElement('canvas');
+                c.width = 64;
+                c.height = 64;
+                const ctx = c.getContext('2d');
+                const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(0.3, 'rgba(255,255,255,0.6)');
+                grad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 64, 64);
+                return new THREE.CanvasTexture(c);
+            }
+            const glowTex = createGlowTexture();
+
+            // Background Starfield
+            const starCount = 2400;
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = new Float32Array(starCount * 3);
+            const starColors = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount; i++) {
+                const r = 60 + Math.random() * 140;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                starPos[i * 3 + 1] = r * Math.cos(phi);
+                starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+                const tint = Math.random();
+                starColors[i * 3] = 0.75 + 0.25 * tint;
+                starColors[i * 3 + 1] = 0.8 + 0.2 * (1 - tint * 0.3);
+                starColors[i * 3 + 2] = 0.9 + 0.1 * (1 - tint);
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+            const starField = new THREE.Points(
+                starGeo,
+                new THREE.PointsMaterial({ size: 0.75, vertexColors: true, transparent: true, opacity: 0.85 })
+            );
+            scene.add(starField);
+
+            // ============================================================================
+            // NEUTRON STAR HIERARCHY (Spin Axis -> Magnetic Tilt Axis)
+            // ============================================================================
+            const spinGroup = new THREE.Group(); // Rotates around Y (Rotational Axis)
+            scene.add(spinGroup);
+
+            // Subtle vertical rotational axis reference line
+            const axisLineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, -8, 0),
+                new THREE.Vector3(0, 8, 0)
+            ]);
+            const axisLine = new THREE.Line(
+                axisLineGeo,
+                new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.14 })
+            );
+            scene.add(axisLine);
+
+            const magneticGroup = new THREE.Group(); // Tilted by magnetic obliquity angle
+            spinGroup.add(magneticGroup);
+
+            // 1. Neutron Star Core Sphere
+            const starUniforms = {
+                uTime: { value: 0 },
+                uColor: { value: new THREE.Color(0x00dcff) },
+                uCrustCrack: { value: 0.0 },
+                uHotspotIntensity: { value: 1.2 }
+            };
+
+            const neutronStarMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(1.45, 64, 64),
+                new THREE.ShaderMaterial({
+                    vertexShader: document.getElementById('starVertexShader').textContent,
+                    fragmentShader: document.getElementById('starFragmentShader').textContent,
+                    uniforms: starUniforms
+                })
+            );
+            magneticGroup.add(neutronStarMesh);
+
+            // Atmospheric Corona Sprite around the Neutron Star
+            const coronaSpriteMaterial = new THREE.SpriteMaterial({
+                map: glowTex,
+                color: 0x00dcff,
+                transparent: true,
+                opacity: 0.65,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const coronaSprite = new THREE.Sprite(coronaSpriteMaterial);
+            coronaSprite.scale.set(6.5, 6.5, 1.0);
+            magneticGroup.add(coronaSprite);
+
+            // 2. Relativistic Polar Radiation Beams (North & South Cones)
+            const beamUniforms = {
+                uTime: { value: 0 },
+                uColor: { value: new THREE.Color(0x00dcff) },
+                uPower: { value: 1.35 },
+                uPulseFreq: { value: 12.0 }
+            };
+
+            const beamMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('beamVertexShader').textContent,
+                fragmentShader: document.getElementById('beamFragmentShader').textContent,
+                uniforms: beamUniforms,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+
+            const customBeamGeo = new THREE.CylinderGeometry(2.6, 0.18, 15.5, 48, 24, true);
+            customBeamGeo.translate(0, 8.6, 0);
+
+            const northBeam = new THREE.Mesh(customBeamGeo, beamMat);
+            const southBeam = new THREE.Mesh(customBeamGeo.clone().rotateZ(Math.PI), beamMat);
+            magneticGroup.add(northBeam);
+            magneticGroup.add(southBeam);
+
+            // 3. Dipole Magnetic Field Lines (3D Toroidal Loops r = R_max * sin^2(theta))
+            const fieldLinesGroup = new THREE.Group();
+            magneticGroup.add(fieldLinesGroup);
+
+            const fieldLineMaterials = [];
+            const numShells = 2;
+            const azimuthSteps = 12;
+
+            for (let s = 0; s < numShells; s++) {
+                const rMax = s === 0 ? 4.4 : 7.2;
+                for (let a = 0; a < azimuthSteps; a++) {
+                    const phi = (a / azimuthSteps) * Math.PI * 2;
+                    const pts = [];
+                    const segments = 64;
+                    for (let i = 0; i <= segments; i++) {
+                        const theta = 0.15 + (i / segments) * (Math.PI - 0.3);
+                        const r = rMax * Math.pow(Math.sin(theta), 2);
+                        const x = r * Math.sin(theta) * Math.cos(phi);
+                        const y = r * Math.cos(theta);
+                        const z = r * Math.sin(theta) * Math.sin(phi);
+                        pts.push(new THREE.Vector3(x, y, z));
+                    }
+                    const curveGeo = new THREE.BufferGeometry().setFromPoints(pts);
+                    const lineMat = new THREE.LineBasicMaterial({
+                        color: 0x00dcff,
+                        transparent: true,
+                        opacity: s === 0 ? 0.5 : 0.28,
+                        blending: THREE.AdditiveBlending
+                    });
+                    fieldLineMaterials.push({ mat: lineMat, baseOpacity: s === 0 ? 0.5 : 0.28 });
+                    const line = new THREE.Line(curveGeo, lineMat);
+                    fieldLinesGroup.add(line);
+                }
+            }
+
+            // Charged Plasma Particles Flowing Along Dipole Magnetic Field Lines
+            const magParticleCount = 420;
+            const magParticleData = [];
+            const magPartGeo = new THREE.BufferGeometry();
+            const magPartPos = new Float32Array(magParticleCount * 3);
+            for (let i = 0; i < magParticleCount; i++) {
+                magParticleData.push({
+                    rMax: Math.random() > 0.45 ? 4.4 : 7.2,
+                    phi: Math.random() * Math.PI * 2,
+                    theta: Math.random() * Math.PI,
+                    speed: (0.6 + Math.random() * 1.2) * (Math.random() > 0.5 ? 1 : -1)
+                });
+            }
+            magPartGeo.setAttribute('position', new THREE.BufferAttribute(magPartPos, 3));
+            const magParticlesMat = new THREE.PointsMaterial({
+                size: 0.26,
+                map: glowTex,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const magParticles = new THREE.Points(magPartGeo, magParticlesMat);
+            magneticGroup.add(magParticles);
+
+            // 4. Magnetar Gamma-Ray Burst Shockwave Sphere (Triggered on Magnetar mode)
+            const flareGeo = new THREE.SphereGeometry(1.5, 48, 48);
+            const flareMat = new THREE.MeshBasicMaterial({
+                color: 0xe879f9,
+                transparent: true,
+                opacity: 0.0,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                depthWrite: false
+            });
+            const flareSphere = new THREE.Mesh(flareGeo, flareMat);
+            scene.add(flareSphere);
+
+            // ============================================================================
+            // 5. X-RAY PULSAR BINARY COMPANION & ACCRETION STREAM (Type 04)
+            // ============================================================================
+            const binaryGroup = new THREE.Group();
+            binaryGroup.visible = false;
+            scene.add(binaryGroup);
+
+            // Companion Donor Star (Roche-lobe distorted giant star)
+            const companionStar = new THREE.Mesh(
+                new THREE.SphereGeometry(3.2, 48, 48),
+                new THREE.MeshBasicMaterial({ color: 0xffaa44 })
+            );
+            companionStar.scale.set(1.28, 0.96, 0.96); // Teardrop tidal distortion toward neutron star
+            companionStar.position.set(14.5, 0, 0);
+            binaryGroup.add(companionStar);
+
+            const companionHalo = new THREE.Sprite(
+                new THREE.SpriteMaterial({
+                    map: glowTex,
+                    color: 0xff6600,
+                    transparent: true,
+                    opacity: 0.75,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                })
+            );
+            companionHalo.position.set(14.5, 0, 0);
+            companionHalo.scale.set(13, 11, 1);
+            binaryGroup.add(companionHalo);
+
+            // Accretion Disk & Roche Lobe Stream Particles flowing from Companion to Neutron Star
+            const streamCount = 1400;
+            const streamGeo = new THREE.BufferGeometry();
+            const streamPos = new Float32Array(streamCount * 3);
+            const streamCol = new Float32Array(streamCount * 3);
+            const streamData = [];
+
+            for (let i = 0; i < streamCount; i++) {
+                streamData.push({
+                    t: Math.random(),
+                    angleOffset: Math.random() * Math.PI * 2,
+                    spread: (Math.random() - 0.5) * 0.65,
+                    speed: 0.18 + Math.random() * 0.22
+                });
+            }
+            streamGeo.setAttribute('position', new THREE.BufferAttribute(streamPos, 3));
+            streamGeo.setAttribute('color', new THREE.BufferAttribute(streamCol, 3));
+            const streamMat = new THREE.PointsMaterial({
+                size: 0.34,
+                map: glowTex,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const accretionPoints = new THREE.Points(streamGeo, streamMat);
+            binaryGroup.add(accretionPoints);
+
+            // ============================================================================
+            // SCIENTIFIC PULSAR RADIO TELESCOPE AUDIO SYNTHESIZER (Web Audio API)
+            // ============================================================================
+            const pulsarAudio = {
+                ctx: null,
+                enabled: false,
+                masterGain: null,
+                noiseNode: null,
+                pulseFilter: null,
+                pulseGain: null,
+                humOsc: null,
+                humGain: null,
+                volume: 0.8,
+                lastPulsePhase: 0,
+
+                init() {
+                    if (this.ctx) return;
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.value = this.volume;
+                    this.masterGain.connect(this.ctx.destination);
+
+                    // 1. Broadband Radio-Telescope White/Pink Noise Buffer (for realistic dispersive pulsar clicks & static)
+                    const bufferSize = this.ctx.sampleRate * 2;
+                    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    let b0 = 0, b1 = 0, b2 = 0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        b0 = 0.997 * b0 + white * 0.029;
+                        b1 = 0.985 * b1 + white * 0.032;
+                        b2 = 0.950 * b2 + white * 0.048;
+                        output[i] = (b0 + b1 + b2 + white * 0.18) * 0.35;
+                    }
+
+                    this.noiseNode = this.ctx.createBufferSource();
+                    this.noiseNode.buffer = noiseBuffer;
+                    this.noiseNode.loop = true;
+
+                    this.pulseFilter = this.ctx.createBiquadFilter();
+                    this.pulseFilter.type = 'bandpass';
+                    this.pulseFilter.frequency.value = 950;
+                    this.pulseFilter.Q.value = 2.2;
+
+                    this.pulseGain = this.ctx.createGain();
+                    this.pulseGain.gain.value = 0.0;
+
+                    this.noiseNode.connect(this.pulseFilter);
+                    this.pulseFilter.connect(this.pulseGain);
+                    this.pulseGain.connect(this.masterGain);
+                    this.noiseNode.start();
+
+                    // 2. Continuous Relativistic Harmonic Oscillator (for high-frequency Millisecond Pulsars >25 Hz & Magnetar hum)
+                    this.humOsc = this.ctx.createOscillator();
+                    this.humOsc.type = 'sawtooth';
+                    this.humOsc.frequency.value = 120;
+
+                    const humFilter = this.ctx.createBiquadFilter();
+                    humFilter.type = 'lowpass';
+                    humFilter.frequency.value = 1400;
+
+                    this.humGain = this.ctx.createGain();
+                    this.humGain.gain.value = 0.0;
+
+                    this.humOsc.connect(humFilter);
+                    humFilter.connect(this.humGain);
+                    this.humGain.connect(this.masterGain);
+                    this.humOsc.start();
+                },
+
+                triggerDispersionPulse(intensity, spinHz, isMagnetar, isXray) {
+                    if (!this.enabled || !this.ctx) return;
+                    const now = this.ctx.currentTime;
+
+                    // Create a realistic dispersive radio-astronomy chirp ("thump/click" like Vela or Crab pulsar)
+                    const osc = this.ctx.createOscillator();
+                    const env = this.ctx.createGain();
+
+                    osc.type = isMagnetar ? 'triangle' : (isXray ? 'sawtooth' : 'sine');
+
+                    // Dispersion sweep: high frequencies arrive slightly before low frequencies through interstellar plasma
+                    const startFreq = isMagnetar ? 220 : (isXray ? 1400 : 880);
+                    const endFreq = isMagnetar ? 45 : 75;
+                    const duration = Math.min(0.11, Math.max(0.012, 0.25 / Math.max(spinHz, 0.5)));
+
+                    osc.frequency.setValueAtTime(startFreq, now);
+                    osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+
+                    const peakGain = Math.min(0.85, intensity * 0.55);
+                    env.gain.setValueAtTime(0.001, now);
+                    env.gain.linearRampToValueAtTime(peakGain, now + duration * 0.15);
+                    env.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+
+                    osc.connect(env);
+                    env.connect(this.masterGain);
+
+                    osc.start(now);
+                    osc.stop(now + duration + 0.01);
+                },
+
+                triggerGammaBurstSound() {
+                    if (!this.enabled || !this.ctx) return;
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const g = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(620, now);
+                    osc.frequency.exponentialRampToValueAtTime(38, now + 0.9);
+                    g.gain.setValueAtTime(0.7, now);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+                    osc.connect(g);
+                    g.connect(this.masterGain);
+                    osc.start(now);
+                    osc.stop(now + 1.0);
+                },
+
+                updateFrame(dt, spinHz, beamPower, magStrength, typeKey, rotAngle) {
+                    if (!this.enabled || !this.ctx) return;
+                    const now = this.ctx.currentTime;
+
+                    if (typeKey === 'isolated' || beamPower <= 0.02) {
+                        // Silent isolated thermal star (only faint cosmic background hiss)
+                        this.pulseGain.gain.setTargetAtTime(0.015, now, 0.05);
+                        this.humGain.gain.setTargetAtTime(0.0, now, 0.05);
+                        return;
+                    }
+
+                    if (spinHz < 22.0) {
+                        // Discrete periodic lighthouse pulses (2 magnetic poles per full 1 Hz rotation, with primary & secondary pulse)
+                        const currentCycle = Math.floor((rotAngle / (Math.PI * 2)) * 2.0);
+                        if (currentCycle !== this.lastPulsePhase) {
+                            const isPrimaryPole = (Math.abs(currentCycle) % 2 === 0);
+                            const pulseStrength = isPrimaryPole ? beamPower : beamPower * 0.45;
+                            this.triggerDispersionPulse(
+                                pulseStrength,
+                                spinHz,
+                                typeKey === 'magnetar',
+                                typeKey === 'xray'
+                            );
+                            this.lastPulsePhase = currentCycle;
+                        }
+
+                        // Modulate background radio static envelope synchronously with beam sweep
+                        const sweep = Math.pow(Math.max(0, Math.cos(rotAngle)), 6.0);
+                        const secondarySweep = Math.pow(Math.max(0, -Math.cos(rotAngle)), 8.0) * 0.4;
+                        const envLevel = (0.02 + (sweep + secondarySweep) * 0.28) * Math.min(1.5, beamPower);
+
+                        this.pulseFilter.frequency.setTargetAtTime(typeKey === 'magnetar' ? 350 : 1100, now, 0.03);
+                        this.pulseGain.gain.setTargetAtTime(envLevel, now, 0.015);
+
+                        // Deep magnetic hum for Magnetars
+                        if (typeKey === 'magnetar') {
+                            this.humOsc.frequency.setTargetAtTime(55 + magStrength * 12, now, 0.05);
+                            this.humGain.gain.setTargetAtTime(0.14 * magStrength, now, 0.05);
+                        } else {
+                            this.humGain.gain.setTargetAtTime(0.0, now, 0.05);
+                        }
+                    } else {
+                        // High-speed Millisecond Pulsar (22 Hz to 700 Hz): pulses fuse into an acoustic pitch at f = spinHz!
+                        const acousticFreq = Math.max(25, Math.min(1400, spinHz));
+                        this.humOsc.frequency.setTargetAtTime(acousticFreq, now, 0.02);
+                        this.humGain.gain.setTargetAtTime(Math.min(0.38, beamPower * 0.22), now, 0.03);
+
+                        this.pulseFilter.frequency.setTargetAtTime(acousticFreq * 2.0, now, 0.03);
+                        this.pulseGain.gain.setTargetAtTime(0.12 * Math.min(1.5, beamPower), now, 0.03);
+                    }
+                }
+            };
+
+            // ============================================================================
+            // FREE 360° CAMERA ORBIT + PAN + ZOOM CONTROLS
+            // ============================================================================
+            const camOrbit = {
+                theta: 0.5,
+                phi: 1.25,
+                radius: 17.5,
+                targetTheta: 0.5,
+                targetPhi: 1.25,
+                targetRadius: 17.5,
+                lookAt: new THREE.Vector3(0, 0, 0),
+                targetLookAt: new THREE.Vector3(0, 0, 0)
+            };
+
+            let dragMode = null; // 'orbit' | 'pan' | null
+            let prevX = 0, prevY = 0;
+            let pinchDist = null;
+
+            function isPointerOverUI(target) {
+                return Boolean(
+                    target.closest('aside') ||
+                    target.closest('header') ||
+                    target.closest('nav') ||
+                    target.closest('button') ||
+                    target.closest('input')
+                );
+            }
+
+            // Prevent context menu on right-click drag so user can pan freely
+            window.addEventListener('contextmenu', (e) => {
+                if (!isPointerOverUI(e.target)) {
+                    e.preventDefault();
+                }
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                if (e.button === 2 || e.button === 1 || e.shiftKey) {
+                    dragMode = 'pan';
+                } else if (e.button === 0) {
+                    dragMode = 'orbit';
+                }
+                prevX = e.clientX;
+                prevY = e.clientY;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!dragMode) return;
+                const dx = e.clientX - prevX;
+                const dy = e.clientY - prevY;
+                prevX = e.clientX;
+                prevY = e.clientY;
+
+                if (dragMode === 'orbit') {
+                    camOrbit.targetTheta -= dx * 0.0075;
+                    // Unrestricted smooth vertical angle across poles
+                    camOrbit.targetPhi = Math.max(0.02, Math.min(Math.PI - 0.02, camOrbit.targetPhi - dy * 0.0075));
+                } else if (dragMode === 'pan') {
+                    const panSpeed = camOrbit.radius * 0.0015;
+                    const forward = new THREE.Vector3().subVectors(camOrbit.targetLookAt, camera.position).normalize();
+                    const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+                    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+
+                    camOrbit.targetLookAt.addScaledVector(right, -dx * panSpeed);
+                    camOrbit.targetLookAt.addScaledVector(up, dy * panSpeed);
+                }
+            });
+
+            window.addEventListener('mouseup', () => { dragMode = null; });
+            window.addEventListener('mouseleave', () => { dragMode = null; });
+
+            window.addEventListener('wheel', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                e.preventDefault();
+                camOrbit.targetRadius = Math.max(3.5, Math.min(65.0, camOrbit.targetRadius + e.deltaY * 0.018));
+            }, { passive: false });
+
+            window.addEventListener('touchstart', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                if (e.touches.length === 1) {
+                    dragMode = 'orbit';
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    dragMode = 'pan';
+                    pinchDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    prevX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
+                    prevY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && dragMode === 'orbit') {
+                    const dx = e.touches[0].clientX - prevX;
+                    const dy = e.touches[0].clientY - prevY;
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                    camOrbit.targetTheta -= dx * 0.0075;
+                    camOrbit.targetPhi = Math.max(0.02, Math.min(Math.PI - 0.02, camOrbit.targetPhi - dy * 0.0075));
+                } else if (e.touches.length === 2 && pinchDist !== null) {
+                    const d = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    camOrbit.targetRadius = Math.max(3.5, Math.min(65.0, camOrbit.targetRadius + (pinchDist - d) * 0.045));
+                    pinchDist = d;
+
+                    const midX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
+                    const midY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+                    const panSpeed = camOrbit.radius * 0.0015;
+                    const right = new THREE.Vector3(Math.cos(camOrbit.theta), 0, -Math.sin(camOrbit.theta));
+                    camOrbit.targetLookAt.addScaledVector(right, -(midX - prevX) * panSpeed);
+                    camOrbit.targetLookAt.y += (midY - prevY) * panSpeed;
+                    prevX = midX;
+                    prevY = midY;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                dragMode = null;
+                pinchDist = null;
+            });
+
+            // ============================================================================
+            // SIMULATION STATE & UI BINDINGS
+            // ============================================================================
+            const state = {
+                currentType: 'pulsar',
+                spinHz: 1.5, // Real rotations per second (Hz)
+                tiltRad: THREE.MathUtils.degToRad(32),
+                magStrength: 1.0,
+                beamPower: 1.35,
+                rgbCycle: false,
+                rgbHue: 0.52,
+                flareActive: 0.0,
+                totalRotAngle: 0.0
+            };
+
+            const sliderR = document.getElementById('slider-r');
+            const sliderG = document.getElementById('slider-g');
+            const sliderB = document.getElementById('slider-b');
+            const valR = document.getElementById('val-r');
+            const valG = document.getElementById('val-g');
+            const valB = document.getElementById('val-b');
+
+            const sliderSpin = document.getElementById('slider-spin');
+            const valSpin = document.getElementById('val-spin');
+            const headerHzLive = document.getElementById('header-hz-live');
+            const statPeriod = document.getElementById('stat-period');
+
+            const sliderTilt = document.getElementById('slider-tilt');
+            const valTilt = document.getElementById('val-tilt');
+            const sliderMag = document.getElementById('slider-mag');
+            const valMag = document.getElementById('val-mag');
+            const sliderBeam = document.getElementById('slider-beam');
+            const valBeam = document.getElementById('val-beam');
+            const sliderVol = document.getElementById('slider-vol');
+            const valVol = document.getElementById('val-vol');
+
+            const btnFlare = document.getElementById('btn-flare');
+            const btnRgbCycle = document.getElementById('btn-rgb-cycle');
+            const btnResetCam = document.getElementById('btn-reset-cam');
+
+            function updateSpinHzDisplay(hz) {
+                state.spinHz = hz;
+                sliderSpin.value = hz;
+                const formattedHz = hz >= 10 ? hz.toFixed(1) : hz.toFixed(2);
+                valSpin.textContent = `${formattedHz} Hz`;
+                headerHzLive.textContent = `${formattedHz} Hz (${formattedHz} giros/s)`;
+
+                // Calculate physical rotation period T = 1 / f
+                const periodSec = 1.0 / Math.max(hz, 0.001);
+                if (periodSec >= 1.0) {
+                    statPeriod.textContent = `${periodSec.toFixed(2)} seg`;
+                } else {
+                    statPeriod.textContent = `${(periodSec * 1000).toFixed(2)} ms`;
+                }
+            }
+
+            function applyColorRGB(r, g, b) {
+                sliderR.value = r;
+                sliderG.value = g;
+                sliderB.value = b;
+                valR.textContent = r;
+                valG.textContent = g;
+                valB.textContent = b;
+
+                const col = new THREE.Color(r / 255, g / 255, b / 255);
+                starUniforms.uColor.value.copy(col);
+                beamUniforms.uColor.value.copy(col);
+                coronaSpriteMaterial.color.copy(col);
+                flareMat.color.copy(col);
+                fieldLineMaterials.forEach(item => item.mat.color.copy(col));
+
+                const statusDot = document.getElementById('status-indicator');
+                statusDot.style.backgroundColor = `rgb(${r},${g},${b})`;
+            }
+
+            function selectNeutronStarType(typeKey) {
+                const cfg = ASTRO_TYPES[typeKey];
+                if (!cfg) return;
+                state.currentType = typeKey;
+
+                // Update Header & Telemetry
+                document.getElementById('header-title').textContent = cfg.name;
+                document.getElementById('header-badge').textContent = cfg.badge;
+                document.getElementById('header-desc').textContent = cfg.desc;
+                document.getElementById('stat-bfield').textContent = cfg.bfield;
+                document.getElementById('stat-emission').textContent = cfg.emission;
+
+                // Highlight Active Card
+                document.querySelectorAll('.type-card').forEach(btn => {
+                    if (btn.dataset.type === typeKey) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+
+                // Apply Spin Frequency in Hz
+                updateSpinHzDisplay(cfg.spinHz);
+
+                state.tiltRad = THREE.MathUtils.degToRad(cfg.tiltDeg);
+                magneticGroup.rotation.z = state.tiltRad;
+                sliderTilt.value = cfg.tiltDeg;
+                valTilt.textContent = cfg.tiltDeg + "°";
+
+                state.magStrength = cfg.magStrength;
+                sliderMag.value = cfg.magStrength;
+                valMag.textContent = Math.round(cfg.magStrength * 100) + "%";
+
+                state.beamPower = cfg.beamPower;
+                beamUniforms.uPower.value = cfg.beamPower;
+                sliderBeam.value = cfg.beamPower;
+                valBeam.textContent = Math.round(cfg.beamPower * 100) + "%";
+
+                starUniforms.uCrustCrack.value = cfg.crustCrack;
+                starUniforms.uHotspotIntensity.value = cfg.hotspot;
+
+                // Show/Hide Magnetar Gamma-Burst button
+                if (typeKey === 'magnetar') {
+                    btnFlare.classList.remove('hidden');
+                } else {
+                    btnFlare.classList.add('hidden');
+                }
+
+                // Show/Hide X-Ray Binary Companion Star
+                binaryGroup.visible = cfg.hasCompanion;
+                if (cfg.hasCompanion) {
+                    camOrbit.targetRadius = 23.0;
+                    camOrbit.targetLookAt.set(3.5, 0, 0);
+                } else {
+                    camOrbit.targetRadius = 16.5;
+                    camOrbit.targetLookAt.set(0, 0, 0);
+                }
+
+                applyColorRGB(cfg.color[0], cfg.color[1], cfg.color[2]);
+            }
+
+            // Card Buttons Click
+            document.querySelectorAll('.type-card').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectNeutronStarType(btn.dataset.type);
+                });
+            });
+
+            // Reset Camera Button
+            btnResetCam.addEventListener('click', () => {
+                camOrbit.targetTheta = 0.5;
+                camOrbit.targetPhi = 1.25;
+                camOrbit.targetRadius = binaryGroup.visible ? 23.0 : 16.5;
+                camOrbit.targetLookAt.set(binaryGroup.visible ? 3.5 : 0, 0, 0);
+            });
+
+            // RGB Sliders Input
+            function onRgbInput() {
+                applyColorRGB(
+                    parseInt(sliderR.value, 10),
+                    parseInt(sliderG.value, 10),
+                    parseInt(sliderB.value, 10)
+                );
+            }
+            sliderR.addEventListener('input', onRgbInput);
+            sliderG.addEventListener('input', onRgbInput);
+            sliderB.addEventListener('input', onRgbInput);
+
+            btnRgbCycle.addEventListener('click', () => {
+                state.rgbCycle = !state.rgbCycle;
+                btnRgbCycle.textContent = state.rgbCycle ? "Ciclo RGB: ON" : "Ciclo RGB: OFF";
+                btnRgbCycle.className = state.rgbCycle
+                    ? "text-[11px] px-2.5 py-0.5 rounded-full bg-cyan-500/30 border border-cyan-400 text-white transition"
+                    : "text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition";
+            });
+
+            // Spin Frequency in Hz Slider Input
+            sliderSpin.addEventListener('input', (e) => {
+                updateSpinHzDisplay(parseFloat(e.target.value));
+            });
+
+            sliderTilt.addEventListener('input', (e) => {
+                const deg = parseFloat(e.target.value);
+                state.tiltRad = THREE.MathUtils.degToRad(deg);
+                magneticGroup.rotation.z = state.tiltRad;
+                valTilt.textContent = deg + "°";
+            });
+
+            sliderMag.addEventListener('input', (e) => {
+                state.magStrength = parseFloat(e.target.value);
+                valMag.textContent = Math.round(state.magStrength * 100) + "%";
+            });
+
+            sliderBeam.addEventListener('input', (e) => {
+                state.beamPower = parseFloat(e.target.value);
+                beamUniforms.uPower.value = state.beamPower;
+                valBeam.textContent = Math.round(state.beamPower * 100) + "%";
+            });
+
+            sliderVol.addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                pulsarAudio.volume = v;
+                valVol.textContent = Math.round(v * 100) + "%";
+                if (pulsarAudio.masterGain && pulsarAudio.ctx) {
+                    pulsarAudio.masterGain.gain.setTargetAtTime(v, pulsarAudio.ctx.currentTime, 0.02);
+                }
+            });
+
+            // Magnetar Gamma Flare Button
+            btnFlare.addEventListener('click', () => {
+                state.flareActive = 1.0;
+                flareSphere.scale.set(1, 1, 1);
+                pulsarAudio.triggerGammaBurstSound();
+            });
+
+            // Toggle Scientific Pulsar Sound
+            const toggleSoundBtn = document.getElementById('toggle-sound-btn');
+            const toggleSoundText = document.getElementById('toggle-sound-text');
+            const iconSoundOff = document.getElementById('icon-sound-off');
+            const iconSoundOn = document.getElementById('icon-sound-on');
+
+            toggleSoundBtn.addEventListener('click', () => {
+                pulsarAudio.init();
+                if (pulsarAudio.ctx && pulsarAudio.ctx.state === 'suspended') {
+                    pulsarAudio.ctx.resume();
+                }
+                pulsarAudio.enabled = !pulsarAudio.enabled;
+
+                if (pulsarAudio.enabled) {
+                    toggleSoundText.textContent = 'Som do Pulsar: ON';
+                    toggleSoundText.className = 'text-emerald-300 font-bold';
+                    iconSoundOff.classList.add('hidden');
+                    iconSoundOn.classList.remove('hidden');
+                    toggleSoundBtn.classList.add('bg-emerald-500/20', 'border-emerald-400');
+                } else {
+                    toggleSoundText.textContent = 'Som do Pulsar: OFF';
+                    toggleSoundText.className = 'text-gray-200';
+                    iconSoundOff.classList.remove('hidden');
+                    iconSoundOn.classList.add('hidden');
+                    toggleSoundBtn.classList.remove('bg-emerald-500/20', 'border-emerald-400');
+                    if (pulsarAudio.pulseGain && pulsarAudio.ctx) {
+                        pulsarAudio.pulseGain.gain.setTargetAtTime(0.0, pulsarAudio.ctx.currentTime, 0.02);
+                        pulsarAudio.humGain.gain.setTargetAtTime(0.0, pulsarAudio.ctx.currentTime, 0.02);
+                    }
+                }
+            });
+
+            // Toggle ALL UI Panels (Header, Left Types, Right Controls)
+            const topHeader = document.getElementById('top-header');
+            const typesPanel = document.getElementById('types-panel');
+            const controlsPanel = document.getElementById('controls-panel');
+            const toggleBtn = document.getElementById('toggle-ui-btn');
+            const toggleText = document.getElementById('toggle-ui-text');
+            const iconEyeOpen = document.getElementById('icon-eye-open');
+            const iconEyeClosed = document.getElementById('icon-eye-closed');
+            let uiVisible = true;
+
+            function toggleAllPanels() {
+                uiVisible = !uiVisible;
+
+                const panels = [topHeader, typesPanel, controlsPanel];
+                panels.forEach(panel => {
+                    if (!panel) return;
+                    if (uiVisible) {
+                        panel.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+                    } else {
+                        panel.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+                    }
+                });
+
+                if (!uiVisible) {
+                    toggleText.textContent = 'Mostrar Painéis';
+                    iconEyeOpen.classList.add('hidden');
+                    iconEyeClosed.classList.remove('hidden');
+                } else {
+                    toggleText.textContent = 'Esconder Painéis';
+                    iconEyeOpen.classList.remove('hidden');
+                    iconEyeClosed.classList.add('hidden');
+                }
+            }
+
+            toggleBtn.addEventListener('click', toggleAllPanels);
+
+            // Keyboard shortcut 'H' to hide/show all panels
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'h' || e.key === 'H') {
+                    toggleAllPanels();
+                }
+            });
+
+            // Resize Listener
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Initialize default Pulsar preset
+            selectNeutronStarType('pulsar');
+
+            // ============================================================================
+            // ANIMATION LOOP (Exact Hz Physics & Real-Time Pulsar Audio)
+            // ============================================================================
+            let lastTime = performance.now();
+            let elapsed = 0;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                const now = performance.now();
+                const dt = Math.min((now - lastTime) * 0.001, 0.1);
+                lastTime = now;
+                elapsed += dt;
+
+                // Optional RGB Cycle
+                if (state.rgbCycle) {
+                    state.rgbHue = (state.rgbHue + dt * 0.15) % 1.0;
+                    const c = new THREE.Color().setHSL(state.rgbHue, 1.0, 0.55);
+                    applyColorRGB(Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255));
+                }
+
+                // Rotate Neutron Star in exact physical Hz (1 Hz = 2 * PI radians per second)
+                // For very high millisecond frequencies (>30 Hz), avoid wagon-wheel stroboscopic freeze on 60Hz monitors
+                const physicalDeltaRad = dt * state.spinHz * Math.PI * 2.0;
+                state.totalRotAngle += physicalDeltaRad;
+
+                if (state.spinHz <= 25.0) {
+                    spinGroup.rotation.y = state.totalRotAngle;
+                } else {
+                    // Add golden-ratio visual phase step at ultra-high Hz so 60fps screens show ultra-fast continuous blur instead of standing still
+                    spinGroup.rotation.y += dt * (25.0 + Math.log10(state.spinHz) * 18.0) * Math.PI * 2.0;
+                }
+
+                // Update Scientific Radio-Telescope Pulsar Sound
+                pulsarAudio.updateFrame(
+                    dt,
+                    state.spinHz,
+                    state.beamPower,
+                    state.magStrength,
+                    state.currentType,
+                    state.totalRotAngle
+                );
+
+                // Update Shader Uniforms
+                starUniforms.uTime.value = elapsed;
+                beamUniforms.uTime.value = elapsed;
+                beamUniforms.uPulseFreq.value = 8.0 + Math.min(state.spinHz, 60.0) * 1.5;
+
+                // Update Magnetic Field Lines Opacity & Charged Particles Flow
+                fieldLineMaterials.forEach(item => {
+                    item.mat.opacity = Math.min(1.0, item.baseOpacity * state.magStrength);
+                });
+                magParticlesMat.opacity = Math.min(1.0, 0.75 * state.magStrength);
+
+                const posArr = magPartGeo.attributes.position.array;
+                for (let i = 0; i < magParticleCount; i++) {
+                    const p = magParticleData[i];
+                    p.theta += dt * p.speed * (0.6 + state.magStrength * 0.5);
+                    if (p.theta > Math.PI - 0.15) p.theta = 0.15;
+                    if (p.theta < 0.15) p.theta = Math.PI - 0.15;
+
+                    const r = p.rMax * Math.pow(Math.sin(p.theta), 2);
+                    posArr[i * 3] = r * Math.sin(p.theta) * Math.cos(p.phi);
+                    posArr[i * 3 + 1] = r * Math.cos(p.theta);
+                    posArr[i * 3 + 2] = r * Math.sin(p.theta) * Math.sin(p.phi);
+                }
+                magPartGeo.attributes.position.needsUpdate = true;
+
+                // Update Magnetar Gamma-Ray Flare Wave
+                if (state.flareActive > 0.001) {
+                    const s = 1.0 + (1.0 - state.flareActive) * 18.0;
+                    flareSphere.scale.set(s, s, s);
+                    flareMat.opacity = state.flareActive * 0.65;
+                    state.flareActive = Math.max(0.0, state.flareActive - dt * 0.85);
+                } else {
+                    flareMat.opacity = 0.0;
+                }
+
+                // Update X-Ray Pulsar Binary Accretion Stream & Disk
+                if (binaryGroup.visible) {
+                    const sPos = streamGeo.attributes.position.array;
+                    const sCol = streamGeo.attributes.color.array;
+                    const baseCol = starUniforms.uColor.value;
+
+                    for (let i = 0; i < streamCount; i++) {
+                        const d = streamData[i];
+                        d.t = (d.t + dt * d.speed) % 1.0;
+
+                        if (d.t < 0.45) {
+                            // Gas pulled from Roche lobe of companion star (x = 12 to x = 4.5)
+                            const prog = d.t / 0.45;
+                            const x = 11.8 * (1.0 - prog) + 4.5 * prog;
+                            const z = Math.sin(prog * Math.PI) * 2.2 + d.spread * 0.5;
+                            const y = d.spread * (1.0 - prog * 0.5);
+                            sPos[i * 3] = x;
+                            sPos[i * 3 + 1] = y;
+                            sPos[i * 3 + 2] = z;
+                        } else {
+                            // Spiraling accretion disk & magnetic funnel onto neutron star poles
+                            const diskProg = (d.t - 0.45) / 0.55;
+                            const radius = 4.5 * (1.0 - diskProg * 0.72);
+                            const angle = d.angleOffset + elapsed * 4.5 + diskProg * 14.0;
+                            const x = Math.cos(angle) * radius;
+                            const z = Math.sin(angle) * radius;
+                            // Inner edge channels up/down along magnetic poles
+                            let y = d.spread * 0.25;
+                            if (diskProg > 0.75) {
+                                const funnel = (diskProg - 0.75) / 0.25;
+                                y = (i % 2 === 0 ? 1 : -1) * Math.sin(funnel * Math.PI * 0.5) * 1.1;
+                            }
+                            sPos[i * 3] = x;
+                            sPos[i * 3 + 1] = y;
+                            sPos[i * 3 + 2] = z;
+                        }
+
+                        // Color gradient from orange donor star to white-hot X-ray core
+                        sCol[i * 3] = THREE.MathUtils.lerp(1.0, baseCol.r + 0.3, d.t);
+                        sCol[i * 3 + 1] = THREE.MathUtils.lerp(0.55, baseCol.g + 0.3, d.t);
+                        sCol[i * 3 + 2] = THREE.MathUtils.lerp(0.15, baseCol.b + 0.4, d.t);
+                    }
+                    streamGeo.attributes.position.needsUpdate = true;
+                    streamGeo.attributes.color.needsUpdate = true;
+                }
+
+                // Smooth Free Camera Orbit & Pan Interpolation
+                camOrbit.theta += (camOrbit.targetTheta - camOrbit.theta) * 0.1;
+                camOrbit.phi += (camOrbit.targetPhi - camOrbit.phi) * 0.1;
+                camOrbit.radius += (camOrbit.targetRadius - camOrbit.radius) * 0.1;
+                camOrbit.lookAt.lerp(camOrbit.targetLookAt, 0.1);
+
+                const sinPhi = Math.sin(camOrbit.phi);
+                camera.position.set(
+                    camOrbit.lookAt.x + camOrbit.radius * sinPhi * Math.sin(camOrbit.theta),
+                    camOrbit.lookAt.y + camOrbit.radius * Math.cos(camOrbit.phi),
+                    camOrbit.lookAt.z + camOrbit.radius * sinPhi * Math.cos(camOrbit.theta)
+                );
+                camera.lookAt(camOrbit.lookAt);
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observatório 3D: Galáxias e Estruturas Cósmicas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #010206;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .font-space {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(8, 11, 22, 0.76);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+        }
+        /* Custom Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 15px;
+            width: 15px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -4.5px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+            transition: transform 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .galaxy-card.active {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.26), rgba(236, 72, 153, 0.18));
+            border-color: rgba(129, 140, 248, 0.75);
+            box-shadow: 0 0 24px rgba(99, 102, 241, 0.28);
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="relative text-white antialiased">
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container" class="w-full h-full"></div>
+
+    <!-- Top Left Telemetry Header -->
+    <header id="top-header" class="fixed top-4 left-4 right-4 md:right-auto z-10 pointer-events-none flex flex-col sm:flex-row items-start sm:items-center gap-3 transition-all duration-300">
+        <div class="glass-panel px-4 py-3.5 rounded-2xl pointer-events-auto flex items-center gap-3.5 max-w-xl">
+            <div id="status-dot" class="w-3.5 h-3.5 rounded-full bg-indigo-400 animate-pulse shrink-0 shadow-[0_0_12px_#818cf8]"></div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 id="header-title" class="font-space font-bold text-base md:text-lg tracking-wider uppercase text-white">
+                        Galáxia de Andrômeda (M31)
+                    </h1>
+                    <span id="header-catalog" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300">
+                        2,5 Milhões de Anos-Luz • 1 Trilhão de Estrelas
+                    </span>
+                </div>
+                <p id="header-desc" class="text-xs text-gray-200 mt-1">
+                    Uma grande galáxia espiral com núcleo brilhante aquecido, faixas escuras de poeira e galáxias-satélite M32 e M110.
+                </p>
+                <div class="flex items-center gap-3 mt-1.5 text-[11px] text-indigo-300/80">
+                    <span id="header-ref" class="font-medium text-amber-300/90">Ref: Explore the Night Sky - NASA Science</span>
+                    <span class="hidden sm:inline">•</span>
+                    <span class="hidden sm:inline">Câmera 360°: Arraste (Esq) girar • (Dir/Shift) mover • Scroll zoom</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Right Action Bar (Fly-Through + Hide Panels) -->
+    <div class="fixed top-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+        <button id="btn-flythrough" class="glass-panel px-4 py-2.5 rounded-full hover:bg-white/15 border border-purple-400/40 transition-all duration-300 active:scale-95 flex items-center gap-2 text-xs font-semibold shadow-lg text-purple-200" title="Viajar por dentro da estrutura cósmica">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span id="flythrough-text">Voo Cósmico: OFF</span>
+        </button>
+
+        <button id="toggle-ui-btn" class="glass-panel px-4 py-2.5 rounded-full hover:bg-white/15 border border-indigo-400/30 transition-all duration-300 active:scale-95 flex items-center gap-2 text-xs font-semibold shadow-lg" title="Atalho: Tecla H">
+            <svg id="icon-eye-open" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
+            <svg id="icon-eye-closed" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span id="toggle-ui-text">Esconder Painéis</span>
+        </button>
+    </div>
+
+    <!-- Left Navigation: The 6 Galaxies & Cosmic Structures -->
+    <nav id="galaxies-panel" class="fixed bottom-4 left-4 right-4 md:right-auto md:top-28 md:bottom-auto md:w-84 z-10 glass-panel rounded-3xl p-4 transition-all duration-300 max-h-[42vh] md:max-h-[76vh] overflow-y-auto flex flex-col gap-2.5">
+        <div class="flex items-center justify-between px-1 mb-0.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">🌌 5. Galáxias & Estruturas Cósmicas</span>
+            <span class="text-[11px] text-gray-400">6 Modelos</span>
+        </div>
+
+        <!-- 1. Galáxia de Andrômeda -->
+        <button data-galaxy="andromeda" class="galaxy-card active text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0 mt-0.5 text-amber-300 font-bold text-xs">01</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Galáxia de Andrômeda</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Uma grande galáxia espiral.</div>
+                <div class="text-[10px] text-indigo-300/80 mt-1">Explore the Night Sky - NASA Science</div>
+            </div>
+        </button>
+
+        <!-- 2. Galáxia do Redemoinho -->
+        <button data-galaxy="whirlpool" class="galaxy-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0 mt-0.5 text-cyan-300 font-bold text-xs">02</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Galáxia do Redemoinho</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Seus braços espirais são muito bem definidos.</div>
+                <div class="text-[10px] text-cyan-300/80 mt-1">Messier 51 (M51a & NGC 5195) • NASA/ESA</div>
+            </div>
+        </button>
+
+        <!-- 3. Galáxia do Sombrero -->
+        <button data-galaxy="sombrero" class="galaxy-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-400/40 flex items-center justify-center shrink-0 mt-0.5 text-orange-300 font-bold text-xs">03</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Galáxia do Sombrero</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Possui um formato que lembra um chapéu.</div>
+                <div class="text-[10px] text-orange-300/80 mt-1">Sombrero Galaxy (M104) | ESA/Hubble</div>
+            </div>
+        </button>
+
+        <!-- 4. Galáxia da Roda de Carro -->
+        <button data-galaxy="cartwheel" class="galaxy-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-pink-500/20 border border-pink-400/40 flex items-center justify-center shrink-0 mt-0.5 text-pink-300 font-bold text-xs">04</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Galáxia da Roda de Carro</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Apresenta uma estrutura semelhante a uma roda.</div>
+                <div class="text-[10px] text-pink-300/80 mt-1">Webb Captures Stellar Gymnastics - NASA</div>
+            </div>
+        </button>
+
+        <!-- 5. Quinteto de Stephan -->
+        <button data-galaxy="stephan" class="galaxy-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0 mt-0.5 text-emerald-300 font-bold text-xs">05</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Quinteto de Stephan</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Um conjunto visualmente impressionante de galáxias.</div>
+                <div class="text-[10px] text-emerald-300/80 mt-1">JWST First Full-Colour Images – NASA</div>
+            </div>
+        </button>
+
+        <!-- 6. Campo Profundo do Hubble -->
+        <button data-galaxy="hubble" class="galaxy-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-violet-500/20 border border-violet-400/40 flex items-center justify-center shrink-0 mt-0.5 text-violet-300 font-bold text-xs">06</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Campo Profundo do Hubble</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Uma região aparentemente pequena repleta de galáxias.</div>
+                <div class="text-[10px] text-violet-300/80 mt-1">Most Colorful View of the Universe | TIME</div>
+            </div>
+        </button>
+    </nav>
+
+    <!-- Right Physical & Spectral RGB Controls -->
+    <aside id="controls-panel" class="hidden md:flex fixed top-20 right-4 w-80 z-10 glass-panel rounded-3xl p-4 transition-all duration-300 max-h-[80vh] overflow-y-auto flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-300">Controles Astrofísicos & RGB</span>
+            <button id="btn-reset-cam" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-medium text-indigo-300 transition">
+                Centralizar Câmera
+            </button>
+        </div>
+
+        <!-- Spectral Filter Presets (Hubble Optical / JWST Infrared / Custom RGB) -->
+        <div>
+            <span class="text-xs text-gray-300 font-medium block mb-1.5">Filtro de Telescópio Espacial</span>
+            <div class="grid grid-cols-3 gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10 text-[11px]">
+                <button data-filter="natural" class="filter-btn py-1.5 px-2 rounded-lg font-semibold bg-white/15 text-white transition">
+                    Hubble Óptico
+                </button>
+                <button data-filter="jwst" class="filter-btn py-1.5 px-2 rounded-lg font-semibold text-gray-400 hover:text-white transition">
+                    James Webb IR
+                </button>
+                <button data-filter="uv" class="filter-btn py-1.5 px-2 rounded-lg font-semibold text-gray-400 hover:text-white transition">
+                    Ultravioleta
+                </button>
+            </div>
+        </div>
+
+        <!-- RGB Custom Color Tint & Cycle -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs text-gray-300 font-medium">Modulação de Cor (RGB)</span>
+                <button id="btn-rgb-cycle" class="text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition">
+                    Ciclo RGB: OFF
+                </button>
+            </div>
+            <div class="bg-black/40 p-2.5 rounded-2xl border border-white/10 flex flex-col gap-2">
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-red-400 font-mono">R</span>
+                    <input type="range" id="slider-r" min="0" max="255" value="255">
+                    <span id="val-r" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-green-400 font-mono">G</span>
+                    <input type="range" id="slider-g" min="0" max="255" value="255">
+                    <span id="val-g" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-blue-400 font-mono">B</span>
+                    <input type="range" id="slider-b" min="0" max="255" value="255">
+                    <span id="val-b" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Star & Nebula Brightness -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Brilho Estelar & Nebulosas</span>
+                <span id="val-brightness" class="text-indigo-300 font-mono">120%</span>
+            </div>
+            <input type="range" id="slider-brightness" min="0.3" max="2.5" step="0.05" value="1.2">
+        </div>
+
+        <!-- Star Point Size -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Tamanho dos Aglomerados</span>
+                <span id="val-size" class="text-gray-400 font-mono">100%</span>
+            </div>
+            <input type="range" id="slider-size" min="0.4" max="2.2" step="0.05" value="1.0">
+        </div>
+
+        <!-- Galactic Rotation Speed -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Velocidade de Rotação Cósmica</span>
+                <span id="val-speed" class="text-gray-400 font-mono">1.0x</span>
+            </div>
+            <input type="range" id="slider-speed" min="0.0" max="4.0" step="0.1" value="1.0">
+        </div>
+
+        <!-- Dust Lanes & Volumetric Core Contrast -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Densidade de Poeira Cósmica</span>
+                <span id="val-dust" class="text-gray-400 font-mono">100%</span>
+            </div>
+            <input type="range" id="slider-dust" min="0.0" max="1.8" step="0.05" value="1.0">
+        </div>
+
+        <!-- Astrophysical Data Card -->
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-xs flex flex-col gap-1.5">
+            <div class="flex justify-between">
+                <span class="text-gray-400">Classificação:</span>
+                <span id="stat-type" class="font-mono font-semibold text-white">Espiral SA(s)b</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Diâmetro Estimado:</span>
+                <span id="stat-diameter" class="font-mono font-semibold text-white">~220.000 anos-luz</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Telescópio Principal:</span>
+                <span id="stat-telescope" class="font-mono font-semibold text-indigo-300">Hubble / GALEX / JWST</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Custom GLSL Shaders for Hyper-Realistic Galactic Stars, H-II Regions & Dust Lanes -->
+    <script id="galaxyVertexShader" type="x-shader/x-vertex">
+        attribute float aSize;
+        attribute float aOrbitSpeed;
+        attribute float aPhase;
+        attribute float aLayer; // 0 = Star, 1 = H-II Nebula Cloud, 2 = Dark Absorbing Dust Lane
+        attribute vec3 aPivot;  // Local galaxy center so rotation NEVER distorts spiral arms, spokes or bridges
+
+        varying vec3 vColor;
+        varying float vLayer;
+        varying float vAlpha;
+
+        uniform float uTime;
+        uniform float uSizeScale;
+        uniform float uRotationSpeed;
+
+        void main() {
+            vColor = color;
+            vLayer = aLayer;
+
+            // Density-wave pattern rotation around each galaxy's own center (aPivot)
+            // This preserves morphological integrity at any rotation speed!
+            vec3 localPos = position - aPivot;
+            float angle = uTime * uRotationSpeed * aOrbitSpeed;
+            float s = sin(angle);
+            float c = cos(angle);
+            localPos.xz = mat2(c, -s, s, c) * localPos.xz;
+            vec3 pos = aPivot + localPos;
+
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+
+            float dist = max(1.0, -mvPosition.z);
+            float twinkle = 0.92 + 0.08 * sin(uTime * 3.2 + aPhase);
+            gl_PointSize = clamp((aSize * uSizeScale * twinkle * 315.0) / dist, 1.0, 135.0);
+            vAlpha = smoothstep(500.0, 1.2, dist);
+        }
+    </script>
+
+    <script id="galaxyFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+
+        varying vec3 vColor;
+        varying float vLayer;
+        varying float vAlpha;
+
+        uniform vec3 uRgbTint;
+        uniform float uBrightness;
+        uniform float uDustStrength;
+
+        void main() {
+            vec2 uv = gl_PointCoord - vec2(0.5);
+            float d = length(uv) * 2.0;
+            if (d > 1.0) discard;
+
+            if (vLayer > 1.5) {
+                // High-Contrast Dark Absorbing Cosmic Dust Lane (occludes bright background bulge like real Sombrero M104 & M51)
+                float dustSoft = pow(1.0 - d, 1.75);
+                vec3 dustCol = vColor * uRgbTint * 0.08;
+                float alpha = clamp(dustSoft * 0.85 * uDustStrength * vAlpha, 0.0, 0.96);
+                gl_FragColor = vec4(dustCol, alpha);
+            } else if (vLayer > 0.5) {
+                // Volumetric Nebular H-II Star-Forming Cloud & Core HDR Glow
+                float cloudGlow = exp(-d * d * 2.6) * (1.0 - d * d * 0.5);
+                vec3 col = vColor * uRgbTint * uBrightness * 1.35;
+                gl_FragColor = vec4(col, clamp(cloudGlow * 0.48 * vAlpha, 0.0, 0.90));
+            } else {
+                // Crisp Star Cluster with incandescent white-hot core + soft diffraction halo
+                float core = exp(-d * d * 18.0);
+                float halo = exp(-d * 3.2) * 0.58;
+                float intensity = (core + halo) * uBrightness * 1.15;
+                vec3 col = mix(vColor * uRgbTint, vec3(1.0), core * 0.78) * intensity;
+                gl_FragColor = vec4(col, clamp((core + halo * 0.7) * vAlpha, 0.0, 0.98));
+            }
+        }
+    </script>
+
+    <script>
+        window.onload = function () {
+            const container = document.getElementById('canvas-container');
+
+            // ============================================================================
+            // METADATA FOR THE 6 GALAXIES & COSMIC STRUCTURES
+            // ============================================================================
+            const GALAXY_CATALOG = {
+                andromeda: {
+                    title: "Galáxia de Andrômeda (M31)",
+                    catalog: "2,5 Milhões de Anos-Luz • 1 Trilhão de Estrelas",
+                    desc: "Uma grande galáxia espiral vizinha da Via Láctea, com um bulbo dourado supermassivo, anéis de poeira concêntricos e as galáxias-satélite M32 e M110.",
+                    ref: "Ref: Explore the Night Sky - NASA Science",
+                    type: "Espiral SA(s)b",
+                    diameter: "~220.000 anos-luz",
+                    telescope: "Hubble / GALEX / Spitzer",
+                    camPos: { theta: 0.62, phi: 1.24, radius: 50, lookAt: [0, 0, 0] }
+                },
+                whirlpool: {
+                    title: "Galáxia do Redemoinho (M51)",
+                    catalog: "31 Milhões de Anos-Luz • Braços Grand-Design",
+                    desc: "Seus braços espirais são muito bem definidos, contornados por faixas escuras de poeira, berçários H-II rosados e ponte de maré até a companheira NGC 5195.",
+                    ref: "Ref: Hubble Space Telescope M51 - NASA/ESA",
+                    type: "Espiral SA(s)bc pec",
+                    diameter: "~76.000 anos-luz",
+                    telescope: "Hubble ACS & JWST MIRI",
+                    camPos: { theta: 0.08, phi: 0.35, radius: 52, lookAt: [2.5, 0, -1.5] }
+                },
+                sombrero: {
+                    title: "Galáxia do Sombrero (M104)",
+                    catalog: "29 Milhões de Anos-Luz • Constelação de Virgem",
+                    desc: "Possui um formato que lembra um chapéu, com um imenso halo elíptico dourado e uma faixa densa e escura de poeira bloqueando a luz no equador.",
+                    ref: "Ref: Sombrero Galaxy | ESA/Hubble",
+                    type: "Espiral / Lenticular SA(s)a",
+                    diameter: "~50.000 anos-luz",
+                    telescope: "ESA/Hubble & James Webb",
+                    camPos: { theta: 0.0, phi: 1.47, radius: 44, lookAt: [0, 0, 0] }
+                },
+                cartwheel: {
+                    title: "Galáxia da Roda de Carro",
+                    catalog: "500 Milhões de Anos-Luz • Colisão em Anel",
+                    desc: "Apresenta uma estrutura semelhante a uma roda, com anel interno quente, raios espirais laranjas bem preservados e anel externo azul/magenta de formação estelar.",
+                    ref: "Ref: Webb Captures Stellar Gymnastics in the Cartwheel Galaxy - NASA Science",
+                    type: "Galáxia Lenticular em Anel",
+                    diameter: "~150.000 anos-luz",
+                    telescope: "James Webb (NIRCam + MIRI)",
+                    camPos: { theta: 0.32, phi: 0.85, radius: 56, lookAt: [3.5, 0, 0] }
+                },
+                stephan: {
+                    title: "Quinteto de Stephan",
+                    catalog: "290 Milhões de Anos-Luz • 5 Galáxias em Interação",
+                    desc: "Um conjunto visualmente impressionante de 5 galáxias dançando gravitacionalmente, onde cada galáxia gira em seu próprio eixo preservando as caudas de maré.",
+                    ref: "Ref: NASA Unveils James Webb Space Telescope’s First Full-Colour Images",
+                    type: "Grupo Compacto de Hickson 92",
+                    diameter: "~500.000 anos-luz (Grupo)",
+                    telescope: "James Webb Space Telescope",
+                    camPos: { theta: 0.15, phi: 1.05, radius: 64, lookAt: [-2, 0, 0] }
+                },
+                hubble: {
+                    title: "Campo Profundo do Hubble (eXtreme Deep Field)",
+                    catalog: "Até 13,2 Bilhões de Anos-Luz • Milhares de Galáxias",
+                    desc: "Uma região aparentemente pequena do céu repleta de galáxias espirais, elípticas e primordiais — cada uma girando individualmente ao redor de seu próprio núcleo.",
+                    ref: "Ref: Hubble Telescope Shows the Most Colorful View of the Universe | TIME",
+                    type: "Campo Ultra-Profundo 3D",
+                    diameter: "13,2 Bilhões de Anos de História",
+                    telescope: "Hubble Ultra Deep Field",
+                    camPos: { theta: 0.0, phi: 1.50, radius: 72, lookAt: [0, 0, 0] }
+                }
+            };
+
+            // ============================================================================
+            // THREE.JS SCENE & RENDERER
+            // ============================================================================
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.2, 650);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Soft radial sprite texture for galactic cores and JWST/Hubble diffraction spikes
+            function createCoreTexture(withSpikes) {
+                const c = document.createElement('canvas');
+                c.width = 128;
+                c.height = 128;
+                const ctx = c.getContext('2d');
+                const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+                grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+                grad.addColorStop(0.16, 'rgba(255, 240, 205, 0.88)');
+                grad.addColorStop(0.42, 'rgba(255, 185, 115, 0.30)');
+                grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 128, 128);
+
+                if (withSpikes) {
+                    ctx.strokeStyle = 'rgba(255, 245, 215, 0.72)';
+                    ctx.lineWidth = 1.6;
+                    for (let a = 0; a < 6; a++) {
+                        const angle = (a * Math.PI) / 3;
+                        ctx.beginPath();
+                        ctx.moveTo(64 - Math.cos(angle) * 60, 64 - Math.sin(angle) * 60);
+                        ctx.lineTo(64 + Math.cos(angle) * 60, 64 + Math.sin(angle) * 60);
+                        ctx.stroke();
+                    }
+                }
+                return new THREE.CanvasTexture(c);
+            }
+            const coreGlowTex = createCoreTexture(false);
+            const starSpikeTex = createCoreTexture(true);
+
+            // Background distant field stars
+            const bgCount = 3000;
+            const bgGeo = new THREE.BufferGeometry();
+            const bgPos = new Float32Array(bgCount * 3);
+            const bgCol = new Float32Array(bgCount * 3);
+            for (let i = 0; i < bgCount; i++) {
+                const r = 190 + Math.random() * 240;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                bgPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                bgPos[i * 3 + 1] = r * Math.cos(phi);
+                bgPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+                const c = 0.65 + Math.random() * 0.35;
+                bgCol[i * 3] = c;
+                bgCol[i * 3 + 1] = c * (0.9 + Math.random() * 0.1);
+                bgCol[i * 3 + 2] = 1.0;
+            }
+            bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
+            bgGeo.setAttribute('color', new THREE.BufferAttribute(bgCol, 3));
+            const bgStars = new THREE.Points(
+                bgGeo,
+                new THREE.PointsMaterial({ size: 0.85, vertexColors: true, transparent: true, opacity: 0.65 })
+            );
+            scene.add(bgStars);
+
+            // ============================================================================
+            // GALAXY PARTICLE SYSTEM ARCHITECTURE (90,000 Volumetric Particles + Dust Occlusion)
+            // ============================================================================
+            const MAX_PARTICLES = 90000;
+            const galaxyGroup = new THREE.Group();
+            scene.add(galaxyGroup);
+
+            const coreSpritesGroup = new THREE.Group();
+            scene.add(coreSpritesGroup);
+
+            const positions = new Float32Array(MAX_PARTICLES * 3);
+            const colors = new Float32Array(MAX_PARTICLES * 3);
+            const sizes = new Float32Array(MAX_PARTICLES);
+            const orbitSpeeds = new Float32Array(MAX_PARTICLES);
+            const phases = new Float32Array(MAX_PARTICLES);
+            const layers = new Float32Array(MAX_PARTICLES); // 0 = Star, 1 = H-II Nebula, 2 = Dark Absorbing Dust
+            const pivots = new Float32Array(MAX_PARTICLES * 3);
+
+            const particleGeo = new THREE.BufferGeometry();
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particleGeo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+            particleGeo.setAttribute('aOrbitSpeed', new THREE.BufferAttribute(orbitSpeeds, 1));
+            particleGeo.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1));
+            particleGeo.setAttribute('aLayer', new THREE.BufferAttribute(layers, 1));
+            particleGeo.setAttribute('aPivot', new THREE.BufferAttribute(pivots, 3));
+
+            const galaxyUniforms = {
+                uTime: { value: 0 },
+                uSizeScale: { value: 1.0 },
+                uRotationSpeed: { value: 1.0 },
+                uRgbTint: { value: new THREE.Vector3(1.0, 1.0, 1.0) },
+                uBrightness: { value: 1.2 },
+                uDustStrength: { value: 1.0 }
+            };
+
+            // NormalBlending allows dark cosmic dust lanes (aLayer = 2) to genuinely occlude luminous stars behind them
+            // while bright stars & H-II regions still glow intensely via HDR color values!
+            const galaxyMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('galaxyVertexShader').textContent,
+                fragmentShader: document.getElementById('galaxyFragmentShader').textContent,
+                uniforms: galaxyUniforms,
+                vertexColors: true,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.NormalBlending
+            });
+
+            const galaxyPoints = new THREE.Points(particleGeo, galaxyMat);
+            galaxyGroup.add(galaxyPoints);
+
+            // Helper: Gaussian random distribution
+            function randGauss() {
+                let u = 0, v = 0;
+                while (u === 0) u = Math.random();
+                while (v === 0) v = Math.random();
+                return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+            }
+
+            // Helper: Set particle attributes at index i with local rotation pivot (px, py, pz)
+            function setParticle(i, x, y, z, r, g, b, size, speed, layer = 0, px = 0, py = 0, pz = 0) {
+                const idx = i * 3;
+                positions[idx] = x;
+                positions[idx + 1] = y;
+                positions[idx + 2] = z;
+                colors[idx] = r;
+                colors[idx + 1] = g;
+                colors[idx + 2] = b;
+                sizes[i] = size;
+                orbitSpeeds[i] = speed;
+                phases[i] = Math.random() * Math.PI * 2;
+                layers[i] = layer;
+                pivots[idx] = px;
+                pivots[idx + 1] = py;
+                pivots[idx + 2] = pz;
+            }
+
+            function clearCoreSprites() {
+                while (coreSpritesGroup.children.length > 0) {
+                    coreSpritesGroup.remove(coreSpritesGroup.children[0]);
+                }
+            }
+
+            function addCoreSprite(x, y, z, scale, colorHex, opacity = 0.85, spiked = false) {
+                const mat = new THREE.SpriteMaterial({
+                    map: spiked ? starSpikeTex : coreGlowTex,
+                    color: colorHex,
+                    transparent: true,
+                    opacity: opacity,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                const s = new THREE.Sprite(mat);
+                s.position.set(x, y, z);
+                s.scale.set(scale, scale, 1);
+                coreSpritesGroup.add(s);
+            }
+
+            function smoothstepJS(edge0, edge1, x) {
+                const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+                return t * t * (3 - 2 * t);
+            }
+
+            // ============================================================================
+            // PROCEDURAL ASTROPHYSICAL GENERATORS (RIGID PATTERN SPEED = NO DEFORMATION)
+            // ============================================================================
+
+            // 1. GALÁXIA DE ANDRÔMEDA (M31) + Satellites M32 & M110
+            function buildAndromeda() {
+                clearCoreSprites();
+                addCoreSprite(0, 0, 0, 25, 0xffddaa, 0.92);
+                addCoreSprite(0, 0, 0, 11, 0xffffff, 0.95);
+                // Satellite M32 (compact bright core close to disk) & M110 (elongated dwarf)
+                addCoreSprite(-15, 2.2, 10, 7.5, 0xffe8c2, 0.9);
+                addCoreSprite(20, -4.8, -13, 10.0, 0xffd8a8, 0.78);
+
+                // Uniform pattern angular velocity for M31 disk so spiral arms and dust rings NEVER wind up
+                const m31Omega = 0.22;
+
+                for (let i = 0; i < MAX_PARTICLES; i++) {
+                    if (i < 20000) {
+                        // Warm Golden-Cream Triaxial Bulge
+                        const r = Math.abs(randGauss()) * 5.2;
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const x = r * Math.sin(phi) * Math.cos(theta) * 1.15;
+                        const y = r * Math.cos(phi) * 0.48;
+                        const z = r * Math.sin(phi) * Math.sin(theta);
+                        const coreBright = 1.15 + Math.exp(-r * 0.35) * 0.8;
+                        setParticle(i, x, y, z, 1.0 * coreBright, 0.85 * coreBright, 0.62 * coreBright, 0.48 + Math.random() * 0.45, m31Omega, 0, 0, 0, 0);
+                    } else if (i < 71000) {
+                        // Tightly wound spiral arms + Andromeda's famous 10-kpc Star-Forming Ring (r ~ 16-24)
+                        const arm = i % 2;
+                        const u = Math.random();
+                        const r = 3.8 + Math.pow(u, 0.82) * 28.5;
+                        const spiralAngle = arm * Math.PI + Math.log(r * 0.42) * 5.1;
+
+                        // Modulate density in concentric rings characteristic of M31
+                        const ringMod = Math.sin(r * 1.15);
+                        const spread = (0.16 + 0.22 * (1.0 - u)) * randGauss();
+                        const angle = spiralAngle + spread;
+
+                        const x = Math.cos(angle) * r;
+                        const z = Math.sin(angle) * r;
+                        const y = randGauss() * (0.28 + r * 0.012);
+
+                        const t = Math.min(1.0, (r - 3.8) / 25.0);
+                        const isHII = Math.random() < 0.08 && r > 11.0 && ringMod > 0.2;
+                        if (isHII) {
+                            // Pinkish-red H-II star-forming knots along the outer blue rings
+                            setParticle(i, x, y, z, 1.3, 0.38, 0.68, 1.1 + Math.random() * 0.7, m31Omega, 1, 0, 0, 0);
+                        } else {
+                            const cr = THREE.MathUtils.lerp(1.15, 0.52, t);
+                            const cg = THREE.MathUtils.lerp(0.92, 0.78, t);
+                            const cb = THREE.MathUtils.lerp(0.68, 1.35, t);
+                            const layer = (Math.random() < 0.16 && Math.abs(spread) < 0.14) ? 1 : 0;
+                            const sz = layer === 1 ? 1.35 : (0.34 + Math.random() * 0.42);
+                            setParticle(i, x, y, z, cr, cg, cb, sz, m31Omega, layer, 0, 0, 0);
+                        }
+                    } else if (i < 81000) {
+                        // Dark Absorbing Dust Lanes etched along the inner edge of M31's spiral arms
+                        const arm = i % 2;
+                        const u = Math.random();
+                        const r = 4.5 + u * 23.0;
+                        const spiralAngle = arm * Math.PI + Math.log(r * 0.42) * 5.1 - 0.16;
+                        const angle = spiralAngle + randGauss() * 0.09;
+                        const x = Math.cos(angle) * r;
+                        const z = Math.sin(angle) * r;
+                        const y = randGauss() * 0.16;
+                        setParticle(i, x, y, z, 0.18, 0.10, 0.06, 1.45 + Math.random() * 0.6, m31Omega, 2, 0, 0, 0);
+                    } else if (i < 85500) {
+                        // Satellite Galaxy M32 (spins around its own center [-15, 2.2, 10])
+                        const r = Math.abs(randGauss()) * 1.6;
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const x = -15 + r * Math.sin(phi) * Math.cos(theta);
+                        const y = 2.2 + r * Math.cos(phi) * 0.85;
+                        const z = 10 + r * Math.sin(phi) * Math.sin(theta);
+                        setParticle(i, x, y, z, 1.2, 1.0, 0.78, 0.44, 0.25, 0, -15, 2.2, 10);
+                    } else {
+                        // Satellite Galaxy M110 (spins around its own center [20, -4.8, -13])
+                        const r = Math.abs(randGauss()) * 2.5;
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const x = 20 + r * Math.sin(phi) * Math.cos(theta) * 1.45;
+                        const y = -4.8 + r * Math.cos(phi) * 0.68;
+                        const z = -13 + r * Math.sin(phi) * Math.sin(theta);
+                        setParticle(i, x, y, z, 1.1, 0.95, 0.80, 0.40, 0.2, 0, 20, -4.8, -13);
+                    }
+                }
+            }
+
+            // 2. GALÁXIA DO REDEMOINHO (Whirlpool M51 + Companion NGC 5195)
+            // Entire M51 + Bridge + NGC 5195 system rotates coherently at pattern speed w51 so the bridge NEVER breaks!
+            function buildWhirlpool() {
+                clearCoreSprites();
+                addCoreSprite(0, 0, 0, 17, 0xfff2cc, 0.95);
+                addCoreSprite(19.5, 1.2, -13.5, 13.5, 0xffd28a, 0.95);
+
+                const w51 = 0.24; // Coherent density-wave pattern speed
+
+                for (let i = 0; i < MAX_PARTICLES; i++) {
+                    if (i < 11000) {
+                        // M51 Warm Yellow-White Central Core
+                        const r = Math.abs(randGauss()) * 2.7;
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        setParticle(
+                            i,
+                            r * Math.sin(phi) * Math.cos(theta),
+                            r * Math.cos(phi) * 0.42,
+                            r * Math.sin(phi) * Math.sin(theta),
+                            1.3, 1.12, 0.85,
+                            0.52 + Math.random() * 0.45,
+                            w51,
+                            0, 0, 0, 0
+                        );
+                    } else if (i < 63000) {
+                        // Two Ultra-Sharp Grand-Design Spiral Arms + Feather Spurs
+                        const arm = i % 2;
+                        const u = Math.random();
+                        const r = 1.9 + Math.pow(u, 0.86) * 22.0;
+                        const baseAngle = arm * Math.PI + Math.log(r * 0.55) * 3.15;
+
+                        const armSpread = randGauss() * (0.11 + 0.06 * u);
+                        const angle = baseAngle + armSpread;
+
+                        const x = Math.cos(angle) * r;
+                        const z = Math.sin(angle) * r;
+                        const y = randGauss() * 0.26;
+
+                        // String of glowing ruby/magenta H-II star-forming regions along the spiral ridge
+                        const knotWave = Math.sin(r * 2.8 + arm * 1.9);
+                        if (Math.random() < 0.25 && knotWave > 0.05 && r > 3.5) {
+                            setParticle(i, x, y, z, 1.45, 0.20, 0.62, 1.15 + Math.random() * 0.85, w51, 1, 0, 0, 0);
+                        } else if (Math.random() < 0.22) {
+                            // Luminous sapphire nebular ribbon along the spiral arm
+                            setParticle(i, x, y, z, 0.42, 0.78, 1.35, 1.40, w51, 1, 0, 0, 0);
+                        } else {
+                            // Brilliant blue-white OB supergiant clusters
+                            const blueTint = Math.min(1.0, (r - 1.9) / 16.0);
+                            const cr = THREE.MathUtils.lerp(1.2, 0.65, blueTint);
+                            const cg = THREE.MathUtils.lerp(1.05, 0.92, blueTint);
+                            const cb = 1.35;
+                            setParticle(i, x, y, z, cr, cg, cb, 0.36 + Math.random() * 0.48, w51, 0, 0, 0, 0);
+                        }
+                    } else if (i < 75000) {
+                        // Dark Absorbing Dust Lanes hugging the concave inner side of M51's spiral arms
+                        const arm = i % 2;
+                        const u = Math.random();
+                        const r = 2.0 + Math.pow(u, 0.85) * 20.5;
+                        const baseAngle = arm * Math.PI + Math.log(r * 0.55) * 3.15 - 0.14;
+                        const angle = baseAngle + randGauss() * 0.06;
+                        const x = Math.cos(angle) * r;
+                        const z = Math.sin(angle) * r;
+                        const y = randGauss() * 0.15;
+                        setParticle(i, x, y, z, 0.14, 0.06, 0.08, 1.35 + Math.random() * 0.55, w51, 2, 0, 0, 0);
+                    } else if (i < 81000) {
+                        // Tidal Bridge connecting the outer spiral arm directly into NGC 5195
+                        const t = Math.random();
+                        const bx = THREE.MathUtils.lerp(11.5, 19.5, t) + randGauss() * 0.95;
+                        const by = THREE.MathUtils.lerp(0.0, 1.2, t) + randGauss() * 0.4;
+                        const bz = THREE.MathUtils.lerp(-16.2, -13.5, t) + randGauss() * 1.05;
+                        const isDust = i % 4 === 0;
+                        if (isDust) {
+                            setParticle(i, bx, by, bz, 0.15, 0.08, 0.06, 1.4, w51, 2, 0, 0, 0);
+                        } else {
+                            setParticle(i, bx, by, bz, 0.95, 0.98, 1.2, 0.48 + Math.random() * 0.45, w51, 0, 0, 0, 0);
+                        }
+                    } else {
+                        // Companion Galaxy NGC 5195 (Golden-amber irregular galaxy with tidal plume)
+                        const r = Math.abs(randGauss()) * 2.8;
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const x = 19.5 + r * Math.sin(phi) * Math.cos(theta) * 1.2;
+                        const y = 1.2 + r * Math.cos(phi) * 0.6;
+                        const z = -13.5 + r * Math.sin(phi) * Math.sin(theta);
+                        setParticle(i, x, y, z, 1.28, 0.96, 0.58, 0.48 + Math.random() * 0.42, w51, 0, 0, 0, 0);
+                    }
+                }
+            }
+
+            // 3. GALÁXIA DO SOMBRERO (M104 - Iconic Hat Bulge + High-Contrast Dark Equatorial Dust Brim)
+            function buildSombrero() {
+                clearCoreSprites();
+                addCoreSprite(0, 0, 0, 30, 0xffe2a8, 0.92);
+                addCoreSprite(0, 0, 0, 14, 0xffffff, 0.96);
+
+                const wSombrero = 0.22;
+
+                for (let i = 0; i < MAX_PARTICLES; i++) {
+                    if (i < 38000) {
+                        // Luminous Spherical-Elliptical Halo ("Crown of the Hat")
+                        const u = Math.random();
+                        const r = Math.pow(u, 1.35) * 18.5;
+                        const theta = Math.random() * Math.PI * 2;
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const x = r * Math.sin(phi) * Math.cos(theta) * 1.3;
+                        const y = r * Math.cos(phi) * 0.82;
+                        const z = r * Math.sin(phi) * Math.sin(theta) * 1.3;
+
+                        const coreWarmth = 1.0 - Math.min(1.0, r / 18.5);
+                        const cr = 1.15;
+                        const cg = 0.86 + coreWarmth * 0.22;
+                        const cb = 0.58 + coreWarmth * 0.42;
+                        setParticle(i, x, y, z, cr, cg, cb, 0.36 + coreWarmth * 0.45, wSombrero, 0, 0, 0, 0);
+                    } else if (i < 68000) {
+                        // Thin Symmetric Stellar Disk ("Inner White-Blue Brim of the Hat")
+                        const r = 5.5 + Math.pow(Math.random(), 0.65) * 22.5;
+                        const angle = Math.random() * Math.PI * 2;
+                        const x = Math.cos(angle) * r;
+                        const z = Math.sin(angle) * r;
+                        const y = randGauss() * 0.18;
+
+                        const outerRing = smoothstepJS(14.0, 25.0, r);
+                        const cr = THREE.MathUtils.lerp(1.2, 0.82, outerRing);
+                        const cg = THREE.MathUtils.lerp(1.0, 0.98, outerRing);
+                        const cb = THREE.MathUtils.lerp(0.78, 1.35, outerRing);
+                        setParticle(i, x, y, z, cr, cg, cb, 0.40 + Math.random() * 0.38, wSombrero, 0, 0, 0, 0);
+                    } else {
+                        // Iconic Razor-Sharp Dark Absorbing Dust Ring around the outer equator (r = 22.5 to 28.5)
+                        const r = 22.8 + Math.random() * 5.4;
+                        const angle = Math.random() * Math.PI * 2;
+                        const x = Math.cos(angle) * r;
+                        const z = Math.sin(angle) * r;
+                        const y = randGauss() * 0.14;
+
+                        if (i % 5 === 0) {
+                            // Subtle warm infrared rim glow
+                            setParticle(i, x, y, z, 0.95, 0.42, 0.18, 1.15, wSombrero, 1, 0, 0, 0);
+                        } else {
+                            // Heavy dark dust lane that silhouettes against the bright golden bulge
+                            setParticle(i, x, y, z, 0.04, 0.02, 0.02, 1.85 + Math.random() * 0.5, wSombrero, 2, 0, 0, 0);
+                        }
+                    }
+                }
+            }
+
+            // 4. GALÁXIA DA RODA DE CARRO (Cartwheel Galaxy - JWST Coherent Ring, Spokes & 2 Companions)
+            function buildCartwheel() {
+                clearCoreSprites();
+                addCoreSprite(0, 0, 0, 16, 0xffd6a5, 0.95);
+                addCoreSprite(34.0, 4.0, -12.0, 7.5, 0x99ccff, 0.85);
+                addCoreSprite(31.0, -6.5, 14.0, 7.5, 0xffd296, 0.85);
+
+                // Uniform angular pattern speed so the radial "wheel spokes" NEVER wrap up or deform!
+                const wWheel = 0.20;
+
+                for (let i = 0; i < MAX_PARTICLES; i++) {
+                    if (i < 16000) {
+                        // Luminous Dusty Inner Ring & Hot Core (r <= 6.2)
+                        const isRing = Math.random() < 0.68;
+                        const r = isRing ? (5.4 + randGauss() * 0.55) : (Math.abs(randGauss()) * 2.4);
+                        const angle = Math.random() * Math.PI * 2;
+                        const x = Math.cos(angle) * r * 1.12;
+                        const z = Math.sin(angle) * r * 0.88;
+                        const y = randGauss() * 0.30;
+                        setParticle(i, x, y, z, 1.25, 0.96, 0.72, 0.46 + Math.random() * 0.42, wWheel, 0, 0, 0, 0);
+                    } else if (i < 42000) {
+                        // 12 Crisp Curved Radial "Wheel Spokes" connecting Inner Ring to Outer Ring (JWST MIRI Orange/Coral)
+                        const numSpokes = 12;
+                        const spokeIdx = i % numSpokes;
+                        const t = Math.random();
+                        const r = THREE.MathUtils.lerp(5.5, 23.2, t);
+                        const spokeAngle = (spokeIdx / numSpokes) * Math.PI * 2 + t * 0.82 + randGauss() * 0.055;
+                        const x = Math.cos(spokeAngle) * r * 1.12;
+                        const z = Math.sin(spokeAngle) * r * 0.88;
+                        const y = randGauss() * 0.22;
+
+                        const layer = Math.random() < 0.28 ? 1 : 0;
+                        setParticle(i, x, y, z, 1.25, 0.52, 0.28, layer ? 1.15 : 0.42, wWheel, layer, 0, 0, 0);
+                    } else if (i < 79000) {
+                        // Giant Expanding Outer Starburst Rim ("Tire of the Wagon Wheel" at r = 22.8 to 26.2)
+                        const r = 23.6 + randGauss() * 1.05;
+                        const angle = Math.random() * Math.PI * 2;
+                        const x = Math.cos(angle) * r * 1.12;
+                        const z = Math.sin(angle) * r * 0.88;
+                        const y = randGauss() * 0.36;
+
+                        const isPinkKnot = Math.sin(angle * 16.0) > 0.35 && Math.random() < 0.48;
+                        if (isPinkKnot) {
+                            setParticle(i, x, y, z, 1.4, 0.32, 0.82, 1.25 + Math.random() * 0.7, wWheel, 1, 0, 0, 0);
+                        } else {
+                            setParticle(i, x, y, z, 0.45, 0.85, 1.4, 0.45 + Math.random() * 0.52, wWheel, 0, 0, 0, 0);
+                        }
+                    } else {
+                        // Two Companion Galaxies to the right side, each rotating around its own center!
+                        const comp = i % 2;
+                        const cx = comp === 0 ? 34.0 : 31.0;
+                        const cy = comp === 0 ? 4.0 : -6.5;
+                        const cz = comp === 0 ? -12.0 : 14.0;
+
+                        const u = Math.random();
+                        const r = Math.pow(u, 0.85) * 4.2;
+                        const arm = i % 2;
+                        const a = arm * Math.PI + r * 1.1 + randGauss() * 0.25;
+                        const x = cx + Math.cos(a) * r;
+                        const z = cz + Math.sin(a) * r;
+                        const y = cy + randGauss() * 0.45;
+
+                        if (comp === 0) {
+                            setParticle(i, x, y, z, 0.62, 0.92, 1.35, 0.45, 0.25, 0, cx, cy, cz);
+                        } else {
+                            setParticle(i, x, y, z, 1.25, 0.88, 0.55, 0.45, 0.25, 0, cx, cy, cz);
+                        }
+                    }
+                }
+            }
+
+            // 5. QUINTETO DE STEPHAN (Each of the 5 Galaxies Rotates Around its Own Pivot + Shockwave Arc)
+            function buildStephanQuintet() {
+                clearCoreSprites();
+
+                const centers = [
+                    { pos: [-16, 10, 4], color: 0x88ccff, type: 'spiral_fg', speed: 0.22 },    // NGC 7320 (Bluish foreground spiral)
+                    { pos: [6, 14, -4], color: 0xffd296, type: 'barred_tidal', speed: 0.14 },  // NGC 7319 (Golden barred spiral with tidal tail)
+                    { pos: [-2, -2, 0], color: 0xffe4b5, type: 'colliding_A', speed: 0.18 },   // NGC 7318B
+                    { pos: [-6, -4, -2], color: 0xffd8a8, type: 'colliding_B', speed: -0.18 }, // NGC 7318A
+                    { pos: [-19, -15, -6], color: 0xffcc88, type: 'elliptical', speed: 0.10 }  // NGC 7317
+                ];
+
+                centers.forEach(c => {
+                    addCoreSprite(c.pos[0], c.pos[1], c.pos[2], 12.0, c.color, 0.92);
+                });
+                // Famous bright foreground star with JWST 6-point diffraction spikes
+                addCoreSprite(18, 17, 10, 14, 0xffffff, 0.95, true);
+
+                const perGalaxy = 15600;
+                for (let g = 0; g < 5; g++) {
+                    const c = centers[g];
+                    const startIdx = g * perGalaxy;
+                    const px = c.pos[0], py = c.pos[1], pz = c.pos[2];
+
+                    for (let j = 0; j < perGalaxy; j++) {
+                        const i = startIdx + j;
+                        const u = Math.random();
+                        const r = Math.pow(u, 0.85) * 9.8;
+                        const arm = j % 2;
+
+                        if (c.type === 'elliptical') {
+                            const rad = Math.abs(randGauss()) * 3.8;
+                            const theta = Math.random() * Math.PI * 2;
+                            const phi = Math.acos(2 * Math.random() - 1);
+                            setParticle(
+                                i,
+                                px + rad * Math.sin(phi) * Math.cos(theta),
+                                py + rad * Math.cos(phi) * 0.8,
+                                pz + rad * Math.sin(phi) * Math.sin(theta),
+                                1.2, 0.92, 0.62,
+                                0.44, c.speed, 0, px, py, pz
+                            );
+                        } else {
+                            const twist = c.type === 'barred_tidal' ? 1.85 : 2.75;
+                            const angle = arm * Math.PI + Math.log(r * 0.6 + 1.0) * twist + randGauss() * 0.22;
+                            let x = px + Math.cos(angle) * r;
+                            let y = py + Math.sin(angle) * r * 0.72;
+                            let z = pz + Math.sin(angle) * r * 0.45 + randGauss() * 0.65;
+
+                            // Sweeping tidal tail from NGC 7319
+                            if (c.type === 'barred_tidal' && arm === 0 && u > 0.55) {
+                                x += (u - 0.55) * 18.0;
+                                y -= (u - 0.55) * 22.0;
+                            }
+
+                            if (c.type === 'spiral_fg') {
+                                const isKnot = Math.random() < 0.14;
+                                setParticle(
+                                    i, x, y, z,
+                                    isKnot ? 1.3 : 0.55,
+                                    isKnot ? 0.35 : 0.88,
+                                    1.35,
+                                    0.44 + Math.random() * 0.4,
+                                    c.speed,
+                                    isKnot ? 1 : 0,
+                                    px, py, pz
+                                );
+                            } else {
+                                setParticle(i, x, y, z, 1.2, 0.84, 0.52, 0.42 + Math.random() * 0.4, c.speed, 0, px, py, pz);
+                            }
+                        }
+                    }
+                }
+
+                // Giant Intergalactic Shockwave Arc (indices 78,000 to 90,000)
+                for (let i = 78000; i < MAX_PARTICLES; i++) {
+                    const t = (i - 78000) / (MAX_PARTICLES - 78000);
+                    const arcAngle = (t - 0.5) * 2.15;
+                    const sx = 2.5 + Math.cos(arcAngle) * 7.8 + randGauss() * 0.85;
+                    const sy = -1.0 + Math.sin(arcAngle) * 11.8 + randGauss() * 0.85;
+                    const sz = randGauss() * 1.4;
+
+                    const isHotGas = i % 2 === 0;
+                    if (isHotGas) {
+                        setParticle(i, sx, sy, sz, 1.35, 0.32, 0.20, 1.35, 0.04, 1, 0, 0, 0);
+                    } else {
+                        setParticle(i, sx, sy, sz, 0.42, 0.92, 1.35, 0.52, 0.04, 0, 0, 0, 0);
+                    }
+                }
+            }
+
+            // 6. CAMPO PROFUNDO DO HUBBLE (225 Galaxies - Each Rotating Around its Own 3D Center!)
+            function buildHubbleDeepField() {
+                clearCoreSprites();
+
+                addCoreSprite(-22, 14, 24, 11, 0xaaccff, 0.9, true);
+                addCoreSprite(25, -18, 18, 9, 0xffddaa, 0.85, true);
+
+                const numGalaxies = 225;
+                const starsPerGalaxy = Math.floor(MAX_PARTICLES / numGalaxies);
+
+                const palette = [
+                    [0.42, 0.82, 1.35], // Young Blue Spiral
+                    [1.30, 0.98, 0.52], // Mature Golden Elliptical
+                    [1.35, 0.34, 0.25], // High-Redshift Primordial Galaxy (z > 6)
+                    [1.25, 0.48, 1.15], // Starburst Violet/Magenta Galaxy
+                    [1.30, 0.68, 0.30], // Warm Amber Lenticular
+                    [0.42, 1.25, 0.92]  // Doubly-Ionized Oxygen Greenish Galaxy
+                ];
+
+                let idx = 0;
+                for (let g = 0; g < numGalaxies; g++) {
+                    const gx = (Math.random() - 0.5) * 98.0;
+                    const gy = (Math.random() - 0.5) * 70.0;
+                    const gz = (Math.random() - 0.5) * 98.0;
+
+                    const galScale = 1.3 + Math.pow(Math.random(), 1.55) * 4.4;
+                    const col = palette[g % palette.length];
+                    const isSpiral = Math.random() < 0.72;
+                    const localSpin = (0.18 + Math.random() * 0.25) * (Math.random() < 0.5 ? 1 : -1);
+
+                    const rotX = (Math.random() - 0.5) * 1.1;
+                    const rotZ = (Math.random() - 0.5) * 1.1;
+                    const cx = Math.cos(rotX), sx = Math.sin(rotX);
+                    const cz = Math.cos(rotZ), sz = Math.sin(rotZ);
+
+                    for (let s = 0; s < starsPerGalaxy && idx < MAX_PARTICLES; s++, idx++) {
+                        let lx, ly, lz;
+                        const u = Math.random();
+
+                        if (isSpiral) {
+                            const arm = s % 2;
+                            const r = Math.pow(u, 0.85) * galScale;
+                            const angle = arm * Math.PI + r * (2.8 / galScale) * 2.2 + randGauss() * 0.22;
+                            lx = Math.cos(angle) * r;
+                            lz = Math.sin(angle) * r;
+                            ly = randGauss() * (galScale * 0.07);
+                        } else {
+                            const r = Math.abs(randGauss()) * galScale * 0.52;
+                            const theta = Math.random() * Math.PI * 2;
+                            const phi = Math.acos(2 * Math.random() - 1);
+                            lx = r * Math.sin(phi) * Math.cos(theta);
+                            ly = r * Math.cos(phi) * 0.65;
+                            lz = r * Math.sin(phi) * Math.sin(theta);
+                        }
+
+                        // Slight 3D tilt while spinning cleanly around (gx, gy, gz)
+                        const rx = lx * cz - ly * sz;
+                        const ry = lx * sz + ly * cz;
+                        const ry2 = ry * cx - lz * sx;
+                        const rz2 = ry * sx + lz * cx;
+
+                        const coreMix = Math.exp(-u * 3.5);
+                        const cr = THREE.MathUtils.lerp(col[0], 1.35, coreMix);
+                        const cg = THREE.MathUtils.lerp(col[1], 1.25, coreMix);
+                        const cb = THREE.MathUtils.lerp(col[2], 1.10, coreMix);
+
+                        const pSize = (0.36 + coreMix * 0.55) * (galScale * 0.38);
+                        setParticle(idx, gx + rx, gy + ry2, gz + rz2, cr, cg, cb, pSize, localSpin, coreMix > 0.62 ? 1 : 0, gx, gy, gz);
+                    }
+                }
+
+                while (idx < MAX_PARTICLES) {
+                    const rx = (Math.random() - 0.5) * 100;
+                    const ry = (Math.random() - 0.5) * 70;
+                    const rz = (Math.random() - 0.5) * 100;
+                    setParticle(idx, rx, ry, rz, 1, 0.9, 0.8, 0.3, 0.0, 0, rx, ry, rz);
+                    idx++;
+                }
+            }
+
+            // ============================================================================
+            // FREE 360° CAMERA ORBIT + PAN + ZOOM + COSMIC FLY-THROUGH
+            // ============================================================================
+            const camOrbit = {
+                theta: 0.65,
+                phi: 1.15,
+                radius: 52.0,
+                targetTheta: 0.65,
+                targetPhi: 1.15,
+                targetRadius: 52.0,
+                lookAt: new THREE.Vector3(0, 0, 0),
+                targetLookAt: new THREE.Vector3(0, 0, 0)
+            };
+
+            let dragMode = null;
+            let prevX = 0, prevY = 0;
+            let pinchDist = null;
+            let flyThroughActive = false;
+
+            function isPointerOverUI(target) {
+                return Boolean(
+                    target.closest('aside') ||
+                    target.closest('header') ||
+                    target.closest('nav') ||
+                    target.closest('button') ||
+                    target.closest('input')
+                );
+            }
+
+            window.addEventListener('contextmenu', (e) => {
+                if (!isPointerOverUI(e.target)) e.preventDefault();
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                if (e.button === 2 || e.button === 1 || e.shiftKey) {
+                    dragMode = 'pan';
+                } else if (e.button === 0) {
+                    dragMode = 'orbit';
+                }
+                prevX = e.clientX;
+                prevY = e.clientY;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!dragMode) return;
+                const dx = e.clientX - prevX;
+                const dy = e.clientY - prevY;
+                prevX = e.clientX;
+                prevY = e.clientY;
+
+                if (dragMode === 'orbit') {
+                    camOrbit.targetTheta -= dx * 0.007;
+                    camOrbit.targetPhi = Math.max(0.03, Math.min(Math.PI - 0.03, camOrbit.targetPhi - dy * 0.007));
+                } else if (dragMode === 'pan') {
+                    const panSpeed = camOrbit.radius * 0.0015;
+                    const forward = new THREE.Vector3().subVectors(camOrbit.targetLookAt, camera.position).normalize();
+                    const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+                    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+                    camOrbit.targetLookAt.addScaledVector(right, -dx * panSpeed);
+                    camOrbit.targetLookAt.addScaledVector(up, dy * panSpeed);
+                }
+            });
+
+            window.addEventListener('mouseup', () => { dragMode = null; });
+            window.addEventListener('mouseleave', () => { dragMode = null; });
+
+            window.addEventListener('wheel', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                e.preventDefault();
+                camOrbit.targetRadius = Math.max(3.0, Math.min(130.0, camOrbit.targetRadius + e.deltaY * 0.035));
+            }, { passive: false });
+
+            window.addEventListener('touchstart', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                if (e.touches.length === 1) {
+                    dragMode = 'orbit';
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    dragMode = 'pan';
+                    pinchDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    prevX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
+                    prevY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && dragMode === 'orbit') {
+                    const dx = e.touches[0].clientX - prevX;
+                    const dy = e.touches[0].clientY - prevY;
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                    camOrbit.targetTheta -= dx * 0.007;
+                    camOrbit.targetPhi = Math.max(0.03, Math.min(Math.PI - 0.03, camOrbit.targetPhi - dy * 0.007));
+                } else if (e.touches.length === 2 && pinchDist !== null) {
+                    const d = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    camOrbit.targetRadius = Math.max(3.0, Math.min(130.0, camOrbit.targetRadius + (pinchDist - d) * 0.08));
+                    pinchDist = d;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                dragMode = null;
+                pinchDist = null;
+            });
+
+            // ============================================================================
+            // SWITCHING GALAXIES & UI CONTROLS
+            // ============================================================================
+            let currentGalaxyKey = 'andromeda';
+            let rgbCycle = false;
+            let rgbHue = 0.0;
+
+            function selectGalaxy(key) {
+                const info = GALAXY_CATALOG[key];
+                if (!info) return;
+                currentGalaxyKey = key;
+
+                // Update Header & Telemetry
+                document.getElementById('header-title').textContent = info.title;
+                document.getElementById('header-catalog').textContent = info.catalog;
+                document.getElementById('header-desc').textContent = info.desc;
+                document.getElementById('header-ref').textContent = info.ref;
+                document.getElementById('stat-type').textContent = info.type;
+                document.getElementById('stat-diameter').textContent = info.diameter;
+                document.getElementById('stat-telescope').textContent = info.telescope;
+
+                // Highlight Active Card
+                document.querySelectorAll('.galaxy-card').forEach(btn => {
+                    if (btn.dataset.galaxy === key) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+
+                // Build 3D Particle Geometry for Selected Structure
+                if (key === 'andromeda') buildAndromeda();
+                else if (key === 'whirlpool') buildWhirlpool();
+                else if (key === 'sombrero') buildSombrero();
+                else if (key === 'cartwheel') buildCartwheel();
+                else if (key === 'stephan') buildStephanQuintet();
+                else if (key === 'hubble') buildHubbleDeepField();
+
+                particleGeo.attributes.position.needsUpdate = true;
+                particleGeo.attributes.color.needsUpdate = true;
+                particleGeo.attributes.aSize.needsUpdate = true;
+                particleGeo.attributes.aOrbitSpeed.needsUpdate = true;
+                particleGeo.attributes.aPhase.needsUpdate = true;
+                particleGeo.attributes.aLayer.needsUpdate = true;
+                particleGeo.attributes.aPivot.needsUpdate = true;
+
+                // Smoothly move camera to best astronomical vantage angle
+                camOrbit.targetTheta = info.camPos.theta;
+                camOrbit.targetPhi = info.camPos.phi;
+                camOrbit.targetRadius = info.camPos.radius;
+                camOrbit.targetLookAt.set(info.camPos.lookAt[0], info.camPos.lookAt[1], info.camPos.lookAt[2]);
+            }
+
+            document.querySelectorAll('.galaxy-card').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectGalaxy(btn.dataset.galaxy);
+                });
+            });
+
+            // RGB Sliders & Telescope Filters
+            const sliderR = document.getElementById('slider-r');
+            const sliderG = document.getElementById('slider-g');
+            const sliderB = document.getElementById('slider-b');
+            const valR = document.getElementById('val-r');
+            const valG = document.getElementById('val-g');
+            const valB = document.getElementById('val-b');
+
+            function applyRgbTint(r, g, b) {
+                sliderR.value = r;
+                sliderG.value = g;
+                sliderB.value = b;
+                valR.textContent = r;
+                valG.textContent = g;
+                valB.textContent = b;
+                galaxyUniforms.uRgbTint.value.set(r / 255, g / 255, b / 255);
+                document.getElementById('status-dot').style.backgroundColor = `rgb(${r},${g},${b})`;
+            }
+
+            [sliderR, sliderG, sliderB].forEach(s => {
+                s.addEventListener('input', () => {
+                    applyRgbTint(
+                        parseInt(sliderR.value, 10),
+                        parseInt(sliderG.value, 10),
+                        parseInt(sliderB.value, 10)
+                    );
+                });
+            });
+
+            // Telescope Spectral Filter Buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.className = "filter-btn py-1.5 px-2 rounded-lg font-semibold text-gray-400 hover:text-white transition";
+                    });
+                    btn.className = "filter-btn py-1.5 px-2 rounded-lg font-semibold bg-white/15 text-white transition";
+
+                    const f = btn.dataset.filter;
+                    if (f === 'natural') applyRgbTint(255, 255, 255);
+                    else if (f === 'jwst') applyRgbTint(255, 195, 145);
+                    else if (f === 'uv') applyRgbTint(165, 215, 255);
+                });
+            });
+
+            // RGB Cycle Toggle
+            const btnRgbCycle = document.getElementById('btn-rgb-cycle');
+            btnRgbCycle.addEventListener('click', () => {
+                rgbCycle = !rgbCycle;
+                btnRgbCycle.textContent = rgbCycle ? "Ciclo RGB: ON" : "Ciclo RGB: OFF";
+                btnRgbCycle.className = rgbCycle
+                    ? "text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-500/30 border border-indigo-400 text-white transition"
+                    : "text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition";
+            });
+
+            // Brightness, Size, Speed & Dust Sliders
+            document.getElementById('slider-brightness').addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                galaxyUniforms.uBrightness.value = v;
+                document.getElementById('val-brightness').textContent = Math.round(v * 100) + "%";
+            });
+
+            document.getElementById('slider-size').addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                galaxyUniforms.uSizeScale.value = v;
+                document.getElementById('val-size').textContent = Math.round(v * 100) + "%";
+            });
+
+            document.getElementById('slider-speed').addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                galaxyUniforms.uRotationSpeed.value = v;
+                document.getElementById('val-speed').textContent = v.toFixed(1) + "x";
+            });
+
+            document.getElementById('slider-dust').addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                galaxyUniforms.uDustStrength.value = v;
+                document.getElementById('val-dust').textContent = Math.round(v * 100) + "%";
+            });
+
+            // Reset Camera Button
+            document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                const info = GALAXY_CATALOG[currentGalaxyKey];
+                camOrbit.targetTheta = info.camPos.theta;
+                camOrbit.targetPhi = info.camPos.phi;
+                camOrbit.targetRadius = info.camPos.radius;
+                camOrbit.targetLookAt.set(info.camPos.lookAt[0], info.camPos.lookAt[1], info.camPos.lookAt[2]);
+            });
+
+            // Cosmic Fly-Through Mode
+            const btnFlythrough = document.getElementById('btn-flythrough');
+            const flythroughText = document.getElementById('flythrough-text');
+            btnFlythrough.addEventListener('click', () => {
+                flyThroughActive = !flyThroughActive;
+                flythroughText.textContent = flyThroughActive ? "Voo Cósmico: ON" : "Voo Cósmico: OFF";
+                if (flyThroughActive) {
+                    btnFlythrough.classList.add('bg-purple-500/25', 'border-purple-400');
+                } else {
+                    btnFlythrough.classList.remove('bg-purple-500/25', 'border-purple-400');
+                }
+            });
+
+            // Hide / Show All UI Panels Button (+ Keyboard 'H')
+            const topHeader = document.getElementById('top-header');
+            const galaxiesPanel = document.getElementById('galaxies-panel');
+            const controlsPanel = document.getElementById('controls-panel');
+            const toggleUiBtn = document.getElementById('toggle-ui-btn');
+            const toggleUiText = document.getElementById('toggle-ui-text');
+            const iconEyeOpen = document.getElementById('icon-eye-open');
+            const iconEyeClosed = document.getElementById('icon-eye-closed');
+            let uiVisible = true;
+
+            function toggleAllPanels() {
+                uiVisible = !uiVisible;
+                [topHeader, galaxiesPanel, controlsPanel].forEach(panel => {
+                    if (!panel) return;
+                    if (uiVisible) {
+                        panel.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+                    } else {
+                        panel.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+                    }
+                });
+
+                if (uiVisible) {
+                    toggleUiText.textContent = "Esconder Painéis";
+                    iconEyeOpen.classList.remove('hidden');
+                    iconEyeClosed.classList.add('hidden');
+                } else {
+                    toggleUiText.textContent = "Mostrar Painéis";
+                    iconEyeOpen.classList.add('hidden');
+                    iconEyeClosed.classList.remove('hidden');
+                }
+            }
+
+            toggleUiBtn.addEventListener('click', toggleAllPanels);
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'h' || e.key === 'H') toggleAllPanels();
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Initialize with Andromeda (M31)
+            selectGalaxy('andromeda');
+
+            // ============================================================================
+            // ANIMATION LOOP
+            // ============================================================================
+            let lastTime = performance.now();
+            let elapsed = 0;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                const now = performance.now();
+                const dt = Math.min((now - lastTime) * 0.001, 0.1);
+                lastTime = now;
+                elapsed += dt;
+
+                galaxyUniforms.uTime.value = elapsed;
+
+                // Optional Automatic RGB Spectrum Cycle
+                if (rgbCycle) {
+                    rgbHue = (rgbHue + dt * 0.12) % 1.0;
+                    const c = new THREE.Color().setHSL(rgbHue, 0.95, 0.62);
+                    applyRgbTint(Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255));
+                }
+
+                // Cosmic Fly-Through Camera Motion
+                if (flyThroughActive && !dragMode) {
+                    camOrbit.targetTheta += dt * 0.22;
+                    camOrbit.targetRadius = 24.0 + Math.sin(elapsed * 0.45) * 18.0;
+                    camOrbit.targetPhi = 1.05 + Math.cos(elapsed * 0.32) * 0.38;
+                } else if (!dragMode) {
+                    // Subtle ambient orbital drift
+                    camOrbit.targetTheta += dt * 0.035;
+                }
+
+                // Smooth Camera Damping
+                camOrbit.theta += (camOrbit.targetTheta - camOrbit.theta) * 0.08;
+                camOrbit.phi += (camOrbit.targetPhi - camOrbit.phi) * 0.08;
+                camOrbit.radius += (camOrbit.targetRadius - camOrbit.radius) * 0.08;
+                camOrbit.lookAt.lerp(camOrbit.targetLookAt, 0.08);
+
+                const sinPhi = Math.sin(camOrbit.phi);
+                camera.position.set(
+                    camOrbit.lookAt.x + camOrbit.radius * sinPhi * Math.sin(camOrbit.theta),
+                    camOrbit.lookAt.y + camOrbit.radius * Math.cos(camOrbit.phi),
+                    camOrbit.lookAt.z + camOrbit.radius * sinPhi * Math.cos(camOrbit.theta)
+                );
+                camera.lookAt(camOrbit.lookAt);
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        };
+    </script>
+</body>
+</html>

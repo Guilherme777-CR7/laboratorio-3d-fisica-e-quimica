@@ -1,0 +1,2655 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observatório 3D: Estrelas e Objetos Estelares</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #010208;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .font-space {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(8, 12, 26, 0.78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+        }
+        /* Custom Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 15px;
+            width: 15px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -4.5px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+            transition: transform 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .star-card.active {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(168, 85, 247, 0.22));
+            border-color: rgba(56, 189, 248, 0.75);
+            box-shadow: 0 0 24px rgba(56, 189, 248, 0.28);
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="relative text-white antialiased">
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container" class="w-full h-full"></div>
+
+    <!-- Top Left Telemetry Header -->
+    <header id="top-header" class="fixed top-4 left-4 right-4 md:right-auto z-10 pointer-events-none flex flex-col sm:flex-row items-start sm:items-center gap-3 transition-all duration-300">
+        <div class="glass-panel px-4 py-3.5 rounded-2xl pointer-events-auto flex items-center gap-3.5 max-w-xl">
+            <div id="status-dot" class="w-3.5 h-3.5 rounded-full bg-cyan-400 animate-pulse shrink-0 shadow-[0_0_12px_#38bdf8]"></div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 id="header-title" class="font-space font-bold text-base md:text-lg tracking-wider uppercase text-white">
+                        Estrelas de Nêutrons
+                    </h1>
+                    <span id="header-catalog" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-cyan-300">
+                        ~20 km Diâmetro • 1,4 a 2,1 Massas Solares
+                    </span>
+                    <span id="header-live-metric" class="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-amber-300">
+                        Spin: 11.2 Hz • Eixo: 32°
+                    </span>
+                </div>
+                <p id="header-desc" class="text-xs text-gray-200 mt-1">
+                    Objetos extremamente densos formados pelo colapso do núcleo de uma estrela massiva, emitindo feixes intensos de raios X e ondas de choque.
+                </p>
+                <div class="flex items-center gap-3 mt-1.5 text-[11px] text-cyan-300/80">
+                    <span id="header-ref" class="font-medium text-amber-300/90">Ref: X-RAY UNIVERSE | Chandra / NASA</span>
+                    <span class="hidden sm:inline">•</span>
+                    <span class="hidden sm:inline">Câmera 360°: Arraste (Esq) girar • (Dir/Shift) mover • Scroll zoom</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Right Action Bar (Orbital Fly-Through + Hide Panels) -->
+    <div class="fixed top-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+        <button id="btn-flythrough" class="glass-panel px-4 py-2.5 rounded-full hover:bg-white/15 border border-cyan-400/40 transition-all duration-300 active:scale-95 flex items-center gap-2 text-xs font-semibold shadow-lg text-cyan-200" title="Ativar voo orbital automático ao redor da estrela">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span id="flythrough-text">Voo Estelar: OFF</span>
+        </button>
+
+        <button id="toggle-ui-btn" class="glass-panel px-4 py-2.5 rounded-full hover:bg-white/15 border border-cyan-400/30 transition-all duration-300 active:scale-95 flex items-center gap-2 text-xs font-semibold shadow-lg" title="Atalho: Tecla H">
+            <svg id="icon-eye-open" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
+            <svg id="icon-eye-closed" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-cyan-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span id="toggle-ui-text">Esconder Painéis</span>
+        </button>
+    </div>
+
+    <!-- Left Navigation: The 6 Stars & Stellar Objects -->
+    <nav id="stars-panel" class="fixed bottom-4 left-4 right-4 md:right-auto md:top-28 md:bottom-auto md:w-84 z-10 glass-panel rounded-3xl p-4 transition-all duration-300 max-h-[42vh] md:max-h-[76vh] overflow-y-auto flex flex-col gap-2.5">
+        <div class="flex items-center justify-between px-1 mb-0.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-300">✨ 3. Estrelas & Objetos Estelares</span>
+            <span class="text-[11px] text-gray-400">6 Modelos 3D</span>
+        </div>
+
+        <!-- 1. Estrelas de nêutrons -->
+        <button data-star="neutron" class="star-card active text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0 mt-0.5 text-cyan-300 font-bold text-xs">01</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Estrelas de nêutrons</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Objetos extremamente densos.</div>
+                <div class="text-[10px] text-cyan-300/80 mt-1">X-RAY UNIVERSE • Chandra Observatory</div>
+            </div>
+        </button>
+
+        <!-- 2. Magnetares -->
+        <button data-star="magnetar" class="star-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center shrink-0 mt-0.5 text-purple-300 font-bold text-xs">02</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Magnetares</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Estrelas de nêutrons com campos magnéticos extremos.</div>
+                <div class="text-[10px] text-purple-300/80 mt-1">Magnetar (artist’s impression) | ESA/Hubble</div>
+            </div>
+        </button>
+
+        <!-- 3. Gigantes vermelhas -->
+        <button data-star="redgiant" class="star-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-red-500/20 border border-red-400/40 flex items-center justify-center shrink-0 mt-0.5 text-red-300 font-bold text-xs">03</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Gigantes vermelhas</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Estrelas enormes em fases avançadas.</div>
+                <div class="text-[10px] text-red-300/80 mt-1">Betelgeuse (Alpha Orionis) • ALMA / ESO</div>
+            </div>
+        </button>
+
+        <!-- 4. Supergigantes azuis -->
+        <button data-star="bluesupergiant" class="star-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center shrink-0 mt-0.5 text-blue-300 font-bold text-xs">04</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Supergigantes azuis</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Estrelas muito quentes e luminosas.</div>
+                <div class="text-[10px] text-blue-300/80 mt-1">Rigel (Beta Orionis) • 120.000x Luz Solar</div>
+            </div>
+        </button>
+
+        <!-- 5. Sistemas binários -->
+        <button data-star="binary" class="star-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0 mt-0.5 text-amber-300 font-bold text-xs">05</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Sistemas binários</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Duas estrelas orbitando um centro de massa comum.</div>
+                <div class="text-[10px] text-amber-300/80 mt-1">Touching Double Star (VFTS 352) | ESO</div>
+            </div>
+        </button>
+
+        <!-- 6. Anãs brancas -->
+        <button data-star="whitedwarf" class="star-card text-left p-3 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center shrink-0 mt-0.5 text-teal-300 font-bold text-xs">06</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Anãs brancas</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Remanescentes densos de estrelas.</div>
+                <div class="text-[10px] text-teal-300/80 mt-1">Crystallization of the Sun: White Dwarfs</div>
+            </div>
+        </button>
+    </nav>
+
+    <!-- Right Physical & Spectral RGB Controls -->
+    <aside id="controls-panel" class="hidden md:flex fixed top-20 right-4 w-80 z-10 glass-panel rounded-3xl p-4 transition-all duration-300 max-h-[80vh] overflow-y-auto flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-300">Controles Estelares & RGB</span>
+            <button id="btn-reset-cam" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-medium text-cyan-300 transition">
+                Centralizar Câmera
+            </button>
+        </div>
+
+        <!-- Special Action Button (Magnetar Gamma Flare / Betelgeuse Mass Ejection) -->
+        <button id="btn-burst" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-500/30 to-purple-500/30 hover:from-cyan-500/50 hover:to-purple-500/50 border border-cyan-400/50 text-xs font-semibold text-white transition shadow-lg flex items-center justify-center gap-2">
+            <span id="btn-burst-text">⚡ Disparar Pulso / Surto de Raios X</span>
+        </button>
+
+        <!-- Dynamic Star-Specific Physical Controls -->
+        <div id="specific-controls-box" class="bg-cyan-950/30 border border-cyan-400/30 rounded-2xl p-3 flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+                <span id="specific-box-title" class="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                    Parâmetros do Pulsar / Magnetar
+                </span>
+                <span id="specific-box-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-200">
+                    Física Ativa
+                </span>
+            </div>
+
+            <!-- Binary System Exclusive: Automatic Inspiral Progress Bar & Outcome Selector (Merger vs Supernova) -->
+            <div id="binary-outcome-box" class="hidden flex-col gap-2.5 pb-2 border-b border-white/10">
+                <div>
+                    <span class="text-[11px] text-gray-200 font-semibold block mb-1.5">Destino Final da Colisão Binária:</span>
+                    <div class="grid grid-cols-2 gap-1.5 bg-black/50 p-1 rounded-xl border border-white/10 text-[11px]">
+                        <button id="btn-outcome-merger" class="py-1.5 px-2 rounded-lg font-bold bg-amber-500/30 border border-amber-400/60 text-amber-200 transition shadow">
+                            ✨ Fusão de Estrelas
+                        </button>
+                        <button id="btn-outcome-supernova" class="py-1.5 px-2 rounded-lg font-bold text-gray-400 hover:text-white transition">
+                            💥 Supernova
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-[11px] mb-1">
+                        <span class="text-cyan-200 font-medium">Aproximação Automática & Maré:</span>
+                        <span id="binary-auto-pct" class="font-mono font-bold text-amber-300">0%</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-black/60 rounded-full overflow-hidden border border-white/15 p-0.5">
+                        <div id="binary-progress-bar" class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-amber-400 to-rose-500 transition-all duration-75" style="width: 5%"></div>
+                    </div>
+                    <div id="binary-phase-status" class="text-[10px] text-amber-200/90 font-mono mt-1 text-center bg-white/5 py-0.5 rounded-md border border-white/5">
+                        Fase 1: Órbita em torno do Centro de Massa Comum
+                    </div>
+                    <button id="btn-trigger-climax" class="mt-2 w-full py-1.5 px-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-[10px] font-semibold text-cyan-200 transition">
+                        ⚡ Testar Destino Agora (Colidir Imediatamente)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Control A: Spin Frequency in Hz (For Neutron Star & Magnetar) OR Star-Specific Primary Param -->
+            <div id="ctrl-group-hz">
+                <div class="flex justify-between text-xs mb-1">
+                    <span id="label-param-a" class="text-gray-200 font-medium">Frequência de Rotação (Hz)</span>
+                    <span id="val-param-a" class="text-cyan-300 font-mono font-bold">11.2 Hz</span>
+                </div>
+                <input type="range" id="slider-param-a" min="0.1" max="700.0" step="0.1" value="11.2">
+                <div id="hint-param-a" class="flex justify-between text-[10px] text-gray-400 mt-0.5 font-mono">
+                    <span>0.1 Hz</span>
+                    <span>Vela (11 Hz)</span>
+                    <span>700 Hz (ms)</span>
+                </div>
+            </div>
+
+            <!-- Control B: Magnetic Axis Angle in Degrees (For Neutron Star & Magnetar) OR Star-Specific Secondary Param -->
+            <div id="ctrl-group-tilt">
+                <div class="flex justify-between text-xs mb-1">
+                    <span id="label-param-b" class="text-gray-200 font-medium">Grau de Inclinação do Pulsar</span>
+                    <span id="val-param-b" class="text-amber-300 font-mono font-bold">32°</span>
+                </div>
+                <input type="range" id="slider-param-b" min="0" max="85" step="1" value="32">
+            </div>
+        </div>
+
+        <!-- Spectral Observation Filter -->
+        <div>
+            <span class="text-xs text-gray-300 font-medium block mb-1.5">Filtro de Observação Astronômica</span>
+            <div class="grid grid-cols-3 gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10 text-[11px]">
+                <button data-filter="optical" class="filter-btn py-1.5 px-2 rounded-lg font-semibold bg-white/15 text-white transition">
+                    Óptico Real
+                </button>
+                <button data-filter="xray" class="filter-btn py-1.5 px-2 rounded-lg font-semibold text-gray-400 hover:text-white transition">
+                    Raios-X (Chandra)
+                </button>
+                <button data-filter="thermal" class="filter-btn py-1.5 px-2 rounded-lg font-semibold text-gray-400 hover:text-white transition">
+                    Infravermelho
+                </button>
+            </div>
+        </div>
+
+        <!-- RGB Custom Color Tint & Cycle -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs text-gray-300 font-medium">Balanço Espectral (RGB)</span>
+                <button id="btn-rgb-cycle" class="text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition">
+                    Ciclo RGB: OFF
+                </button>
+            </div>
+            <div class="bg-black/40 p-2.5 rounded-2xl border border-white/10 flex flex-col gap-2">
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-red-400 font-mono">R</span>
+                    <input type="range" id="slider-r" min="0" max="255" value="255">
+                    <span id="val-r" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-green-400 font-mono">G</span>
+                    <input type="range" id="slider-g" min="0" max="255" value="255">
+                    <span id="val-g" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-blue-400 font-mono">B</span>
+                    <input type="range" id="slider-b" min="0" max="255" value="255">
+                    <span id="val-b" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Convection / Magnetic Field / Turbulence Intensity -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Convecção / Turbulência de Plasma</span>
+                <span id="val-turbulence" class="text-cyan-300 font-mono">120%</span>
+            </div>
+            <input type="range" id="slider-turbulence" min="0.2" max="2.4" step="0.05" value="1.2">
+        </div>
+
+        <!-- Corona & Stellar Wind Luminosity -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Brilho da Coroa & Vento Estelar</span>
+                <span id="val-corona" class="text-gray-400 font-mono">130%</span>
+            </div>
+            <input type="range" id="slider-corona" min="0.3" max="2.5" step="0.05" value="1.3">
+        </div>
+
+        <!-- Rotation & Orbital Speed -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Velocidade de Rotação / Órbita</span>
+                <span id="val-speed" class="text-gray-400 font-mono">1.0x</span>
+            </div>
+            <input type="range" id="slider-speed" min="0.0" max="3.5" step="0.1" value="1.0">
+        </div>
+
+        <!-- Astrophysical Data Card -->
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-xs flex flex-col gap-1.5">
+            <div class="flex justify-between">
+                <span class="text-gray-400">Temperatura Efetiva:</span>
+                <span id="stat-temp" class="font-mono font-semibold text-white">~1.000.000 K</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Gravidade / Densidade:</span>
+                <span id="stat-density" class="font-mono font-semibold text-cyan-300">10¹⁴ g/cm³</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Exemplo Clássico:</span>
+                <span id="stat-example" class="font-mono font-semibold text-amber-300">Vela / Cassiopeia A</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ========================================================================== -->
+    <!-- PROCEDURAL 3D STELLAR SURFACE & PLASMA DISPLACEMENT SHADERS (GLSL)         -->
+    <!-- ========================================================================== -->
+    <script id="stellarVertexShader" type="x-shader/x-vertex">
+        varying vec3 vNormal;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying float vDisplacement;
+        varying float vNeckFactor;
+
+        uniform int uStarType; // 0=Neutron, 1=Magnetar, 2=RedGiant(Betelgeuse), 3=BlueSupergiant(Rigel), 4=ContactBinary(VFTS352), 5=WhiteDwarf
+        uniform float uTime;
+        uniform float uTurbulence;
+        uniform float uSpecialParamA; // Context-sensitive physical parameter A
+        uniform float uSpecialParamB; // Context-sensitive physical parameter B
+        uniform float uBinaryRole;    // 0.0 = Primary/Single Star, 1.0 = Companion Star B, 2.0 = Roche L1 Plasma Bridge
+
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p = p * 2.05 + vec3(42.0);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        void main() {
+            vec3 pos = position;
+            vec3 n = normalize(pos);
+            float disp = 0.0;
+            vNeckFactor = 0.0;
+
+            if (uStarType == 0) {
+                // 1. NEUTRON STAR: Relativistic rotational oblateness at high Hz (centrifugal flattening at >100 Hz)
+                float flatFactor = clamp(uSpecialParamA / 950.0, 0.0, 0.24);
+                pos.y *= (1.0 - flatFactor);
+                pos.xz *= (1.0 + flatFactor * 0.55);
+            } else if (uStarType == 1) {
+                // 2. MAGNETAR: Crustal seismic starquake ripples & magnetic pole deformation
+                float quake = fbm(n * 8.0 + vec3(uTime * 1.4));
+                disp = (quake - 0.5) * 0.032 * uTurbulence;
+                pos += n * disp;
+            } else if (uStarType == 2) {
+                // 3. RED GIANT (Betelgeuse): Huge boiling convective super-granules distorting the photosphere
+                float cellScale = mix(1.4, 3.4, clamp(uSpecialParamA, 0.0, 1.0));
+                float bigCells = fbm(n * cellScale + vec3(uTime * 0.22, -uTime * 0.18, uTime * 0.15));
+                float pulse = sin(uTime * 1.1 + n.y * 2.5) * 0.045;
+                disp = (bigCells - 0.45) * 0.22 * uTurbulence + pulse;
+                pos += n * disp;
+            } else if (uStarType == 3) {
+                // 4. BLUE SUPERGIANT (Rigel): High-frequency non-radial pulsations & radiation-driven waves
+                float wave = fbm(n * 5.8 + vec3(uTime * 0.65));
+                disp = (wave - 0.5) * 0.048 * uTurbulence;
+                pos += n * disp;
+            } else if (uStarType == 4) {
+                // 5. HYPER-REALISTIC CONTACT & SEMI-DETACHED BINARY SYSTEM (VFTS 352 / Roche Equipotential):
+                // Uses two true high-resolution Roche-deformed teardrop stars + an incandescent L1 plasma bridge!
+                float contactLevel = clamp(uSpecialParamA, 0.0, 1.0);
+                float massAsym = (uSpecialParamB - 1.0) * 0.22;
+
+                if (uBinaryRole < 1.5) {
+                    // Role 0.0 = Primary Star A (Left, x < 0), Role 1.0 = Companion Star B (Right, x > 0)
+                    float dirToL1 = (uBinaryRole < 0.5) ? 1.0 : -1.0;
+                    float starScale = (uBinaryRole < 0.5) ? (1.0 - massAsym * 0.45) : (1.0 + massAsym * 0.45);
+
+                    // How strongly this hemisphere points toward the companion (L1 Lagrange point) or away (L2 point)
+                    float cosTheta = n.x * dirToL1;
+                    float towardL1 = max(0.0, cosTheta);
+                    float awayL2   = max(0.0, -cosTheta);
+                    float eqRing   = 1.0 - abs(cosTheta); // Equatorial ring perpendicular to tidal axis
+
+                    // True Quadrupolar P2(cosTheta) + Octupolar P3(cosTheta) Roche Tidal Potential:
+                    // Dramatic prolate teardrop cusp toward L1 + antipodal L2 tidal tail bulge
+                    float tidalStrength = pow(contactLevel, 0.92);
+                    float p2Tide    = 0.5 * (3.0 * cosTheta * cosTheta - 1.0);
+                    float rocheNose = pow(towardL1, 1.38) * (0.38 + 1.55 * tidalStrength)
+                                    + pow(towardL1, 3.8) * (1.15 * pow(tidalStrength, 1.25));
+                    float l2Bulge   = pow(awayL2, 1.75) * (0.20 + 0.58 * tidalStrength);
+
+                    pos *= starScale;
+                    // Strong tidal waist compression & centrifugal polar flattening
+                    float waistPinch = 1.0 - eqRing * (0.14 + 0.34 * tidalStrength);
+                    pos.y *= waistPinch * (0.90 - 0.16 * tidalStrength);
+                    pos.z *= waistPinch * (1.06 + 0.14 * tidalStrength);
+
+                    // Stretch along the X axis toward L1 and secondary tidal crest toward L2
+                    pos.x += dirToL1 * (rocheNose - l2Bulge) * starScale + n.x * p2Tide * 0.18 * tidalStrength * starScale;
+
+                    // Dynamic Coriolis lag: the tidal nose & L2 tail twist in the orbital plane (Z)
+                    float coriolisTwist = (pow(towardL1, 1.9) * 0.52 - pow(awayL2, 2.0) * 0.34) * tidalStrength;
+                    pos.z += dirToL1 * coriolisTwist * starScale + sin(pos.x * 4.2 - uTime * 8.5) * 0.115 * tidalStrength * towardL1;
+
+                    // High-amplitude tidal surface gravity waves & Kelvin-Helmholtz shear ripples pulled into L1
+                    float tidalRipples = sin(towardL1 * 24.0 - uTime * 12.0) * 0.062 * tidalStrength * pow(towardL1, 1.1);
+                    float boil = fbm(n * 5.8 + vec3(uTime * 0.85 * dirToL1, uTime * 0.42, 0.0));
+                    disp = (boil - 0.5) * (0.042 + 0.14 * towardL1 * (0.4 + tidalStrength)) * uTurbulence + tidalRipples;
+                    pos += n * disp;
+
+                    // Recompute smooth analytical normal for the stretched Roche teardrop surface
+                    n = normalize(vec3(
+                        n.x - dirToL1 * rocheNose * 0.82,
+                        n.y * (1.26 + 0.35 * tidalStrength),
+                        n.z - dirToL1 * coriolisTwist * 0.46
+                    ));
+                    vNeckFactor = clamp(pow(towardL1, 1.2) * (0.38 + 1.75 * tidalStrength) + pow(awayL2, 2.2) * 0.55 * tidalStrength, 0.0, 1.85);
+                } else {
+                    // Role 2.0 = Volumetric L1 Roche Accretion Bridge / Common-Envelope Neck connecting both stars
+                    // Cylinder along X in [-1, 1] sculpted into a hyperbolic hourglass catenoid with Coriolis twist
+                    float x = pos.x; // [-1, 1] along bridge axis
+                    float flare = 1.0 + 1.38 * x * x;
+                    float waist = mix(0.20, 0.86, pow(contactLevel, 0.95));
+
+                    // Helical Coriolis plasma twist & tidal shock waves along the mass-transfer stream
+                    float angle = atan(pos.z, pos.y);
+                    float spiralWave = sin(angle * 4.0 - x * 7.5 + uTime * 6.2) * 0.072 * uTurbulence;
+                    float turb = fbm(vec3(x * 4.5 - uTime * 2.2, pos.y * 3.8, pos.z * 3.8));
+
+                    float rProfile = waist * flare + spiralWave + (turb - 0.5) * 0.065 * uTurbulence;
+                    pos.y = n.y * rProfile;
+                    pos.z = n.z * rProfile + sin(x * 1.57) * 0.34 * contactLevel; // S-curve Coriolis stream deflection
+                    pos.x = x * mix(1.18, 0.92, contactLevel) + massAsym * 0.25;
+
+                    n = normalize(vec3(-x * 0.75, n.y, n.z));
+                    vNeckFactor = 1.25 - 0.35 * x * x;
+                    disp = (turb - 0.5) * 0.075;
+                }
+            }
+
+            vDisplacement = disp;
+            vLocalPos = pos;
+            vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
+            vWorldPos = worldPosition.xyz;
+            vNormal = normalize(mat3(modelMatrix) * n);
+            gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+    </script>
+
+    <script id="stellarFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+
+        varying vec3 vNormal;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying float vDisplacement;
+        varying float vNeckFactor;
+
+        uniform int uStarType;
+        uniform float uTime;
+        uniform float uTurbulence;
+        uniform float uCoronaGlow;
+        uniform float uSpecialParamA;
+        uniform float uSpecialParamB;
+        uniform float uBinaryRole;
+        uniform int uSpectralMode; // 0=Optical, 1=Chandra X-Ray, 2=Infrared Thermal
+        uniform vec3 uRgbTint;
+
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 5; i++) {
+                v += a * noise(p);
+                p = p * 2.03 + vec3(50.0);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        vec2 voronoi(vec3 x) {
+            vec3 p = floor(x);
+            vec3 f = fract(x);
+            float res1 = 8.0;
+            float res2 = 8.0;
+            for (int k = -1; k <= 1; k++) {
+                for (int j = -1; j <= 1; j++) {
+                    for (int i = -1; i <= 1; i++) {
+                        vec3 b = vec3(float(i), float(j), float(k));
+                        vec3 r = b - f + hash(p + b);
+                        float d = dot(r, r);
+                        if (d < res1) {
+                            res2 = res1;
+                            res1 = d;
+                        } else if (d < res2) {
+                            res2 = d;
+                        }
+                    }
+                }
+            }
+            return vec2(sqrt(res1), sqrt(res2));
+        }
+
+        void main() {
+            vec3 p = normalize(vLocalPos);
+            vec3 viewDir = normalize(cameraPosition - vWorldPos);
+            float NdotV = max(0.0, dot(normalize(vNormal), viewDir));
+            float fresnel = pow(1.0 - NdotV, 2.5);
+
+            vec3 col = vec3(1.0);
+
+            // ====================================================================
+            // 0. NEUTRON STAR (X-RAY UNIVERSE: Iron-Lattice Crust, Magnetic Aurora Rings & Gravitational Lensing)
+            // ====================================================================
+            if (uStarType == 0) {
+                float n1 = fbm(p * 6.5 + uTime * 0.25);
+                float n2 = fbm(p * 16.0 - uTime * 0.45);
+                vec2 crustHex = voronoi(p * 11.0);
+                float ironPlates = smoothstep(0.02, 0.14, crustHex.y - crustHex.x);
+
+                // Intense X-ray cyclotron hotspots & glowing auroral oval rings around the magnetic poles
+                float absY = abs(p.y);
+                float polarCap = smoothstep(0.76, 0.98, absY);
+                float auroraOval = exp(-pow((absY - 0.80) / 0.048, 2.0)) * (0.7 + 0.5 * n2);
+
+                // Longitudinal magnetic field striations from pole to pole
+                float lonAngle = atan(p.z, p.x);
+                float fieldStripes = pow(sin(lonAngle * 14.0 + n1 * 3.0) * 0.5 + 0.5, 2.0) * (1.0 - absY * 0.6);
+
+                vec3 deepXrayCobalt = vec3(0.03, 0.20, 0.62);
+                vec3 electricCyan   = vec3(0.08, 0.78, 1.00);
+                vec3 plasmaMagenta  = vec3(0.65, 0.28, 1.00);
+                vec3 blindingXray   = vec3(0.98, 1.00, 1.00);
+
+                col = mix(deepXrayCobalt, electricCyan, smoothstep(0.2, 0.8, n1 * 0.7 + fieldStripes * 0.45));
+                col = mix(col * 0.82, col * 1.18, ironPlates);
+                col += plasmaMagenta * (1.0 - ironPlates) * 0.45 * uTurbulence;
+                col += mix(electricCyan, blindingXray, 0.65) * auroraOval * 1.85 * uTurbulence;
+                col = mix(col, blindingXray * 1.65, polarCap);
+
+                // Relativistic Gravitational Lensing Limb-Brightening (neutron stars bend light from behind them!)
+                col += mix(electricCyan, plasmaMagenta, fresnel) * fresnel * 2.15 * uCoronaGlow;
+            }
+
+            // ====================================================================
+            // 1. MAGNETAR (ESA/Hubble Artist's Impression: Tectonic Starquake Magma Rifts & 10^15 G Field)
+            // ====================================================================
+            else if (uStarType == 1) {
+                // Multi-scale tectonic crust plates fractured by extreme magnetic stress
+                vec2 vMajor = voronoi(p * 4.2 + uTime * 0.05);
+                vec2 vMinor = voronoi(p * 11.5 - uTime * 0.12);
+                float majorRift = 1.0 - smoothstep(0.015, 0.13 * uTurbulence, vMajor.y - vMajor.x);
+                float minorRift = 1.0 - smoothstep(0.01, 0.08 * uTurbulence, vMinor.y - vMinor.x);
+
+                float plasmaSwirl = fbm(p * 9.0 + uTime * 0.35);
+
+                vec3 darkArmoredCrust = vec3(0.09, 0.03, 0.18);
+                vec3 deepCrimsonCrust = vec3(0.32, 0.06, 0.28);
+                vec3 magentaEnergy    = vec3(0.95, 0.15, 0.82);
+                vec3 goldenMagma      = vec3(1.00, 0.68, 0.20);
+                vec3 whiteGammaCore   = vec3(1.00, 0.96, 1.00);
+
+                // Dark metallic neutron-crust plates with glowing sub-surface magnetic tension
+                col = mix(darkArmoredCrust, deepCrimsonCrust, plasmaSwirl);
+
+                // Blindingly bright tectonic Starquake chasms erupting with gamma/X-ray plasma
+                vec3 riftCol = mix(magentaEnergy, goldenMagma, plasmaSwirl);
+                riftCol = mix(riftCol, whiteGammaCore * 1.6, pow(majorRift, 2.0));
+
+                col += riftCol * (majorRift * 2.4 + minorRift * 0.85) * uTurbulence;
+
+                // Polar magnetic flux footprint
+                float polarHotspot = pow(abs(p.y), 6.0);
+                col += whiteGammaCore * polarHotspot * 1.45;
+                col += mix(magentaEnergy, vec3(0.55, 0.20, 1.0), 0.5) * fresnel * 2.1 * uCoronaGlow;
+            }
+
+            // ====================================================================
+            // 2. RED GIANT / SUPERGIANT (Betelgeuse: Giant Boiling Convection Cells & Cool Soot Plumes)
+            // ====================================================================
+            else if (uStarType == 2) {
+                float cellScale = mix(1.6, 3.6, clamp(uSpecialParamA, 0.0, 1.0));
+                vec3 q = p * cellScale + vec3(uTime * 0.20, -uTime * 0.16, uTime * 0.12);
+                float c1 = fbm(q);
+                float c2 = fbm(q * 2.5 + vec3(c1 * 2.0));
+
+                float granule = clamp(c2 + vDisplacement * 2.3, 0.0, 1.0);
+
+                vec3 coolSoot     = vec3(0.24, 0.02, 0.01);
+                vec3 deepCrimson  = vec3(0.82, 0.13, 0.02);
+                vec3 brightOrange = vec3(1.00, 0.48, 0.06);
+                vec3 hotYellow    = vec3(1.00, 0.88, 0.42);
+
+                col = mix(coolSoot, deepCrimson, smoothstep(0.15, 0.45, granule));
+                col = mix(col, brightOrange, smoothstep(0.45, 0.72, granule));
+                col = mix(col, hotYellow * 1.3, smoothstep(0.72, 0.95, granule));
+
+                float limbDark = pow(NdotV, 0.45);
+                col *= (0.45 + 0.65 * limbDark);
+                col += vec3(1.0, 0.28, 0.05) * fresnel * 1.4 * uCoronaGlow;
+            }
+
+            // ====================================================================
+            // 3. BLUE SUPERGIANT (Rigel: 120,000 Solar Luminosities, Blinding Sapphire-White)
+            // ====================================================================
+            else if (uStarType == 3) {
+                vec3 q = p * 6.5 + vec3(uTime * 0.42, -uTime * 0.35, uTime * 0.28);
+                float f1 = fbm(q);
+                float f2 = fbm(q * 2.4 + vec3(f1 * 1.8));
+
+                vec3 deepSapphire  = vec3(0.14, 0.46, 1.00);
+                vec3 electricCyan  = vec3(0.50, 0.84, 1.00);
+                vec3 blindingWhite = vec3(0.96, 0.99, 1.00);
+
+                col = mix(deepSapphire, electricCyan, smoothstep(0.2, 0.6, f2));
+                col = mix(col, blindingWhite * 1.4, smoothstep(0.55, 0.90, f2 + (1.0 - fresnel) * 0.25));
+                col += vec3(0.40, 0.78, 1.0) * fresnel * 1.95 * uCoronaGlow;
+            }
+
+            // ====================================================================
+            // 4. CONTACT BINARY SYSTEM (VFTS 352 ESO Reference: Two Touching Roche Teardrop Stars + L1 Plasma Bridge)
+            // ====================================================================
+            else if (uStarType == 4) {
+                float contactLevel = clamp(uSpecialParamA, 0.0, 1.0);
+                float tempAsym = uSpecialParamB - 1.0;
+
+                // Multi-scale boiling photospheric granules & supersonic Coriolis advection streams
+                vec3 flowPos = p * 6.2 + vec3(-uTime * 0.55, uTime * 0.35, -uTime * 0.25);
+                float g1 = fbm(flowPos);
+                float g2 = fbm(flowPos * 2.35 + vec3(g1 * 1.9));
+                float fineCells = fbm(p * 15.0 - uTime * 0.65);
+
+                // Primary Star A Palette (Hot O-type Sapphire-White Supergiant)
+                vec3 colA = mix(vec3(0.08, 0.38, 0.96), vec3(0.42, 0.80, 1.00), smoothstep(0.18, 0.65, g2));
+                colA = mix(colA, vec3(0.96, 0.99, 1.00) * 1.38, smoothstep(0.58, 0.92, g2 * 0.7 + fineCells * 0.3));
+
+                // Companion Star B Palette (Shifts from identical Blue-White twin to Golden-Orange/Crimson donor star)
+                vec3 warmDonor = mix(vec3(0.82, 0.22, 0.04), vec3(1.00, 0.64, 0.14), smoothstep(0.18, 0.65, g2));
+                warmDonor = mix(warmDonor, vec3(1.00, 0.95, 0.75) * 1.35, smoothstep(0.62, 0.94, g2 * 0.7 + fineCells * 0.3));
+
+                vec3 coolCyan = mix(vec3(0.05, 0.24, 0.85), vec3(0.65, 0.92, 1.00), smoothstep(0.2, 0.85, g2));
+                vec3 colB = (tempAsym >= 0.0)
+                    ? mix(colA, warmDonor, clamp(tempAsym * 1.85, 0.0, 1.0))
+                    : mix(colA, coolCyan, clamp(-tempAsym * 1.85, 0.0, 1.0));
+
+                if (uBinaryRole < 1.5) {
+                    // Render Primary Star A (uBinaryRole == 0.0) or Companion Star B (uBinaryRole == 1.0)
+                    bool isStarB = (uBinaryRole > 0.5);
+                    col = isStarB ? colB : colA;
+
+                    // Physical Von Zeipel Gravity Darkening:
+                    // Polar caps have higher surface gravity (brighter/hotter), while outer L2 tidal tip has lower gravity (darker)
+                    float dirToL1 = isStarB ? -1.0 : 1.0;
+                    float outerL2Tip = smoothstep(0.25, 0.95, -p.x * dirToL1);
+                    float polarGravityBright = pow(abs(p.y), 1.5) * 0.22;
+                    col *= (1.0 - outerL2Tip * 0.34 + polarGravityBright);
+
+                    // Mutual Radiative Heating ("Reflection Effect") & L1 Tidal Neck Incandescence
+                    vec3 companionLight = isStarB ? vec3(0.45, 0.85, 1.0) : mix(vec3(0.45, 0.85, 1.0), vec3(1.0, 0.78, 0.42), clamp(tempAsym * 1.8, 0.0, 1.0));
+                    col += companionLight * pow(vNeckFactor, 1.35) * (0.48 + 0.62 * contactLevel) * uTurbulence;
+
+                    // Glowing tidal stress fissures & supersonic plasma streams converging into the L1 funnel
+                    float neckStreams = pow(sin(atan(p.z, p.y) * 8.0 + p.x * 7.5 - uTime * 4.8 + g1 * 4.5) * 0.5 + 0.5, 2.1);
+                    float tidalCrest = exp(-pow((p.x * dirToL1 - 0.45) / 0.28, 2.0)) * contactLevel;
+                    col += mix(vec3(1.0, 0.72, 0.35), vec3(0.95, 0.99, 1.00), neckStreams) * (vNeckFactor * neckStreams * (0.55 + 0.75 * contactLevel) + tidalCrest * 0.45) * uTurbulence;
+
+                    // Realistic Stellar Limb Darkening + Chromospheric Fresnel Corona
+                    float limbDark = pow(NdotV, 0.46);
+                    col *= (0.48 + 0.62 * limbDark);
+
+                    vec3 rimCol = isStarB
+                        ? mix(vec3(0.38, 0.82, 1.0), vec3(1.0, 0.62, 0.24), clamp(tempAsym * 1.8, 0.0, 1.0))
+                        : vec3(0.38, 0.82, 1.0);
+                    col += rimCol * fresnel * 1.95 * uCoronaGlow;
+                } else {
+                    // Render Role 2.0: The Volumetric L1 Roche Plasma Bridge connecting Star A & Star B
+                    float bridgeT = clamp(vLocalPos.x * 0.5 + 0.5, 0.0, 1.0);
+                    vec3 baseStreamCol = mix(colA, colB, bridgeT);
+
+                    // Helical shock filaments twisting across the L1 bridge
+                    float angle = atan(vLocalPos.z, vLocalPos.y);
+                    float shockBands = pow(sin(angle * 6.0 - vLocalPos.x * 9.0 + uTime * 4.2 + g1 * 5.0) * 0.5 + 0.5, 2.0);
+                    float centerShock = exp(-pow(vLocalPos.x * 2.1, 2.0));
+
+                    vec3 shockWhite = mix(vec3(0.65, 0.92, 1.0), vec3(1.0, 0.98, 0.92), shockBands);
+                    col = mix(baseStreamCol, shockWhite * 1.65, centerShock * (0.55 + 0.45 * shockBands));
+                    col += shockWhite * shockBands * 0.55 * uTurbulence;
+                    col += mix(vec3(0.45, 0.85, 1.0), vec3(1.0, 0.72, 0.38), bridgeT * clamp(tempAsym * 1.8, 0.0, 1.0)) * fresnel * 1.85 * uCoronaGlow;
+                }
+            }
+
+            // ====================================================================
+            // 5. CRYSTALLIZED WHITE DWARF ("Cosmic Diamond" Carbon-Oxygen Lattice + Degenerate Atmosphere)
+            // ====================================================================
+            else if (uStarType == 5) {
+                // Parallax refraction into the deep crystallized Carbon-Oxygen diamond core!
+                float crystalFraction = clamp(uSpecialParamA, 0.0, 1.0); // 0 = Liquid plasma, 1 = 100% Solidified Cosmic Diamond
+                vec3 refractCoord = p * 5.8 - viewDir * 0.38;
+                vec2 vLattice1 = voronoi(refractCoord);
+                vec2 vLattice2 = voronoi(p * 12.0 + viewDir * 0.22);
+
+                // Crisp hexagonal/polyhedral crystal cleavage planes & internal facet normals
+                float facetBoundary = 1.0 - smoothstep(0.008, 0.095, vLattice1.y - vLattice1.x);
+                float subFacet      = 1.0 - smoothstep(0.01, 0.08, vLattice2.y - vLattice2.x);
+
+                // Construct synthetic crystal facet normal for realistic diamond specular glints!
+                vec3 facetNormal = normalize(vNormal + vec3(
+                    sin(vLattice1.x * 28.0),
+                    cos(vLattice1.x * 34.0),
+                    sin(vLattice2.x * 24.0)
+                ) * 0.32 * crystalFraction);
+
+                float facetSpec = pow(max(0.0, dot(facetNormal, viewDir)), 18.0) * crystalFraction;
+
+                // Chromatic dispersion (diamond fire: cyan, royal blue, prism gold & violet glints)
+                vec3 prismFire = 0.5 + 0.5 * cos(6.28318 * (vLattice1.x * 3.5 + NdotV * 1.8 + vec3(0.0, 0.33, 0.67)));
+
+                vec3 liquidCoreCol = mix(vec3(0.22, 0.62, 0.98), vec3(0.85, 0.96, 1.00), pow(NdotV, 1.2));
+                vec3 diamondBody   = mix(vec3(0.15, 0.52, 0.88), vec3(0.82, 0.95, 1.00), vLattice1.x * 0.8 + 0.2);
+
+                col = mix(liquidCoreCol, diamondBody, crystalFraction);
+
+                // Glowing internal carbon-oxygen lattice veins + diamond refraction fire
+                vec3 veinGlow = mix(vec3(0.55, 0.92, 1.0), vec3(1.0, 0.88, 0.65), vLattice2.x);
+                col += veinGlow * (facetBoundary * 1.55 + subFacet * 0.55) * crystalFraction * uTurbulence;
+                col += mix(vec3(1.0), prismFire, 0.55) * facetSpec * 2.2 * uTurbulence;
+
+                // Ultra-thin high-gravity hydrogen/helium degenerate atmosphere limb
+                col += vec3(0.45, 0.88, 1.0) * fresnel * 1.65 * uCoronaGlow;
+            }
+
+            // ====================================================================
+            // SPECTRAL OBSERVATION MODES (Optical / Chandra X-Ray / Infrared)
+            // ====================================================================
+            if (uSpectralMode == 1) {
+                float lum = dot(col, vec3(0.299, 0.587, 0.114));
+                vec3 xray = mix(vec3(0.18, 0.04, 0.45), vec3(0.92, 0.18, 0.75), smoothstep(0.1, 0.6, lum));
+                xray = mix(xray, vec3(0.45, 0.95, 1.0), smoothstep(0.55, 0.95, lum));
+                xray = mix(xray, vec3(1.0, 1.0, 1.0), smoothstep(0.85, 1.35, lum));
+                col = xray * 1.25;
+            } else if (uSpectralMode == 2) {
+                float lum = dot(col, vec3(0.299, 0.587, 0.114));
+                vec3 ir = mix(vec3(0.35, 0.02, 0.05), vec3(1.0, 0.45, 0.05), smoothstep(0.1, 0.65, lum));
+                ir = mix(ir, vec3(1.0, 0.95, 0.65), smoothstep(0.6, 1.2, lum));
+                col = ir * 1.2;
+            }
+
+            col *= uRgbTint;
+
+            gl_FragColor = vec4(col, 1.0);
+        }
+    </script>
+
+    <!-- ========================================================================== -->
+    <!-- RELATIVISTIC PULSAR / MAGNETAR RADIATION BEAM SHADER                       -->
+    <!-- ========================================================================== -->
+    <script id="beamVertexShader" type="x-shader/x-vertex">
+        varying vec3 vPos;
+        varying vec3 vNormal;
+        void main() {
+            vPos = position;
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    </script>
+
+    <script id="beamFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+        varying vec3 vPos;
+        varying vec3 vNormal;
+
+        uniform float uTime;
+        uniform vec3 uBeamColor;
+        uniform vec3 uRgbTint;
+        uniform float uCoronaGlow;
+
+        void main() {
+            float dist = abs(vPos.y) / 18.0;
+            float core = pow(max(0.0, abs(dot(vNormal, vec3(0.0, 0.0, 1.0)))), 1.75);
+            float pulse = 0.75 + 0.25 * sin(dist * 32.0 - uTime * 14.0);
+            float fade = exp(-dist * 2.1) * smoothstep(0.0, 0.08, dist);
+
+            vec3 col = mix(uBeamColor * uRgbTint, vec3(1.0), core * 0.65) * 1.85;
+            float alpha = clamp(fade * core * pulse * uCoronaGlow * 0.85, 0.0, 0.95);
+            gl_FragColor = vec4(col, alpha);
+        }
+    </script>
+
+    <!-- ========================================================================== -->
+    <!-- VOLUMETRIC 3D SUPERNOVA BLAST WAVE & RAYLEIGH-TAYLOR EJECTA SHADER         -->
+    <!-- ========================================================================== -->
+    <script id="supernovaVertexShader" type="x-shader/x-vertex">
+        varying vec3 vNormal;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying float vSpike;
+
+        uniform float uTime;
+        uniform float uBlastProgress;
+
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p = p * 2.08 + vec3(31.0);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        void main() {
+            vec3 n = normalize(position);
+            // Multi-scale Rayleigh-Taylor mushroom plumes & asymmetrical supernova ejecta fingers
+            float plume = fbm(n * 4.8 + vec3(uTime * 0.42));
+            float finePlume = fbm(n * 12.5 - vec3(uTime * 0.75));
+            float microKnots = noise(n * 24.0 + vec3(uTime * 1.1));
+            float spike = pow(plume, 1.45) * 0.65 + (finePlume - 0.5) * 0.26 + (microKnots - 0.5) * 0.10;
+            vSpike = clamp(plume * 1.2 + finePlume * 0.55, 0.0, 1.9);
+
+            vec3 pos = position * (1.0 + spike * smoothstep(0.0, 0.25, uBlastProgress));
+            vLocalPos = n;
+            vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+            vWorldPos = worldPos.xyz;
+            vNormal = normalize(mat3(modelMatrix) * normalize(n + vec3(plume - 0.5) * 0.48));
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+    </script>
+
+    <script id="supernovaFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+        varying vec3 vNormal;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying float vSpike;
+
+        uniform float uTime;
+        uniform float uBlastProgress;
+        uniform float uOpacity;
+        uniform vec3 uRgbTint;
+
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p = p * 2.1 + vec3(19.0);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        void main() {
+            vec3 viewDir = normalize(cameraPosition - vWorldPos);
+            float NdotV = abs(dot(normalize(vNormal), viewDir));
+            float rim = pow(1.0 - NdotV, 1.55);
+
+            float filament = fbm(vLocalPos * 10.5 - uTime * 0.52);
+            float fineWeb  = fbm(vLocalPos * 22.0 + uTime * 0.85);
+            float web = smoothstep(0.24, 0.74, filament * 0.75 + fineWeb * 0.38 + vSpike * 0.35);
+
+            // Multi-temperature Supernova Remnant Ejecta Palette (SN 1987A / Cassiopeia A / Crab):
+            // Blinding White-Violet Shock Breakout -> Sapphire/Cyan Synchrotron -> Radioactive Gold/Orange -> Crimson/Magenta H-alpha
+            vec3 shockCyan   = vec3(0.28, 0.88, 1.00);
+            vec3 hotWhite    = vec3(1.00, 0.98, 1.00);
+            vec3 plasmaGold  = vec3(1.00, 0.62, 0.12);
+            vec3 ejectaMag   = vec3(1.00, 0.14, 0.55);
+            vec3 oxygenGreen = vec3(0.30, 0.98, 0.65);
+
+            vec3 col = mix(ejectaMag, plasmaGold, smoothstep(0.22, 0.68, filament));
+            col = mix(col, oxygenGreen, smoothstep(0.60, 0.86, fineWeb) * 0.50);
+            col = mix(col, shockCyan * 1.65, rim * 0.85);
+            col = mix(col, hotWhite * 2.55, pow(web, 1.8) * (1.0 - uBlastProgress * 0.35));
+
+            float alpha = clamp((rim * 0.94 + web * 0.82) * uOpacity, 0.0, 0.98);
+            gl_FragColor = vec4(col * uRgbTint * 1.95, alpha);
+        }
+    </script>
+
+    <script>
+        window.onload = function () {
+            const container = document.getElementById('canvas-container');
+
+            // ============================================================================
+            // METADATA FOR THE 6 STARS & STELLAR OBJECTS
+            // ============================================================================
+            const STELLAR_CATALOG = {
+                neutron: {
+                    id: 0,
+                    title: "Estrelas de Nêutrons (X-Ray Universe)",
+                    catalog: "~20 km Diâmetro • 1,4 a 2,1 Massas Solares",
+                    desc: "Objetos extremamente densos formados após uma supernova: possuem crosta de ferro cristalino, auroras polares de raios X, lente gravitacional e feixes relativísticos.",
+                    ref: "Ref: X-RAY UNIVERSE | NASA Chandra X-ray Observatory",
+                    temp: "~1.000.000 K (Superfície)",
+                    density: "~10¹⁴ g/cm³ (Núcleo Superfluido)",
+                    example: "Pulsar de Vela / Cassiopeia A",
+                    burstLabel: "⚡ Disparar Pulso de Raios X (Terremoto na Crosta)",
+                    radius: 4.3,
+                    tiltDeg: 32,
+                    spinHz: 11.2, // Pulsar de Vela (~11.2 giros por segundo)
+                    hasBeams: true,
+                    hasBField: true,
+                    hasAccretionRing: true,
+                    bFieldScale: 1.15,
+                    beamColor: 0x00e5ff,
+                    haloColor: 0x00c8ff,
+                    camPos: { theta: 0.45, phi: 1.25, radius: 28, lookAt: [0, 0, 0] },
+                    specificUI: {
+                        boxTitle: "Física do Pulsar / Estrela de Nêutrons",
+                        badge: "Rotação em Hz Reais",
+                        labelA: "Frequência de Spin (Giros/seg)",
+                        minA: 0.1, maxA: 700.0, stepA: 0.1, valA: 11.2, unitA: " Hz",
+                        hintA: ["0.1 Hz (Lento)", "Vela (11.2 Hz)", "700 Hz (Milissegundo)"],
+                        labelB: "Grau de Inclinação do Pulsar",
+                        minB: 0, maxB: 85, stepB: 1, valB: 32, unitB: "°"
+                    }
+                },
+                magnetar: {
+                    id: 1,
+                    title: "Magnetares (Campos Magnéticos Extremos)",
+                    catalog: "10¹⁵ Gauss • Terremotos Estelares (Starquakes)",
+                    desc: "Estrelas de nêutrons com os campos magnéticos mais poderosos do Universo, rachando a crosta metálica em fendas de magma de plasma e surtos gigantes de raios gama.",
+                    ref: "Ref: Magnetar (artist’s impression) | ESA/Hubble",
+                    temp: "~10.000.000 K (Hotspots)",
+                    density: "Campo de 1 Quadrilhão de Gauss",
+                    example: "SGR 1806-20 / SGR 1900+14",
+                    burstLabel: "⚡ Disparar Surto Gigante de Raios Gama (Starquake)",
+                    radius: 4.5,
+                    tiltDeg: 18,
+                    spinHz: 0.45, // Magnetares giram entre 0.1 e 1 Hz devido à frenagem magnética extrema
+                    hasBeams: true,
+                    hasBField: true,
+                    hasAccretionRing: true,
+                    bFieldScale: 1.95,
+                    beamColor: 0xe879f9,
+                    haloColor: 0xc026d3,
+                    camPos: { theta: 0.55, phi: 1.22, radius: 30, lookAt: [0, 0, 0] },
+                    specificUI: {
+                        boxTitle: "Física do Magnetar (10¹⁵ Gauss)",
+                        badge: "Frenagem Magnética",
+                        labelA: "Frequência de Spin (Giros/seg)",
+                        minA: 0.1, maxA: 50.0, stepA: 0.05, valA: 0.45, unitA: " Hz",
+                        hintA: ["0.1 Hz (SGR 1806)", "1.0 Hz", "50 Hz (Jovem)"],
+                        labelB: "Grau de Inclinação Magnética",
+                        minB: 0, maxB: 85, stepB: 1, valB: 18, unitB: "°"
+                    }
+                },
+                redgiant: {
+                    id: 2,
+                    title: "Gigantes e Supergigantes Vermelhas (Betelgeuse)",
+                    catalog: "~764x o Raio do Sol • Fase Avançada de Fusão",
+                    desc: "Estrelas enormes em fases avançadas de evolução que esgotaram o hidrogênio do núcleo. Possuem células convectivas colossais e ejetam imensas plumas de gás e poeira.",
+                    ref: "Ref: Betelgeuse is smaller and closer than previously thought | ESO / ALMA",
+                    temp: "~3.500 K (Fotosfera Rubi-Alaranjada)",
+                    density: "Envoltório Convectivo Difuso",
+                    example: "Betelgeuse (Alpha Orionis) / Antares",
+                    burstLabel: "⚡ Disparar Ejeção de Massa Coronal (Grande Escurecimento)",
+                    radius: 9.6,
+                    tiltDeg: 8,
+                    spinHz: 0.05,
+                    hasBeams: false,
+                    hasBField: false,
+                    hasAccretionRing: false,
+                    bFieldScale: 0,
+                    beamColor: 0xff4500,
+                    haloColor: 0xff3b00,
+                    camPos: { theta: 0.30, phi: 1.38, radius: 32, lookAt: [0, 0, 0] },
+                    specificUI: {
+                        boxTitle: "Dinâmica Convectiva (Betelgeuse)",
+                        badge: "Supergrânulos ALMA",
+                        labelA: "Escala das Células Convectivas",
+                        minA: 0.1, maxA: 1.0, stepA: 0.02, valA: 0.45, unitA: "x",
+                        hintA: ["Células Gigantes", "Médio", "Multigranular"],
+                        labelB: "Inclinação do Eixo Estelar",
+                        minB: 0, maxB: 60, stepB: 1, valB: 8, unitB: "°"
+                    }
+                },
+                bluesupergiant: {
+                    id: 3,
+                    title: "Supergigantes Azuis (Rigel)",
+                    catalog: "120.000x a Luminosidade do Sol • Classe B8Ia",
+                    desc: "Estrelas muito quentes, jovens e hiper-luminosas que queimam seu combustível nuclear em ritmo furioso, lançando ventos estelares supersônicos de milhões de km/h.",
+                    ref: "Ref: Rigel (Beta Orionis) Astrophysics | NASA / ESA",
+                    temp: "~12.100 K a 30.000 K",
+                    density: "Vento Estelar Intenso em Radiação UV",
+                    example: "Rigel (Beta Orionis) / Deneb",
+                    burstLabel: "⚡ Disparar Pulso de Vento Supersônico UV",
+                    radius: 8.4,
+                    tiltDeg: 12,
+                    spinHz: 0.12,
+                    hasBeams: false,
+                    hasBField: false,
+                    hasAccretionRing: false,
+                    bFieldScale: 0,
+                    beamColor: 0x38bdf8,
+                    haloColor: 0x38bdf8,
+                    camPos: { theta: 0.35, phi: 1.35, radius: 30, lookAt: [0, 0, 0] },
+                    specificUI: {
+                        boxTitle: "Física de Supergigante Azul (Rigel)",
+                        badge: "Pressão de Radiação",
+                        labelA: "Velocidade do Vento Estelar",
+                        minA: 0.2, maxA: 2.5, stepA: 0.05, valA: 1.2, unitA: "000 km/s",
+                        hintA: ["200 km/s", "1.200 km/s", "2.500 km/s"],
+                        labelB: "Inclinação Axial da Estrela",
+                        minB: 0, maxB: 60, stepB: 1, valB: 12, unitB: "°"
+                    }
+                },
+                binary: {
+                    id: 4,
+                    title: "Sistemas Binários (Espiral Orbital, Maré & Destino Final)",
+                    catalog: "Centro de Massa Compartilhado • Efeito de Maré • Fusão ou Supernova",
+                    desc: "Duas estrelas orbitando o centro de gravidade compartilhado enquanto se aproximam automaticamente: o efeito de maré estica os astros até culminar em uma Fusão Estelar ou em uma Supernova!",
+                    ref: "Ref: Binary Star Inspiral, Tidal Distortion & Stellar Merger / Supernova | ESO / NASA",
+                    temp: "38.000 K a 100.000.000 K (Colisão)",
+                    density: "Ondas Gravitacionais & Maré de Roche",
+                    example: "VFTS 352 / V1309 Scorpii (Fusão) / SN Ia",
+                    burstLabel: "🔄 Reiniciar Aproximação Orbital do Início",
+                    radius: 5.5,
+                    tiltDeg: 14,
+                    spinHz: 0.25,
+                    hasBeams: false,
+                    hasBField: false,
+                    hasAccretionRing: true,
+                    bFieldScale: 0,
+                    beamColor: 0x60a5fa,
+                    haloColor: 0x60a5fa,
+                    camPos: { theta: 0.25, phi: 1.02, radius: 42, lookAt: [0, 0, 0] },
+                    specificUI: {
+                        boxTitle: "Dinâmica do Sistema Binário",
+                        badge: "Espiral Automática",
+                        labelA: "Taxa de Queda Gravitacional (Espiral)",
+                        minA: 0.3, maxA: 3.0, stepA: 0.1, valA: 1.0, unitA: "x",
+                        hintA: ["0.3x (Lenta)", "1.0x (Padrão)", "3.0x (Rápida)"],
+                        labelB: "Razão de Massa (Centro Gravitacional)",
+                        minB: 0.5, maxB: 1.5, stepB: 0.02, valB: 1.15, unitA_B: "x"
+                    }
+                },
+                whitedwarf: {
+                    id: 5,
+                    title: "Anãs Brancas (Cristalização do Futuro Sol)",
+                    catalog: "Tamanho da Terra • Núcleo de Carbono-Oxigênio Cristalizado",
+                    desc: "Remanescentes densos de estrelas como o nosso Sol. Ao esfriar ao longo de bilhões de anos, seu interior de carbono e oxigênio se solidifica em um diamante cósmico gigante.",
+                    ref: "Ref: Crystallization of the Sun: A Future in White Dwarfs | Global Science News",
+                    temp: "~25.000 K a 100.000 K",
+                    density: "~10⁶ g/cm³ (Matéria Degenerada)",
+                    example: "Sirius B / BPM 37093 ('Lucy')",
+                    burstLabel: "⚡ Disparar Pulso de Ressonância Cristalina",
+                    radius: 4.8,
+                    tiltDeg: 14,
+                    spinHz: 0.15,
+                    hasBeams: false,
+                    hasBField: false,
+                    hasAccretionRing: true,
+                    bFieldScale: 0,
+                    beamColor: 0x5eead4,
+                    haloColor: 0x38bdf8,
+                    camPos: { theta: 0.40, phi: 1.30, radius: 26, lookAt: [0, 0, 0] },
+                    specificUI: {
+                        boxTitle: "Cristalização de Diamante Cósmico",
+                        badge: "Rede C-O Sólida",
+                        labelA: "Grau de Cristalização do Núcleo",
+                        minA: 0.0, maxA: 1.0, stepA: 0.02, valA: 0.88, unitA: "%",
+                        hintA: ["0% (Plasma)", "50% (Transição)", "100% (Diamante)"],
+                        labelB: "Brilho da Nebulosa Planetária",
+                        minB: 0.1, maxB: 2.0, stepB: 0.05, valB: 1.2, unitB: "x"
+                    }
+                }
+            };
+
+            // ============================================================================
+            // THREE.JS SCENE & RENDERER
+            // ============================================================================
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.2, 2000);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Procedural Radial Glow Texture for Coronas, Magnetic Plasma & Stellar Winds
+            function createCoronaTexture() {
+                const c = document.createElement('canvas');
+                c.width = 128;
+                c.height = 128;
+                const ctx = c.getContext('2d');
+                const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+                grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+                grad.addColorStop(0.25, 'rgba(220, 245, 255, 0.78)');
+                grad.addColorStop(0.58, 'rgba(120, 200, 255, 0.24)');
+                grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 128, 128);
+                return new THREE.CanvasTexture(c);
+            }
+            const coronaTex = createCoronaTexture();
+
+            // Background Starfield
+            const starCount = 3500;
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = new Float32Array(starCount * 3);
+            const starCol = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount; i++) {
+                const r = 380 + Math.random() * 620;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                starPos[i * 3 + 1] = r * Math.cos(phi);
+                starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+                const tint = Math.random();
+                starCol[i * 3] = 0.78 + 0.22 * tint;
+                starCol[i * 3 + 1] = 0.84 + 0.16 * (1 - tint * 0.3);
+                starCol[i * 3 + 2] = 0.95 + 0.05 * (1 - tint);
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+            scene.add(new THREE.Points(
+                starGeo,
+                new THREE.PointsMaterial({ size: 0.8, vertexColors: true, transparent: true, opacity: 0.75 })
+            ));
+
+            // ============================================================================
+            // STELLAR OBJECT HIERARCHY (Spin Group -> Tilted Magnetic/Stellar Core + Halo + Beams + Field + Wind)
+            // ============================================================================
+            const spinGroup = new THREE.Group();
+            scene.add(spinGroup);
+
+            const stellarCoreGroup = new THREE.Group();
+            spinGroup.add(stellarCoreGroup);
+
+            const sharedUniforms = {
+                uStarType: { value: 0 },
+                uTime: { value: 0 },
+                uTurbulence: { value: 1.2 },
+                uCoronaGlow: { value: 1.3 },
+                uSpecialParamA: { value: 11.2 },
+                uSpecialParamB: { value: 32.0 },
+                uBinaryRole: { value: 0.0 },
+                uSpectralMode: { value: 0 },
+                uRgbTint: { value: new THREE.Vector3(1.0, 1.0, 1.0) },
+                uBeamColor: { value: new THREE.Color(0x00e5ff) }
+            };
+
+            // 1. High-Resolution Deformable Stellar Sphere (Primary Star / Single Star)
+            const starSphereGeo = new THREE.SphereGeometry(1.0, 128, 128);
+            const starSphereMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('stellarVertexShader').textContent,
+                fragmentShader: document.getElementById('stellarFragmentShader').textContent,
+                uniforms: sharedUniforms
+            });
+            const starMesh = new THREE.Mesh(starSphereGeo, starSphereMat);
+            stellarCoreGroup.add(starMesh);
+
+            // Companion Star B + Volumetric L1 Plasma Bridge Meshes (Exclusive for Contact Binary VFTS 352)
+            const companionUniforms = Object.assign({}, sharedUniforms, {
+                uBinaryRole: { value: 1.0 }
+            });
+            const companionStarMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('stellarVertexShader').textContent,
+                fragmentShader: document.getElementById('stellarFragmentShader').textContent,
+                uniforms: companionUniforms
+            });
+            const companionStarMesh = new THREE.Mesh(starSphereGeo, companionStarMat);
+            companionStarMesh.visible = false;
+            stellarCoreGroup.add(companionStarMesh);
+
+            const bridgeUniforms = Object.assign({}, sharedUniforms, {
+                uBinaryRole: { value: 2.0 }
+            });
+            // Open-ended cylinder along X in [-1, 1] that morphs into the hyperbolic L1 Roche neck
+            const bridgeCylGeo = new THREE.CylinderGeometry(1.0, 1.0, 2.0, 96, 64, true);
+            bridgeCylGeo.rotateZ(-Math.PI / 2);
+            const bridgeMeshMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('stellarVertexShader').textContent,
+                fragmentShader: document.getElementById('stellarFragmentShader').textContent,
+                uniforms: bridgeUniforms,
+                side: THREE.DoubleSide
+            });
+            const rocheBridgeMesh = new THREE.Mesh(bridgeCylGeo, bridgeMeshMat);
+            rocheBridgeMesh.visible = false;
+            stellarCoreGroup.add(rocheBridgeMesh);
+
+            // Outer Volumetric Corona Glow Sprite (Dual-Lobe Support for Contact Binary)
+            const coronaMat = new THREE.SpriteMaterial({
+                map: coronaTex,
+                color: 0x00c8ff,
+                transparent: true,
+                opacity: 0.68,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const coronaSprite = new THREE.Sprite(coronaMat);
+            stellarCoreGroup.add(coronaSprite);
+
+            const secondaryCoronaSprite = new THREE.Sprite(coronaMat);
+            secondaryCoronaSprite.visible = false;
+            stellarCoreGroup.add(secondaryCoronaSprite);
+
+            // Separate material for Secondary Binary Companion Halo + Central L1 Bridge Shock Glow
+            const companionCoronaMat = new THREE.SpriteMaterial({
+                map: coronaTex,
+                color: 0x60a5fa,
+                transparent: true,
+                opacity: 0.68,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            secondaryCoronaSprite.material = companionCoronaMat;
+
+            const bridgeShockMat = new THREE.SpriteMaterial({
+                map: coronaTex,
+                color: 0xdbeafe,
+                transparent: true,
+                opacity: 0.75,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const bridgeShockSprite = new THREE.Sprite(bridgeShockMat);
+            bridgeShockSprite.visible = false;
+            stellarCoreGroup.add(bridgeShockSprite);
+
+            // Barycenter Marker & Keplerian Orbit Trail Lines (Exclusive for Binary System 05)
+            const binaryOrbitGroup = new THREE.Group();
+            binaryOrbitGroup.visible = false;
+            stellarCoreGroup.add(binaryOrbitGroup);
+
+            // Shared Center of Mass (Barycenter) crosshairs + gravitational glow
+            const barycenterSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: coronaTex,
+                color: 0xfef08a,
+                transparent: true,
+                opacity: 0.75,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            barycenterSprite.scale.set(2.4, 2.4, 1);
+            binaryOrbitGroup.add(barycenterSprite);
+
+            const orbitTrailPtsA = [];
+            const orbitTrailPtsB = [];
+            const TRAIL_SEGS = 96;
+            for (let i = 0; i <= TRAIL_SEGS; i++) {
+                const a = (i / TRAIL_SEGS) * Math.PI * 2;
+                orbitTrailPtsA.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
+                orbitTrailPtsB.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
+            }
+            const orbitLineMatA = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending });
+            const orbitLineMatB = new THREE.LineBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending });
+            const orbitLineA = new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbitTrailPtsA), orbitLineMatA);
+            const orbitLineB = new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbitTrailPtsB), orbitLineMatB);
+            binaryOrbitGroup.add(orbitLineA);
+            binaryOrbitGroup.add(orbitLineB);
+
+            // Supernova Blast Wave Ring & Ejecta Cloud for Binary Merger Finale
+            const supernovaGroup = new THREE.Group();
+            supernovaGroup.visible = false;
+            scene.add(supernovaGroup);
+
+            const snBlastRingGeo = new THREE.RingGeometry(0.8, 1.0, 96);
+            snBlastRingGeo.rotateX(Math.PI / 2);
+            const snBlastRingMat = new THREE.MeshBasicMaterial({
+                color: 0xffedd5,
+                transparent: true,
+                opacity: 0.0,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const snBlastRing = new THREE.Mesh(snBlastRingGeo, snBlastRingMat);
+            supernovaGroup.add(snBlastRing);
+
+            const snCoreFlash = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: coronaTex,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            supernovaGroup.add(snCoreFlash);
+
+            // Secondary inclined shockwave ring + Volumetric 3D Supernova Ejecta Shell + Relativistic Polar Jets
+            const snBlastRing2 = new THREE.Mesh(snBlastRingGeo.clone(), snBlastRingMat.clone());
+            snBlastRing2.rotation.set(0.65, 0.35, 0.48);
+            supernovaGroup.add(snBlastRing2);
+
+            const snBlastRing3 = new THREE.Mesh(snBlastRingGeo.clone(), snBlastRingMat.clone());
+            snBlastRing3.rotation.set(-0.58, -0.25, -0.52);
+            supernovaGroup.add(snBlastRing3);
+
+            const snShellUniforms = {
+                uTime: sharedUniforms.uTime,
+                uBlastProgress: { value: 0.0 },
+                uOpacity: { value: 0.0 },
+                uRgbTint: sharedUniforms.uRgbTint
+            };
+            const snEjectaShell = new THREE.Mesh(
+                new THREE.SphereGeometry(1.0, 96, 96),
+                new THREE.ShaderMaterial({
+                    vertexShader: document.getElementById('supernovaVertexShader').textContent,
+                    fragmentShader: document.getElementById('supernovaFragmentShader').textContent,
+                    uniforms: snShellUniforms,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                })
+            );
+            supernovaGroup.add(snEjectaShell);
+
+            // Inner Radioactive Nickel-56 / Cobalt-56 Turbulent Core Shell for Deep 3D Supernova Volume
+            const snInnerShellUniforms = {
+                uTime: sharedUniforms.uTime,
+                uBlastProgress: { value: 0.0 },
+                uOpacity: { value: 0.0 },
+                uRgbTint: { value: new THREE.Vector3(1.15, 0.75, 0.35) }
+            };
+            const snInnerShell = new THREE.Mesh(
+                new THREE.SphereGeometry(0.68, 72, 72),
+                new THREE.ShaderMaterial({
+                    vertexShader: document.getElementById('supernovaVertexShader').textContent,
+                    fragmentShader: document.getElementById('supernovaFragmentShader').textContent,
+                    uniforms: snInnerShellUniforms,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                })
+            );
+            supernovaGroup.add(snInnerShell);
+
+            // 2. Polar Relativistic Beams (Neutron Star, Magnetar & Supernova Bipolar Gamma-Ray Jets)
+            const beamMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('beamVertexShader').textContent,
+                fragmentShader: document.getElementById('beamFragmentShader').textContent,
+                uniforms: sharedUniforms,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+
+            // Relativistic Supernova Bipolar Gamma-Ray / Synchrotron Jets
+            const snJetGeo = new THREE.CylinderGeometry(3.8, 0.18, 38.0, 48, 24, true);
+            snJetGeo.translate(0, 19.0, 0);
+            const snNorthJet = new THREE.Mesh(snJetGeo, beamMat);
+            const snSouthJet = new THREE.Mesh(snJetGeo.clone().rotateZ(Math.PI), beamMat);
+            const snJetsGroup = new THREE.Group();
+            snJetsGroup.add(snNorthJet);
+            snJetsGroup.add(snSouthJet);
+            snJetsGroup.visible = false;
+            supernovaGroup.add(snJetsGroup);
+
+            // Supernova newborn compact Pulsar/Neutron Star core left glowing inside the expanding debris
+            const snRemnantCore = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: coronaTex,
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            supernovaGroup.add(snRemnantCore);
+
+            // Equatorial X-Ray / Planetary Nebula / Fallback Disk Ring (For Neutron Star, Magnetar & White Dwarf)
+            const diskRingGeo = new THREE.RingGeometry(6.2, 13.5, 96, 8);
+            diskRingGeo.rotateX(Math.PI / 2);
+            const diskRingMat = new THREE.MeshBasicMaterial({
+                map: coronaTex,
+                color: 0x00e5ff,
+                transparent: true,
+                opacity: 0.32,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const equatorialDiskMesh = new THREE.Mesh(diskRingGeo, diskRingMat);
+            stellarCoreGroup.add(equatorialDiskMesh);
+
+            const beamConeGeo = new THREE.CylinderGeometry(3.2, 0.25, 18.0, 48, 24, true);
+            beamConeGeo.translate(0, 10.5, 0);
+            const northBeam = new THREE.Mesh(beamConeGeo, beamMat);
+            const southBeam = new THREE.Mesh(beamConeGeo.clone().rotateZ(Math.PI), beamMat);
+            const beamsGroup = new THREE.Group();
+            beamsGroup.add(northBeam);
+            beamsGroup.add(southBeam);
+            stellarCoreGroup.add(beamsGroup);
+
+            // 3. 3D Dipole & Twisted Toroidal Magnetic Field Lines (Neutron Star & Magnetar)
+            const bFieldGroup = new THREE.Group();
+            stellarCoreGroup.add(bFieldGroup);
+            const fieldLineMats = [];
+
+            const shells = [7.5, 11.5, 15.2];
+            shells.forEach((rMax, sIdx) => {
+                const loops = sIdx === 1 ? 16 : 12;
+                for (let l = 0; l < loops; l++) {
+                    const phiBase = (l / loops) * Math.PI * 2;
+                    const pts = [];
+                    const segs = 72;
+                    for (let i = 0; i <= segs; i++) {
+                        const theta = 0.14 + (i / segs) * (Math.PI - 0.28);
+                        const r = rMax * Math.pow(Math.sin(theta), 2);
+                        // Magnetar magnetic fields have a relativistic twist (toroidal helicity)
+                        const twist = Math.sin(theta * 2.0) * 0.28;
+                        const phi = phiBase + twist;
+                        pts.push(new THREE.Vector3(
+                            r * Math.sin(theta) * Math.cos(phi),
+                            r * Math.cos(theta),
+                            r * Math.sin(theta) * Math.sin(phi)
+                        ));
+                    }
+                    const lMat = new THREE.LineBasicMaterial({
+                        color: 0x00e5ff,
+                        transparent: true,
+                        opacity: sIdx === 0 ? 0.55 : (sIdx === 1 ? 0.38 : 0.22),
+                        blending: THREE.AdditiveBlending
+                    });
+                    fieldLineMats.push({ mat: lMat, baseOp: lMat.opacity });
+                    bFieldGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lMat));
+                }
+            });
+
+            // 4. Circumstellar Dynamic Particle System (10,000 Particles: Magnetospheric Plasma, Betelgeuse Dust Plumes, Rigel Stellar Wind, White Dwarf Planetary Nebula Remnant)
+            const ENV_PARTICLES = 10000;
+            const envGeo = new THREE.BufferGeometry();
+            const envPos = new Float32Array(ENV_PARTICLES * 3);
+            const envCol = new Float32Array(ENV_PARTICLES * 3);
+            const envData = [];
+
+            for (let i = 0; i < ENV_PARTICLES; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                envData.push({
+                    theta: theta,
+                    phi: phi,
+                    progress: Math.random(),
+                    speed: 0.22 + Math.random() * 0.45,
+                    rShell: 7.5 + (i % 3) * 4.0
+                });
+            }
+            envGeo.setAttribute('position', new THREE.BufferAttribute(envPos, 3));
+            envGeo.setAttribute('color', new THREE.BufferAttribute(envCol, 3));
+
+            const envMat = new THREE.PointsMaterial({
+                size: 0.55,
+                map: coronaTex,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.85,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const envPoints = new THREE.Points(envGeo, envMat);
+            stellarCoreGroup.add(envPoints);
+
+            // 5. Shockwave / Mass Ejection Burst Sphere (Triggered via button)
+            const burstGeo = new THREE.SphereGeometry(1.0, 48, 48);
+            const burstMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.0,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                depthWrite: false
+            });
+            const burstSphere = new THREE.Mesh(burstGeo, burstMat);
+            scene.add(burstSphere);
+            let burstProgress = 0.0;
+
+            // ============================================================================
+            // FREE 360° CAMERA ORBIT + PAN + ZOOM + FLY-THROUGH
+            // ============================================================================
+            const camOrbit = {
+                theta: 0.45,
+                phi: 1.25,
+                radius: 28.0,
+                targetTheta: 0.45,
+                targetPhi: 1.25,
+                targetRadius: 28.0,
+                lookAt: new THREE.Vector3(0, 0, 0),
+                targetLookAt: new THREE.Vector3(0, 0, 0)
+            };
+
+            let dragMode = null;
+            let prevX = 0, prevY = 0;
+            let pinchDist = null;
+            let flyThroughActive = false;
+
+            function isPointerOverUI(target) {
+                return Boolean(
+                    target.closest('aside') ||
+                    target.closest('header') ||
+                    target.closest('nav') ||
+                    target.closest('button') ||
+                    target.closest('input')
+                );
+            }
+
+            window.addEventListener('contextmenu', (e) => {
+                if (!isPointerOverUI(e.target)) e.preventDefault();
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                if (e.button === 2 || e.button === 1 || e.shiftKey) {
+                    dragMode = 'pan';
+                } else if (e.button === 0) {
+                    dragMode = 'orbit';
+                }
+                prevX = e.clientX;
+                prevY = e.clientY;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!dragMode) return;
+                const dx = e.clientX - prevX;
+                const dy = e.clientY - prevY;
+                prevX = e.clientX;
+                prevY = e.clientY;
+
+                if (dragMode === 'orbit') {
+                    camOrbit.targetTheta -= dx * 0.007;
+                    camOrbit.targetPhi = Math.max(0.04, Math.min(Math.PI - 0.04, camOrbit.targetPhi - dy * 0.007));
+                } else if (dragMode === 'pan') {
+                    const panSpeed = camOrbit.radius * 0.0015;
+                    const forward = new THREE.Vector3().subVectors(camOrbit.targetLookAt, camera.position).normalize();
+                    const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+                    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+                    camOrbit.targetLookAt.addScaledVector(right, -dx * panSpeed);
+                    camOrbit.targetLookAt.addScaledVector(up, dy * panSpeed);
+                }
+            });
+
+            window.addEventListener('mouseup', () => { dragMode = null; });
+            window.addEventListener('mouseleave', () => { dragMode = null; });
+
+            window.addEventListener('wheel', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                e.preventDefault();
+                const zoomStep = Math.max(0.035, camOrbit.targetRadius * 0.0012);
+                camOrbit.targetRadius = Math.max(5.0, Math.min(500.0, camOrbit.targetRadius + e.deltaY * zoomStep));
+            }, { passive: false });
+
+            window.addEventListener('touchstart', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                if (e.touches.length === 1) {
+                    dragMode = 'orbit';
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    dragMode = 'pan';
+                    pinchDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    prevX = (e.touches[0].clientX + e.touches[1].clientX) * 0.5;
+                    prevY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && dragMode === 'orbit') {
+                    const dx = e.touches[0].clientX - prevX;
+                    const dy = e.touches[0].clientY - prevY;
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                    camOrbit.targetTheta -= dx * 0.007;
+                    camOrbit.targetPhi = Math.max(0.04, Math.min(Math.PI - 0.04, camOrbit.targetPhi - dy * 0.007));
+                } else if (e.touches.length === 2 && pinchDist !== null) {
+                    const d = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const pinchStep = Math.max(0.08, camOrbit.targetRadius * 0.0025);
+                    camOrbit.targetRadius = Math.max(5.0, Math.min(500.0, camOrbit.targetRadius + (pinchDist - d) * pinchStep));
+                    pinchDist = d;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                dragMode = null;
+                pinchDist = null;
+            });
+
+            // Global state variables for active star, spin, and RGB cycle
+            let currentStarKey = 'binary';
+            let currentSpinHz = 11.2;
+            let totalSpinAngle = 0.0;
+            let rotationSpeedMult = 1.0;
+            let rgbCycle = false;
+            let rgbHue = 0.0;
+
+            // Binary Inspiral, Tidal Evolution & Outcome (Stellar Merger vs Supernova) State
+            const binarySim = {
+                autoInspiral: true,
+                outcomeMode: 'merger', // 'merger' = Fusão de Estrelas | 'supernova' = Explosão de Supernova
+                progress: 0.04,        // 0.0 = Wide Orbit -> 0.45 = Tidal Overflow -> 0.99 = Collision at Shared Barycenter
+                inspiralSpeed: 1.0,
+                orbitalAngle: 0.0,
+                orbitalOmega: 1.0,
+                climaxActive: false,   // True once stars collide into either Merger or Supernova
+                climaxTimer: 0.0,
+                sepA: 9.0,
+                sepB: 9.0
+            };
+
+            const sliderParamA = document.getElementById('slider-param-a');
+            const sliderParamB = document.getElementById('slider-param-b');
+            const labelParamA = document.getElementById('label-param-a');
+            const labelParamB = document.getElementById('label-param-b');
+            const valParamA = document.getElementById('val-param-a');
+            const valParamB = document.getElementById('val-param-b');
+            const hintParamA = document.getElementById('hint-param-a');
+            const headerLiveMetric = document.getElementById('header-live-metric');
+
+            const binaryOutcomeBox = document.getElementById('binary-outcome-box');
+            const btnOutcomeMerger = document.getElementById('btn-outcome-merger');
+            const btnOutcomeSupernova = document.getElementById('btn-outcome-supernova');
+            const binaryAutoPct = document.getElementById('binary-auto-pct');
+            const binaryProgressBar = document.getElementById('binary-progress-bar');
+            const binaryPhaseStatus = document.getElementById('binary-phase-status');
+            const btnTriggerClimax = document.getElementById('btn-trigger-climax');
+
+            function setBinaryOutcomeMode(mode) {
+                binarySim.outcomeMode = mode;
+                if (mode === 'merger') {
+                    btnOutcomeMerger.className = "py-1.5 px-2 rounded-lg font-bold bg-amber-500/30 border border-amber-400/60 text-amber-200 transition shadow";
+                    btnOutcomeSupernova.className = "py-1.5 px-2 rounded-lg font-bold text-gray-400 hover:text-white transition";
+                } else {
+                    btnOutcomeSupernova.className = "py-1.5 px-2 rounded-lg font-bold bg-rose-500/35 border border-rose-400/70 text-rose-200 transition shadow";
+                    btnOutcomeMerger.className = "py-1.5 px-2 rounded-lg font-bold text-gray-400 hover:text-white transition";
+                }
+                // If user switches outcome mode while already in the climax state, immediately preview the new outcome
+                if (binarySim.climaxActive) {
+                    triggerBinaryClimax();
+                }
+            }
+
+            btnOutcomeMerger.addEventListener('click', () => setBinaryOutcomeMode('merger'));
+            btnOutcomeSupernova.addEventListener('click', () => setBinaryOutcomeMode('supernova'));
+
+            if (btnTriggerClimax) {
+                btnTriggerClimax.addEventListener('click', () => {
+                    binarySim.progress = 1.0;
+                    triggerBinaryClimax();
+                });
+            }
+
+            function updateBinaryGeometryAndTides() {
+                const cfg = STELLAR_CATALOG.binary;
+                const a = binarySim.progress;
+                const b = parseFloat(sliderParamB.value);
+
+                const progPct = Math.round(a * 100);
+                if (binaryAutoPct) binaryAutoPct.textContent = `${progPct}%`;
+                if (binaryProgressBar) binaryProgressBar.style.width = `${Math.max(4, progPct)}%`;
+
+                // Tidal distortion increases dramatically (1/r^3 tidal force) as stars enter the shared gravitational center
+                const tidalContact = Math.pow(Math.max(0.0, (a - 0.06) / 0.94), 1.15);
+                sharedUniforms.uSpecialParamA.value = tidalContact;
+                sharedUniforms.uSpecialParamB.value = b;
+
+                // Shared Center of Mass (Barycenter at 0,0,0): M1 * r1 = M2 * r2
+                const massRatio = b;
+                const rBase = cfg.radius * 0.78;
+                const totalSep = rBase * THREE.MathUtils.lerp(4.75, 1.04, Math.pow(a, 0.88));
+
+                const rA = totalSep * (massRatio / (1.0 + massRatio));
+                const rB = totalSep * (1.0 / (1.0 + massRatio));
+                binarySim.sepA = rA;
+                binarySim.sepB = rB;
+
+                const massAsym = (b - 1.0) * 0.22;
+                const scaleA = rBase * (1.0 - massAsym * 0.35);
+                const scaleB = rBase * (1.0 + massAsym * 0.35);
+
+                // Pronounced 3D Tidal Deformation: prolate stretching along the line of centers + equatorial compression
+                const tidalStretch = 1.0 + Math.pow(a, 1.25) * 0.92;
+                const polarFlatten = 1.0 - Math.pow(a, 1.20) * 0.28;
+
+                if (!binarySim.climaxActive) {
+                    starMesh.visible = true;
+                    companionStarMesh.visible = true;
+                    barycenterSprite.visible = true;
+
+                    starMesh.position.set(-rA, 0, 0);
+                    starMesh.scale.set(scaleA * tidalStretch, scaleA * polarFlatten, scaleA * (1.0 - a * 0.13));
+
+                    companionStarMesh.position.set(rB, 0, 0);
+                    companionStarMesh.scale.set(scaleB * tidalStretch, scaleB * polarFlatten, scaleB * (1.0 - a * 0.13));
+
+                    // Roche L1 Tidal Plasma Bridge forms early and swells with tidal mass transfer (a > 0.06)
+                    if (a > 0.06) {
+                        rocheBridgeMesh.visible = true;
+                        const bridgeConnect = smoothstepJS(0.06, 0.62, a);
+                        const midOffset = (rB - rA) * 0.5;
+                        rocheBridgeMesh.position.set(midOffset, 0, 0);
+                        rocheBridgeMesh.scale.set(
+                            totalSep * 0.62,
+                            rBase * (0.28 + 1.05 * bridgeConnect),
+                            rBase * (0.28 + 1.05 * bridgeConnect)
+                        );
+                        bridgeShockSprite.visible = true;
+                        bridgeShockSprite.position.set(midOffset * 0.4, 0, 0);
+                        bridgeShockSprite.scale.set(rBase * (1.6 + bridgeConnect * 3.6), rBase * (1.35 + bridgeConnect * 2.9), 1);
+                    } else {
+                        rocheBridgeMesh.visible = false;
+                        bridgeShockSprite.visible = false;
+                    }
+
+                    // Update Keplerian Orbit Trail Rings around the shared Barycenter
+                    orbitLineA.visible = true;
+                    orbitLineB.visible = true;
+                    orbitLineA.scale.set(rA, 1, rA);
+                    orbitLineB.scale.set(rB, 1, rB);
+                    orbitLineMatA.opacity = (1.0 - a * 0.78) * 0.40;
+                    orbitLineMatB.opacity = (1.0 - a * 0.78) * 0.40;
+
+                    coronaSprite.position.set(starMesh.position.x, 0, 0);
+                    coronaSprite.scale.set(scaleA * 3.2, scaleA * 2.9, 1);
+
+                    secondaryCoronaSprite.visible = true;
+                    secondaryCoronaSprite.position.set(companionStarMesh.position.x, 0, 0);
+                    secondaryCoronaSprite.scale.set(scaleB * 3.2, scaleB * 2.9, 1);
+                }
+
+                // Update Secondary Star Halo Color
+                const tempAsym = b - 1.0;
+                if (tempAsym > 0.02) {
+                    const warmMix = Math.min(1.0, tempAsym * 1.8);
+                    companionCoronaMat.color.setRGB(
+                        THREE.MathUtils.lerp(0.38, 1.0, warmMix),
+                        THREE.MathUtils.lerp(0.65, 0.62, warmMix),
+                        THREE.MathUtils.lerp(0.98, 0.22, warmMix)
+                    );
+                } else {
+                    companionCoronaMat.color.setHex(0x60a5fa);
+                }
+
+                // Kepler's 3rd Law: orbital angular velocity accelerates as stars spiral inward
+                binarySim.orbitalOmega = 0.85 + Math.pow(a, 2.3) * 10.2;
+
+                let phaseLabel = "Fase 1: Órbita no Centro Gravitacional Comum";
+                if (binarySim.climaxActive) {
+                    phaseLabel = binarySim.outcomeMode === 'merger'
+                        ? "✨ FUSÃO ESTELAR COMPLETA (Estrela Única Massiva)"
+                        : "💥 EXPLOSÃO DE SUPERNOVA EM EXPANSÃO!";
+                } else if (a > 0.78) {
+                    phaseLabel = "Fase 3: Envelope Comum & Imersão Crítica!";
+                } else if (a > 0.28) {
+                    phaseLabel = "Fase 2: Efeito de Maré Intenso & Ponte de Plasma L1";
+                }
+
+                if (binaryPhaseStatus) binaryPhaseStatus.textContent = phaseLabel;
+                headerLiveMetric.textContent = `${phaseLabel.replace(/^Fase \d: /, '')} (${progPct}%)`;
+            }
+
+            function updateSpecificMetricsUI() {
+                const cfg = STELLAR_CATALOG[currentStarKey];
+                const a = parseFloat(sliderParamA.value);
+                const b = parseFloat(sliderParamB.value);
+
+                sharedUniforms.uSpecialParamA.value = a;
+                sharedUniforms.uSpecialParamB.value = b;
+
+                if (cfg.id === 0 || cfg.id === 1) {
+                    // Neutron Star & Magnetar: Param A = Spin Frequency in Hz, Param B = Magnetic Tilt Angle in Degrees
+                    currentSpinHz = a;
+                    const hzStr = a >= 10 ? a.toFixed(1) : a.toFixed(2);
+                    valParamA.textContent = `${hzStr} Hz`;
+                    valParamB.textContent = `${Math.round(b)}°`;
+                    stellarCoreGroup.rotation.z = THREE.MathUtils.degToRad(b);
+                    const periodMs = (1000.0 / Math.max(0.01, a));
+                    const periodStr = periodMs >= 1000 ? `${(periodMs / 1000).toFixed(2)}s` : `${periodMs.toFixed(1)}ms`;
+                    headerLiveMetric.textContent = `Spin: ${hzStr} Hz (T=${periodStr}) • Inclinação: ${Math.round(b)}°`;
+                } else if (cfg.id === 2) {
+                    // Red Giant (Betelgeuse): Param A = Convective Cell Scale, Param B = Tilt
+                    valParamA.textContent = Math.round(a * 100) + "%";
+                    valParamB.textContent = `${Math.round(b)}°`;
+                    stellarCoreGroup.rotation.z = THREE.MathUtils.degToRad(b);
+                    headerLiveMetric.textContent = `Células Convectivas: ${Math.round(a * 100)}% • Eixo: ${Math.round(b)}°`;
+                } else if (cfg.id === 3) {
+                    // Blue Supergiant (Rigel): Param A = Stellar Wind Speed, Param B = Tilt
+                    valParamA.textContent = `${Math.round(a * 1000)} km/s`;
+                    valParamB.textContent = `${Math.round(b)}°`;
+                    stellarCoreGroup.rotation.z = THREE.MathUtils.degToRad(b);
+                    headerLiveMetric.textContent = `Vento UV: ${Math.round(a * 1000)} km/s • Eixo: ${Math.round(b)}°`;
+                } else if (cfg.id === 4) {
+                    // Binary System (05): Slider A = Automatic Inspiral Rate Multiplier, Slider B = Mass Ratio
+                    binarySim.inspiralSpeed = a;
+                    valParamA.textContent = a.toFixed(1) + "x";
+                    valParamB.textContent = b.toFixed(2) + "x";
+                    updateBinaryGeometryAndTides();
+                } else if (cfg.id === 5) {
+                    // White Dwarf: Param A = Core Diamond Crystallization %, Param B = Planetary Nebula Shell Glow
+                    valParamA.textContent = Math.round(a * 100) + "%";
+                    valParamB.textContent = Math.round(b * 100) + "%";
+                    equatorialDiskMesh.material.opacity = Math.min(0.85, 0.28 * b);
+                    headerLiveMetric.textContent = `Núcleo Cristalizado: ${Math.round(a * 100)}% (Diamante C-O)`;
+                }
+            }
+
+            function smoothstepJS(edge0, edge1, x) {
+                const t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
+                return t * t * (3.0 - 2.0 * t);
+            }
+
+            function triggerBinaryClimax() {
+                binarySim.climaxActive = true;
+                binarySim.climaxTimer = 0.0;
+                supernovaGroup.visible = true;
+                burstProgress = 1.0;
+
+                if (binarySim.outcomeMode === 'merger') {
+                    // Golden-cyan Luminous Red Nova / Stellar Merger coalescence flash
+                    burstMat.color.setHex(0xffd166);
+                    snBlastRingMat.color.setHex(0x60a5fa);
+                    snCoreFlash.material.color.setHex(0xfff3b0);
+                } else {
+                    // Blinding white-violet Supernova detonation flash
+                    burstMat.color.setHex(0xffffff);
+                    snBlastRingMat.color.setHex(0xffedd5);
+                    snCoreFlash.material.color.setHex(0xffffff);
+                }
+
+                // Reset particle progress so they erupt outward in either a Merger Excretion Disk or Supernova Shock Shell
+                for (let i = 0; i < ENV_PARTICLES; i++) {
+                    envData[i].progress = Math.random() * 0.16;
+                }
+                updateBinaryGeometryAndTides();
+            }
+
+            function restartBinaryInspiral() {
+                binarySim.climaxActive = false;
+                binarySim.climaxTimer = 0.0;
+                binarySim.progress = 0.04;
+                supernovaGroup.visible = false;
+                equatorialDiskMesh.scale.set(1, 1, 1);
+                updateBinaryGeometryAndTides();
+            }
+
+            sliderParamA.addEventListener('input', updateSpecificMetricsUI);
+            sliderParamB.addEventListener('input', updateSpecificMetricsUI);
+
+            function selectStarObject(key) {
+                const cfg = STELLAR_CATALOG[key];
+                if (!cfg) return;
+                currentStarKey = key;
+
+                // Update Telemetry Header & Stats
+                document.getElementById('header-title').textContent = cfg.title;
+                document.getElementById('header-catalog').textContent = cfg.catalog;
+                document.getElementById('header-desc').textContent = cfg.desc;
+                document.getElementById('header-ref').textContent = cfg.ref;
+                document.getElementById('stat-temp').textContent = cfg.temp;
+                document.getElementById('stat-density').textContent = cfg.density;
+                document.getElementById('stat-example').textContent = cfg.example;
+                document.getElementById('btn-burst-text').textContent = cfg.burstLabel;
+
+                // Configure Context-Sensitive Specific Sliders
+                const ui = cfg.specificUI;
+                document.getElementById('specific-box-title').textContent = ui.boxTitle;
+                document.getElementById('specific-box-badge').textContent = ui.badge;
+                labelParamA.textContent = ui.labelA;
+                sliderParamA.min = ui.minA;
+                sliderParamA.max = ui.maxA;
+                sliderParamA.step = ui.stepA;
+                sliderParamA.value = ui.valA;
+                hintParamA.innerHTML = `<span>${ui.hintA[0]}</span><span>${ui.hintA[1]}</span><span>${ui.hintA[2]}</span>`;
+
+                labelParamB.textContent = ui.labelB;
+                sliderParamB.min = ui.minB;
+                sliderParamB.max = ui.maxB;
+                sliderParamB.step = ui.stepB;
+                sliderParamB.value = ui.valB;
+
+                // Highlight Active Card
+                document.querySelectorAll('.star-card').forEach(btn => {
+                    if (btn.dataset.star === key) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+
+                // Apply Star Type & Geometry Scale (Dual Roche Stars + Bridge for Contact Binary VFTS 352)
+                sharedUniforms.uStarType.value = cfg.id;
+                sharedUniforms.uBeamColor.value.setHex(cfg.beamColor);
+
+                if (cfg.id === 4) {
+                    binaryOutcomeBox.classList.remove('hidden');
+                    binaryOutcomeBox.classList.add('flex');
+                    companionStarMesh.visible = true;
+                    rocheBridgeMesh.visible = true;
+                    binaryOrbitGroup.visible = true;
+                    restartBinaryInspiral();
+                } else {
+                    binaryOutcomeBox.classList.add('hidden');
+                    binaryOutcomeBox.classList.remove('flex');
+                    starMesh.visible = true;
+                    starMesh.position.set(0, 0, 0);
+                    starMesh.scale.set(cfg.radius, cfg.radius, cfg.radius);
+                    companionStarMesh.visible = false;
+                    rocheBridgeMesh.visible = false;
+                    binaryOrbitGroup.visible = false;
+                    supernovaGroup.visible = false;
+                    binarySim.climaxActive = false;
+                }
+
+                // Configure Outer Corona Halos (Dual lobes + L1 Neck Glow for Contact Binary VFTS 352)
+                coronaMat.color.setHex(cfg.haloColor);
+                if (cfg.id === 4) {
+                    secondaryCoronaSprite.visible = true;
+                    companionCoronaMat.color.setHex(cfg.haloColor);
+
+                    bridgeShockSprite.visible = true;
+                    bridgeShockSprite.position.set(0, 0, 0);
+                } else {
+                    coronaSprite.position.set(0, 0, 0);
+                    coronaSprite.scale.set(cfg.radius * 3.1, cfg.radius * 3.1, 1);
+                    secondaryCoronaSprite.visible = false;
+                    bridgeShockSprite.visible = false;
+                }
+
+                // Configure Equatorial Disk / Nebula Ring
+                equatorialDiskMesh.visible = cfg.hasAccretionRing;
+                diskRingMat.color.setHex(cfg.beamColor);
+                diskRingMat.opacity = cfg.id === 5 ? 0.36 : 0.24;
+
+                // Configure Magnetic Tilt, Beams & Dipole Loops
+                stellarCoreGroup.rotation.set(0, 0, THREE.MathUtils.degToRad(cfg.tiltDeg));
+                beamsGroup.visible = cfg.hasBeams;
+                bFieldGroup.visible = cfg.hasBField;
+
+                fieldLineMats.forEach(item => {
+                    item.mat.color.setHex(cfg.beamColor);
+                    item.mat.opacity = Math.min(1.0, item.baseOp * cfg.bFieldScale);
+                });
+
+                burstMat.color.setHex(cfg.haloColor);
+                updateSpecificMetricsUI();
+
+                // Smoothly move camera to best vantage point
+                camOrbit.targetTheta = cfg.camPos.theta;
+                camOrbit.targetPhi = cfg.camPos.phi;
+                camOrbit.targetRadius = cfg.camPos.radius;
+                camOrbit.targetLookAt.set(0, 0, 0);
+            }
+
+            document.querySelectorAll('.star-card').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectStarObject(btn.dataset.star);
+                });
+            });
+
+            // RGB Sliders & Spectral Modes
+            const sliderR = document.getElementById('slider-r');
+            const sliderG = document.getElementById('slider-g');
+            const sliderB = document.getElementById('slider-b');
+            const valR = document.getElementById('val-r');
+            const valG = document.getElementById('val-g');
+            const valB = document.getElementById('val-b');
+
+            function applyRgbTint(r, g, b) {
+                sliderR.value = r;
+                sliderG.value = g;
+                sliderB.value = b;
+                valR.textContent = r;
+                valG.textContent = g;
+                valB.textContent = b;
+                sharedUniforms.uRgbTint.value.set(r / 255, g / 255, b / 255);
+                document.getElementById('status-dot').style.backgroundColor = `rgb(${r},${g},${b})`;
+            }
+
+            [sliderR, sliderG, sliderB].forEach(s => {
+                s.addEventListener('input', () => {
+                    applyRgbTint(
+                        parseInt(sliderR.value, 10),
+                        parseInt(sliderG.value, 10),
+                        parseInt(sliderB.value, 10)
+                    );
+                });
+            });
+
+            // Spectral Observation Mode Buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.className = "filter-btn py-1.5 px-2 rounded-lg font-semibold text-gray-400 hover:text-white transition";
+                    });
+                    btn.className = "filter-btn py-1.5 px-2 rounded-lg font-semibold bg-white/15 text-white transition";
+
+                    const f = btn.dataset.filter;
+                    if (f === 'optical') sharedUniforms.uSpectralMode.value = 0;
+                    else if (f === 'xray') sharedUniforms.uSpectralMode.value = 1;
+                    else if (f === 'thermal') sharedUniforms.uSpectralMode.value = 2;
+                });
+            });
+
+            // RGB Cycle Toggle
+            const btnRgbCycle = document.getElementById('btn-rgb-cycle');
+            btnRgbCycle.addEventListener('click', () => {
+                rgbCycle = !rgbCycle;
+                btnRgbCycle.textContent = rgbCycle ? "Ciclo RGB: ON" : "Ciclo RGB: OFF";
+                btnRgbCycle.className = rgbCycle
+                    ? "text-[11px] px-2.5 py-0.5 rounded-full bg-cyan-500/30 border border-cyan-400 text-white transition"
+                    : "text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition";
+            });
+
+            // Physical Sliders
+            document.getElementById('slider-turbulence').addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                sharedUniforms.uTurbulence.value = v;
+                document.getElementById('val-turbulence').textContent = Math.round(v * 100) + "%";
+            });
+
+            document.getElementById('slider-corona').addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                sharedUniforms.uCoronaGlow.value = v;
+                coronaMat.opacity = Math.min(0.95, 0.52 * v);
+                document.getElementById('val-corona').textContent = Math.round(v * 100) + "%";
+            });
+
+            document.getElementById('slider-speed').addEventListener('input', (e) => {
+                rotationSpeedMult = parseFloat(e.target.value);
+                document.getElementById('val-speed').textContent = rotationSpeedMult.toFixed(1) + "x";
+            });
+
+            // Trigger Burst / Mass Ejection Button
+            document.getElementById('btn-burst').addEventListener('click', () => {
+                if (STELLAR_CATALOG[currentStarKey].id === 4) {
+                    // Restart the automatic binary inspiral from the beginning at any time
+                    restartBinaryInspiral();
+                } else {
+                    burstProgress = 1.0;
+                    burstSphere.scale.set(1, 1, 1);
+                }
+            });
+
+            // Reset Camera Button
+            document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                const cfg = STELLAR_CATALOG[currentStarKey];
+                camOrbit.targetTheta = cfg.camPos.theta;
+                camOrbit.targetPhi = cfg.camPos.phi;
+                camOrbit.targetRadius = cfg.camPos.radius;
+                camOrbit.targetLookAt.set(0, 0, 0);
+            });
+
+            // Stellar Fly-Through Mode
+            const btnFlythrough = document.getElementById('btn-flythrough');
+            const flythroughText = document.getElementById('flythrough-text');
+            btnFlythrough.addEventListener('click', () => {
+                flyThroughActive = !flyThroughActive;
+                flythroughText.textContent = flyThroughActive ? "Voo Estelar: ON" : "Voo Estelar: OFF";
+                if (flyThroughActive) {
+                    btnFlythrough.classList.add('bg-cyan-500/25', 'border-cyan-400');
+                } else {
+                    btnFlythrough.classList.remove('bg-cyan-500/25', 'border-cyan-400');
+                }
+            });
+
+            // Hide / Show All UI Panels Button (+ Keyboard 'H')
+            const topHeader = document.getElementById('top-header');
+            const starsPanel = document.getElementById('stars-panel');
+            const controlsPanel = document.getElementById('controls-panel');
+            const toggleUiBtn = document.getElementById('toggle-ui-btn');
+            const toggleUiText = document.getElementById('toggle-ui-text');
+            const iconEyeOpen = document.getElementById('icon-eye-open');
+            const iconEyeClosed = document.getElementById('icon-eye-closed');
+            let uiVisible = true;
+
+            function toggleAllPanels() {
+                uiVisible = !uiVisible;
+                [topHeader, starsPanel, controlsPanel].forEach(panel => {
+                    if (!panel) return;
+                    if (uiVisible) {
+                        panel.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+                    } else {
+                        panel.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+                    }
+                });
+
+                if (uiVisible) {
+                    toggleUiText.textContent = "Esconder Painéis";
+                    iconEyeOpen.classList.remove('hidden');
+                    iconEyeClosed.classList.add('hidden');
+                } else {
+                    toggleUiText.textContent = "Mostrar Painéis";
+                    iconEyeOpen.classList.add('hidden');
+                    iconEyeClosed.classList.remove('hidden');
+                }
+            }
+
+            toggleUiBtn.addEventListener('click', toggleAllPanels);
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'h' || e.key === 'H') toggleAllPanels();
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Initialize directly on the Binary System so the user immediately sees the automatic inspiral & outcome selector
+            selectStarObject('binary');
+
+            // ============================================================================
+            // ANIMATION LOOP
+            // ============================================================================
+            let lastTime = performance.now();
+            let elapsed = 0;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                const now = performance.now();
+                const dt = Math.min((now - lastTime) * 0.001, 0.1);
+                lastTime = now;
+                elapsed += dt * rotationSpeedMult;
+
+                sharedUniforms.uTime.value = elapsed;
+
+                const cfg = STELLAR_CATALOG[currentStarKey];
+
+                // Rotate Star / Pulsar / Binary System with True Hz Support
+                if (cfg.id === 0 || cfg.id === 1) {
+                    const effectiveHz = currentSpinHz * rotationSpeedMult;
+                    totalSpinAngle += dt * effectiveHz * Math.PI * 2.0;
+                    if (effectiveHz <= 24.0) {
+                        spinGroup.rotation.y = totalSpinAngle;
+                    } else {
+                        // Prevent 60Hz monitor wagon-wheel freeze at millisecond pulsar frequencies (50 - 700 Hz)
+                        spinGroup.rotation.y += dt * (24.0 + Math.log10(effectiveHz) * 16.0) * Math.PI * 2.0;
+                    }
+                } else if (cfg.id === 4) {
+                    // Automatic gravitational wave inspiral: stars spiral closer & accelerate around shared barycenter
+                    if (!binarySim.climaxActive) {
+                        if (rotationSpeedMult > 0.01) {
+                            // Inspiral rate accelerates as separation shrinks (gravitational wave & tidal torque decay)
+                            const decayRate = (0.024 + Math.pow(binarySim.progress, 2.0) * 0.11) * binarySim.inspiralSpeed * rotationSpeedMult;
+                            binarySim.progress = Math.min(1.0, binarySim.progress + dt * decayRate);
+                            updateBinaryGeometryAndTides();
+
+                            if (binarySim.progress >= 0.995) {
+                                triggerBinaryClimax();
+                            }
+                        }
+                        spinGroup.rotation.y += dt * binarySim.orbitalOmega * rotationSpeedMult;
+                    } else {
+                        // Climax Phase: Either STELLAR MERGER (Fusão de Estrelas) or SUPERNOVA EXPLOSION
+                        binarySim.climaxTimer += dt * Math.max(0.4, rotationSpeedMult);
+                        const tC = binarySim.climaxTimer;
+
+                        companionStarMesh.visible = false;
+                        rocheBridgeMesh.visible = false;
+                        secondaryCoronaSprite.visible = false;
+                        bridgeShockSprite.visible = false;
+                        orbitLineA.visible = false;
+                        orbitLineB.visible = false;
+
+                        if (binarySim.outcomeMode === 'merger') {
+                            // OUTCOME 1: FUSÃO DE ESTRELAS (Coalescence into a single giant rapidly-spinning merged star!)
+                            starMesh.visible = true;
+                            starMesh.position.set(0, 0, 0);
+                            sharedUniforms.uSpecialParamA.value = 0.0; // Smooth merged spheroid
+
+                            // Newly merged hypergiant swells with thermal pulsation and rotational oblateness
+                            const pulse = 1.0 + Math.sin(tC * 5.5) * 0.045 * Math.exp(-tC * 0.25);
+                            const mergedRadius = 7.6 * pulse + Math.exp(-tC * 2.2) * 2.4;
+                            starMesh.scale.set(mergedRadius * 1.14, mergedRadius * 0.88, mergedRadius * 1.14);
+
+                            coronaSprite.position.set(0, 0, 0);
+                            coronaSprite.scale.set(mergedRadius * 3.9, mergedRadius * 3.4, 1);
+
+                            // Glowing equatorial excretion disk of shed angular momentum plasma
+                            equatorialDiskMesh.visible = true;
+                            const diskScale = 1.0 + Math.min(1.8, tC * 0.35);
+                            equatorialDiskMesh.scale.set(diskScale, diskScale, 1);
+                            diskRingMat.opacity = Math.min(0.78, 0.35 + Math.exp(-tC * 0.3) * 0.45);
+
+                            const shockR = 2.0 + tC * 16.0;
+                            snBlastRing.scale.set(shockR, shockR, 1);
+                            snBlastRingMat.opacity = Math.max(0.0, Math.exp(-tC * 0.65) * 0.75);
+                            snBlastRing2.visible = false;
+                            snBlastRing3.visible = false;
+                            snEjectaShell.visible = false;
+                            snInnerShell.visible = false;
+                            snJetsGroup.visible = false;
+                            snRemnantCore.visible = false;
+
+                            const flashSize = 14.0 + Math.sin(Math.min(Math.PI, tC * 1.8)) * 28.0;
+                            snCoreFlash.scale.set(flashSize, flashSize, 1);
+                            snCoreFlash.material.opacity = Math.max(0.0, Math.exp(-tC * 0.9) * 0.92);
+
+                            spinGroup.rotation.y += dt * 4.8 * rotationSpeedMult;
+                        } else {
+                            // OUTCOME 2: EXPLOSÃO DE SUPERNOVA (Core-Collapse Implosion -> Shock Breakout -> Multi-Shell 3D Remnant & Jets!)
+                            barycenterSprite.visible = false;
+                            snBlastRing2.visible = true;
+                            snBlastRing3.visible = true;
+                            snEjectaShell.visible = true;
+                            snInnerShell.visible = true;
+                            snJetsGroup.visible = true;
+                            snRemnantCore.visible = true;
+
+                            if (tC < 0.16) {
+                                // Rapid Gravitational Core-Collapse Implosion right before Shock Breakout!
+                                starMesh.visible = true;
+                                starMesh.position.set(0, 0, 0);
+                                const implodeR = Math.max(1.8, 7.2 * (1.0 - (tC / 0.16) * 0.68));
+                                starMesh.scale.set(implodeR, implodeR, implodeR);
+                            } else if (tC < 0.34) {
+                                // Blinding Shock-Breakout Fireball
+                                starMesh.visible = true;
+                                starMesh.position.set(0, 0, 0);
+                                const breakoutR = 2.4 + (tC - 0.16) * 65.0;
+                                starMesh.scale.set(breakoutR, breakoutR, breakoutR);
+                            } else {
+                                // Progenitor stars are completely disrupted into the expanding 3D Supernova Ejecta Shells!
+                                starMesh.visible = false;
+                            }
+
+                            const tExp = Math.max(0.0, tC - 0.12);
+
+                            // 1. Outer Volumetric 3D Rayleigh-Taylor Supernova Ejecta Shell & Inner Radioactive Nickel-56 Core Shell
+                            const shellProgress = Math.min(1.0, tExp / 8.5);
+                            const shellRadius = 2.6 + Math.pow(tExp, 0.84) * 16.5;
+                            snEjectaShell.scale.set(shellRadius, shellRadius, shellRadius);
+                            snEjectaShell.rotation.y = tExp * 0.48;
+                            snEjectaShell.rotation.z = tExp * 0.28;
+                            snShellUniforms.uBlastProgress.value = shellProgress;
+                            snShellUniforms.uOpacity.value = Math.min(0.96, smoothstepJS(0.0, 0.16, tExp) * Math.exp(-tExp * 0.20) * 1.45);
+
+                            const innerRadius = 1.8 + Math.pow(tExp, 0.78) * 11.2;
+                            snInnerShell.scale.set(innerRadius, innerRadius, innerRadius);
+                            snInnerShell.rotation.y = -tExp * 0.65;
+                            snInnerShell.rotation.x = tExp * 0.35;
+                            snInnerShellUniforms.uBlastProgress.value = shellProgress;
+                            snInnerShellUniforms.uOpacity.value = Math.min(0.92, smoothstepJS(0.05, 0.25, tExp) * Math.exp(-tExp * 0.18) * 1.35);
+
+                            // 2. Triple Intersecting Relativistic Shockwave Rings (SN 1987A / High-Energy Blast Geometry)
+                            const shockR = 2.8 + tExp * 36.0;
+                            snBlastRing.scale.set(shockR, shockR, 1);
+                            snBlastRingMat.opacity = Math.max(0.0, Math.exp(-tExp * 0.38) * 0.96);
+
+                            const shockR2 = 2.0 + tExp * 28.0;
+                            snBlastRing2.scale.set(shockR2, shockR2, 1);
+                            snBlastRing2.material.opacity = Math.max(0.0, Math.exp(-tExp * 0.44) * 0.82);
+
+                            const shockR3 = 2.0 + tExp * 25.0;
+                            snBlastRing3.scale.set(shockR3, shockR3, 1);
+                            snBlastRing3.material.opacity = Math.max(0.0, Math.exp(-tExp * 0.46) * 0.76);
+
+                            // 3. Bipolar Relativistic Gamma-Ray Jets punching through the poles
+                            const jetScaleY = Math.min(1.4, smoothstepJS(0.05, 0.45, tExp)) * Math.exp(-tExp * 0.16);
+                            snJetsGroup.scale.set(0.65 + tExp * 0.08, Math.max(0.001, jetScaleY), 0.65 + tExp * 0.08);
+                            snJetsGroup.rotation.z = 0.22;
+                            snJetsGroup.rotation.y = tExp * 1.8;
+
+                            // 4. Blinding Supernova Shock-Breakout Flash + Pulsating Compact Remnant Core left behind
+                            const flashSize = 28.0 + Math.sin(Math.min(Math.PI, tExp * 1.7)) * 72.0;
+                            snCoreFlash.scale.set(flashSize, flashSize, 1);
+                            snCoreFlash.material.opacity = Math.max(0.0, Math.exp(-tExp * 0.68) * 1.0);
+
+                            const pulsarPulse = 6.2 + Math.sin(tC * 32.0) * 1.8;
+                            snRemnantCore.scale.set(pulsarPulse, pulsarPulse, 1);
+                            snRemnantCore.material.opacity = smoothstepJS(0.25, 1.0, tExp) * Math.exp(-tExp * 0.10) * 0.98;
+
+                            coronaSprite.position.set(0, 0, 0);
+                            const remnantGlow = Math.max(8.0, 46.0 * Math.exp(-tExp * 0.24));
+                            coronaSprite.scale.set(remnantGlow, remnantGlow, 1);
+
+                            spinGroup.rotation.y += dt * 6.5 * rotationSpeedMult;
+                        }
+
+                        // Automatically restart the binary inspiral cycle after ~9.5 seconds so the user can watch continuously
+                        if (tC > 9.5) {
+                            restartBinaryInspiral();
+                        }
+                    }
+                } else {
+                    spinGroup.rotation.y += dt * 0.22 * rotationSpeedMult;
+                }
+
+                // Update Circumstellar Environment Particles based on Star Type
+                const pArr = envGeo.attributes.position.array;
+                const cArr = envGeo.attributes.color.array;
+                const tint = sharedUniforms.uRgbTint.value;
+                const glow = sharedUniforms.uCoronaGlow.value;
+
+                for (let i = 0; i < ENV_PARTICLES; i++) {
+                    const d = envData[i];
+                    d.progress = (d.progress + dt * d.speed * (0.4 + 0.6 * rotationSpeedMult)) % 1.0;
+                    const idx = i * 3;
+
+                    if (cfg.id === 0 || cfg.id === 1) {
+                        // Neutron Star & Magnetar: Charged particles trapped along dipole magnetic field lines (r = R_max * sin^2(theta))
+                        const theta = 0.15 + d.progress * (Math.PI - 0.30);
+                        const r = d.rShell * Math.pow(Math.sin(theta), 2);
+                        const phi = d.theta + (cfg.id === 1 ? Math.sin(theta * 2.0) * 0.3 : 0.0);
+
+                        pArr[idx] = r * Math.sin(theta) * Math.cos(phi);
+                        pArr[idx + 1] = r * Math.cos(theta);
+                        pArr[idx + 2] = r * Math.sin(theta) * Math.sin(phi);
+
+                        const intensity = Math.sin(d.progress * Math.PI) * glow;
+                        if (cfg.id === 0) {
+                            cArr[idx] = 0.25 * intensity * tint.x;
+                            cArr[idx + 1] = 0.88 * intensity * tint.y;
+                            cArr[idx + 2] = 1.00 * intensity * tint.z;
+                        } else {
+                            cArr[idx] = 0.95 * intensity * tint.x;
+                            cArr[idx + 1] = 0.35 * intensity * tint.y;
+                            cArr[idx + 2] = 1.00 * intensity * tint.z;
+                        }
+                    } else if (cfg.id === 2) {
+                        // Red Giant (Betelgeuse): Boiling convective plumes & mass-loss dust shells (ALMA/VLT style)
+                        const r = cfg.radius * 1.02 + d.progress * 11.5;
+                        const wobble = Math.sin(d.progress * 6.0 + d.theta) * 0.15;
+                        pArr[idx] = r * Math.sin(d.phi + wobble) * Math.cos(d.theta);
+                        pArr[idx + 1] = r * Math.cos(d.phi + wobble);
+                        pArr[idx + 2] = r * Math.sin(d.phi + wobble) * Math.sin(d.theta);
+
+                        const fade = Math.sin(d.progress * Math.PI) * (1.0 - d.progress * 0.45) * glow;
+                        cArr[idx] = 1.00 * fade * tint.x;
+                        cArr[idx + 1] = (0.55 - d.progress * 0.38) * fade * tint.y;
+                        cArr[idx + 2] = 0.12 * fade * tint.z;
+                    } else if (cfg.id === 3) {
+                        // Blue Supergiant (Rigel): High-velocity radiation-driven stellar wind & luminous blue halo
+                        const r = cfg.radius * 1.02 + d.progress * 14.0;
+                        pArr[idx] = r * Math.sin(d.phi) * Math.cos(d.theta);
+                        pArr[idx + 1] = r * Math.cos(d.phi);
+                        pArr[idx + 2] = r * Math.sin(d.phi) * Math.sin(d.theta);
+
+                        const fade = (1.0 - d.progress) * glow;
+                        cArr[idx] = 0.45 * fade * tint.x;
+                        cArr[idx + 1] = 0.82 * fade * tint.y;
+                        cArr[idx + 2] = 1.00 * fade * tint.z;
+                    } else if (cfg.id === 4) {
+                        // Binary System (05):
+                        // Mode A1: STELLAR MERGER Outflow (Spiral Excretion Torus + Bipolar Merger Plumes)
+                        // Mode A2: SUPERNOVA Explosion Shell (High-Velocity Spherical Ejecta & Shock Filaments)
+                        // Mode B: Inspiral Tidal Mass-Transfer Stream (L1) + Trailing Gravitational Tidal Tails (L2)
+                        const tempAsym = sharedUniforms.uSpecialParamB.value - 1.0;
+                        const prox = binarySim.progress;
+
+                        if (binarySim.climaxActive) {
+                            if (binarySim.outcomeMode === 'merger') {
+                                // FUSÃO DE ESTRELAS: Swirling Equatorial Excretion Disk & Golden-Blue Luminous Red Nova Wind
+                                d.progress = (d.progress + dt * d.speed * 0.48) % 1.0;
+                                const ringR = 6.8 + d.progress * 24.0;
+                                const spiralAng = d.theta - d.progress * 5.2 + elapsed * 1.5;
+
+                                pArr[idx] = Math.cos(spiralAng) * ringR;
+                                pArr[idx + 1] = (d.phi - Math.PI * 0.5) * (1.2 + d.progress * 3.5);
+                                pArr[idx + 2] = Math.sin(spiralAng) * ringR;
+
+                                const mFade = Math.sin(d.progress * Math.PI) * glow * 1.45;
+                                if (i % 2 === 0) {
+                                    cArr[idx] = 1.00 * mFade * tint.x;
+                                    cArr[idx + 1] = 0.78 * mFade * tint.y;
+                                    cArr[idx + 2] = 0.32 * mFade * tint.z;
+                                } else {
+                                    cArr[idx] = 0.48 * mFade * tint.x;
+                                    cArr[idx + 1] = 0.88 * mFade * tint.y;
+                                    cArr[idx + 2] = 1.00 * mFade * tint.z;
+                                }
+                            } else {
+                                // EXPLOSÃO DE SUPERNOVA: High-velocity 3D Ejecta Shell, Bipolar Relativistic Jets & Radioactive Knots
+                                d.progress = Math.min(1.0, d.progress + dt * d.speed * 0.88);
+                                const isBipolarJet = (i < ENV_PARTICLES * 0.18);
+
+                                if (isBipolarJet) {
+                                    // High-velocity bipolar supernova / gamma-ray burst jets punching out of the poles
+                                    const poleSign = (i % 2 === 0) ? 1.0 : -1.0;
+                                    const jetDist = 2.5 + d.progress * 58.0;
+                                    const jetRadius = (0.4 + d.progress * 4.5) * Math.sin(d.phi);
+                                    pArr[idx] = Math.cos(d.theta) * jetRadius;
+                                    pArr[idx + 1] = poleSign * jetDist;
+                                    pArr[idx + 2] = Math.sin(d.theta) * jetRadius;
+                                } else {
+                                    // Multi-shell filamentary supernova remnant knots (Rayleigh-Taylor fingers)
+                                    const ejectaR = 2.2 + Math.pow(d.progress, 0.86) * 52.0;
+                                    const rtFingers = 1.0 + 0.38 * Math.sin(d.theta * 9.0) * Math.cos(d.phi * 7.0);
+                                    const r = ejectaR * rtFingers;
+
+                                    pArr[idx] = r * Math.sin(d.phi) * Math.cos(d.theta);
+                                    pArr[idx + 1] = r * Math.cos(d.phi);
+                                    pArr[idx + 2] = r * Math.sin(d.phi) * Math.sin(d.theta);
+                                }
+
+                                const snFade = Math.sin(d.progress * Math.PI) * Math.exp(-binarySim.climaxTimer * 0.15) * glow * 2.25;
+                                if (isBipolarJet || i % 4 === 0) {
+                                    // Blinding Cyan-White Shock Breakout & Bipolar Jet
+                                    cArr[idx] = 0.72 * snFade * tint.x;
+                                    cArr[idx + 1] = 0.96 * snFade * tint.y;
+                                    cArr[idx + 2] = 1.00 * snFade * tint.z;
+                                } else if (i % 4 === 1) {
+                                    // Radioactive Nickel-56 / Cobalt-56 Golden-Orange Ejecta
+                                    cArr[idx] = 1.00 * snFade * tint.x;
+                                    cArr[idx + 1] = 0.62 * snFade * tint.y;
+                                    cArr[idx + 2] = 0.15 * snFade * tint.z;
+                                } else if (i % 4 === 2) {
+                                    // Ionized Hydrogen/Nitrogen Crimson-Magenta Filaments
+                                    cArr[idx] = 1.00 * snFade * tint.x;
+                                    cArr[idx + 1] = 0.20 * snFade * tint.y;
+                                    cArr[idx + 2] = 0.65 * snFade * tint.z;
+                                } else {
+                                    // Doubly-Ionized Oxygen Emerald/Chartreuse Inner Knots
+                                    cArr[idx] = 0.38 * snFade * tint.x;
+                                    cArr[idx + 1] = 1.00 * snFade * tint.y;
+                                    cArr[idx + 2] = 0.72 * snFade * tint.z;
+                                }
+                            }
+                        } else if (i < ENV_PARTICLES * 0.42) {
+                            // Inner Tidal Mass-Transfer Stream pulled from Companion Star B across the shared Barycenter into Star A
+                            const sProg = d.progress;
+                            const xStart = binarySim.sepB * 0.88;
+                            const xEnd = -binarySim.sepA * 0.88;
+                            const streamX = THREE.MathUtils.lerp(xStart, xEnd, sProg);
+
+                            // Coriolis deflection curves the tidal stream into an S-shaped shock arc
+                            const archAmp = (0.32 + prox * 1.15) * Math.sin(sProg * Math.PI);
+                            const coriolisZ = archAmp * 2.6 * Math.sin(sProg * Math.PI * 2.0) + Math.cos(d.theta) * (0.32 + prox * 0.75);
+                            const archY = Math.sin(d.theta) * (0.32 + prox * 0.62) * Math.sin(sProg * Math.PI);
+
+                            pArr[idx] = streamX;
+                            pArr[idx + 1] = archY;
+                            pArr[idx + 2] = coriolisZ;
+
+                            const tidalIntensity = smoothstepJS(0.02, 0.38, prox) * (0.55 + 0.45 * Math.sin(sProg * Math.PI)) * glow * 1.55;
+                            cArr[idx] = (0.76 + Math.max(0.0, tempAsym) * (1.0 - sProg) * 0.5) * tidalIntensity * tint.x;
+                            cArr[idx + 1] = 0.94 * tidalIntensity * tint.y;
+                            cArr[idx + 2] = (1.00 - Math.max(0.0, tempAsym) * (1.0 - sProg) * 0.4) * tidalIntensity * tint.z;
+                        } else {
+                            // Outer Gravitational Tidal Tails (L2 Lagrange point spiral plumes flung outward by tidal torque!)
+                            const arm = i % 2 === 0 ? 1.0 : -1.0;
+                            const launchR = arm > 0 ? binarySim.sepB * 1.15 : binarySim.sepA * 1.15;
+                            const spiralR = launchR + d.progress * (10.5 + prox * 18.0);
+                            const windTightness = 3.2 + prox * 5.2;
+                            const spiralAngle = (arm > 0 ? 0.0 : Math.PI) - d.progress * windTightness + (d.theta - Math.PI) * 0.12;
+
+                            pArr[idx] = Math.cos(spiralAngle) * spiralR;
+                            pArr[idx + 1] = (d.phi - Math.PI * 0.5) * (0.42 + d.progress * 1.6);
+                            pArr[idx + 2] = Math.sin(spiralAngle) * spiralR;
+
+                            const tailStrength = (0.35 + 1.15 * prox) * Math.sin(d.progress * Math.PI) * (1.0 - d.progress * 0.28) * glow;
+                            const isWarmArm = (arm > 0 && tempAsym > 0.05);
+                            cArr[idx] = (isWarmArm ? 1.0 : (0.52 + 0.45 * (1.0 - d.progress))) * tailStrength * tint.x;
+                            cArr[idx + 1] = (isWarmArm ? 0.74 : 0.88) * tailStrength * tint.y;
+                            cArr[idx + 2] = (isWarmArm ? 0.38 : 1.00) * tailStrength * tint.z;
+                        }
+                    } else {
+                        // Crystallized White Dwarf: Concentric diamond-dust shells & bipolar planetary nebula remnant
+                        const shellIdx = i % 3;
+                        const shellR = cfg.radius * (1.35 + shellIdx * 0.55) + d.progress * 11.5 * sharedUniforms.uSpecialParamB.value * 0.7;
+                        pArr[idx] = shellR * Math.sin(d.phi) * Math.cos(d.theta) * 1.15;
+                        pArr[idx + 1] = shellR * Math.cos(d.phi) * 0.85;
+                        pArr[idx + 2] = shellR * Math.sin(d.phi) * Math.sin(d.theta) * 1.15;
+
+                        const ringHighlight = Math.sin(d.progress * Math.PI) * glow * sharedUniforms.uSpecialParamB.value;
+                        cArr[idx] = (0.45 + 0.4 * (shellIdx / 2)) * ringHighlight * tint.x;
+                        cArr[idx + 1] = 0.92 * ringHighlight * tint.y;
+                        cArr[idx + 2] = 1.00 * ringHighlight * tint.z;
+                    }
+                }
+                envGeo.attributes.position.needsUpdate = true;
+                envGeo.attributes.color.needsUpdate = true;
+
+                // Animate Shockwave Burst if triggered
+                if (burstProgress > 0.001) {
+                    const s = cfg.radius + (1.0 - burstProgress) * 26.0;
+                    burstSphere.scale.set(s, s, s);
+                    burstMat.opacity = burstProgress * 0.72;
+                    burstProgress = Math.max(0.0, burstProgress - dt * 0.9);
+                } else {
+                    burstMat.opacity = 0.0;
+                }
+
+                // Optional Automatic RGB Spectrum Cycle
+                if (rgbCycle) {
+                    rgbHue = (rgbHue + dt * 0.12) % 1.0;
+                    const c = new THREE.Color().setHSL(rgbHue, 0.95, 0.62);
+                    applyRgbTint(Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255));
+                }
+
+                // Orbital Fly-Through Camera Motion
+                if (flyThroughActive && !dragMode) {
+                    camOrbit.targetTheta += dt * 0.28;
+                    camOrbit.targetRadius = 21.0 + Math.sin(elapsed * 0.5) * 7.5;
+                    camOrbit.targetPhi = 1.22 + Math.cos(elapsed * 0.38) * 0.28;
+                }
+
+                // Smooth Camera Damping
+                camOrbit.theta += (camOrbit.targetTheta - camOrbit.theta) * 0.08;
+                camOrbit.phi += (camOrbit.targetPhi - camOrbit.phi) * 0.08;
+                camOrbit.radius += (camOrbit.targetRadius - camOrbit.radius) * 0.08;
+                camOrbit.lookAt.lerp(camOrbit.targetLookAt, 0.08);
+
+                const sinPhi = Math.sin(camOrbit.phi);
+                camera.position.set(
+                    camOrbit.lookAt.x + camOrbit.radius * sinPhi * Math.sin(camOrbit.theta),
+                    camOrbit.lookAt.y + camOrbit.radius * Math.cos(camOrbit.phi),
+                    camOrbit.lookAt.z + camOrbit.radius * sinPhi * Math.cos(camOrbit.theta)
+                );
+                camera.lookAt(camOrbit.lookAt);
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        };
+    </script>
+</body>
+</html>
