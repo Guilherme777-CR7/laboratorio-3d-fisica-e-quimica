@@ -1,0 +1,2708 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observatório 3D: Fenômenos Espaciais</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #010206;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .font-space {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(8, 12, 24, 0.78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+        }
+        /* Custom Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 15px;
+            width: 15px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -4.5px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+            transition: transform 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .event-card.active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(56, 189, 248, 0.22));
+            border-color: rgba(52, 211, 153, 0.78);
+            box-shadow: 0 0 24px rgba(16, 185, 129, 0.28);
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="relative text-white antialiased">
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container" class="w-full h-full"></div>
+
+    <!-- Top Left Telemetry Header -->
+    <header id="top-header" class="fixed top-4 left-4 right-4 md:right-auto z-10 pointer-events-none flex flex-col sm:flex-row items-start sm:items-center gap-3 transition-all duration-300">
+        <div class="glass-panel px-4 py-3.5 rounded-2xl pointer-events-auto flex items-center gap-3.5 max-w-xl">
+            <div id="status-dot" class="w-3.5 h-3.5 rounded-full bg-emerald-400 animate-pulse shrink-0 shadow-[0_0_12px_#34d399]"></div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 id="header-title" class="font-space font-bold text-base md:text-lg tracking-wider uppercase text-white">
+                        Auroras Polares (Boreal & Austral)
+                    </h1>
+                    <span id="header-catalog" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300">
+                        Magnetosfera Terrestre • 80 a 600 km
+                    </span>
+                    <span id="header-live-metric" class="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-cyan-300">
+                        Tempestade Geomagnética: Kp 8
+                    </span>
+                </div>
+                <p id="header-desc" class="text-xs text-gray-200 mt-1">
+                    Ondas luminosas coloridas na atmosfera superior causadas pela colisão de partículas do vento solar com átomos de oxigênio e nitrogênio guiados pelo campo magnético.
+                </p>
+                <div class="flex items-center gap-3 mt-1.5 text-[11px] text-emerald-300/80">
+                    <span id="header-ref" class="font-medium text-amber-300/90">Ref: NASA Space Weather / ISS Aurora Imagery</span>
+                    <span class="hidden sm:inline">•</span>
+                    <span class="hidden sm:inline">Câmera 360°: Arraste (Esq) girar • (Dir/Shift) mover • Scroll zoom amplo</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Right Action Bar (Orbital Fly-Through + Hide Panels) -->
+    <div class="fixed top-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+        <button id="btn-flythrough" class="glass-panel px-4 py-2.5 rounded-full hover:bg-white/15 border border-emerald-400/40 transition-all duration-300 active:scale-95 flex items-center gap-2 text-xs font-semibold shadow-lg text-emerald-200" title="Ativar voo orbital automático pelo fenômeno espacial">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span id="flythrough-text">Voo Orbital: OFF</span>
+        </button>
+
+        <button id="toggle-ui-btn" class="glass-panel px-4 py-2.5 rounded-full hover:bg-white/15 border border-emerald-400/30 transition-all duration-300 active:scale-95 flex items-center gap-2 text-xs font-semibold shadow-lg" title="Atalho: Tecla H">
+            <svg id="icon-eye-open" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
+            <svg id="icon-eye-closed" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-emerald-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span id="toggle-ui-text">Esconder Painéis</span>
+        </button>
+    </div>
+
+    <!-- Left Vertical Sidebar Navigation: The 6 Space Phenomena -->
+    <nav id="events-panel" class="fixed top-36 sm:top-32 left-4 w-72 sm:w-80 z-10 glass-panel rounded-3xl p-3.5 transition-all duration-300 max-h-[calc(100vh-9.5rem)] overflow-y-auto flex flex-col gap-2">
+        <div class="flex items-center justify-between px-1 mb-0.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-300">☄️ 6. Fenômenos Espaciais</span>
+            <span class="text-[11px] text-gray-400">6 Modelos 3D</span>
+        </div>
+
+        <!-- 1. Auroras polares -->
+        <button data-event="aurora" class="event-card active text-left p-2.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0 mt-0.5 text-emerald-300 font-bold text-xs">01</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Auroras polares</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Ondas luminosas coloridas na atmosfera.</div>
+                <div class="text-[10px] text-emerald-300/80 mt-0.5">Aurora Boreal & Austral • Termosfera</div>
+            </div>
+        </button>
+
+        <!-- 2. Cometas -->
+        <button data-event="comet" class="event-card text-left p-2.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center shrink-0 mt-0.5 text-cyan-300 font-bold text-xs">02</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Cometas</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Corpos gelados que podem desenvolver caudas brilhantes.</div>
+                <div class="text-[10px] text-cyan-300/80 mt-0.5">Núcleo, Coma, Cauda de Íons & Poeira</div>
+            </div>
+        </button>
+
+        <!-- 3. Erupções solares -->
+        <button data-event="solarflare" class="event-card text-left p-2.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-orange-500/20 border border-orange-400/40 flex items-center justify-center shrink-0 mt-0.5 text-orange-300 font-bold text-xs">03</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Erupções solares</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Liberações intensas de energia pelo Sol.</div>
+                <div class="text-[10px] text-orange-300/80 mt-0.5">Arcos Coronais & Ejeção de Massa (CME)</div>
+            </div>
+        </button>
+
+        <!-- 4. Eclipses solares -->
+        <button data-event="eclipse" class="event-card text-left p-2.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0 mt-0.5 text-amber-300 font-bold text-xs">04</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Eclipses solares</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">A Lua encobre o disco solar total ou parcialmente.</div>
+                <div class="text-[10px] text-amber-300/80 mt-0.5">Coroa Solar, Anel de Diamante & Sombra</div>
+            </div>
+        </button>
+
+        <!-- 5. Chuvas de meteoros -->
+        <button data-event="meteors" class="event-card text-left p-2.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center shrink-0 mt-0.5 text-sky-300 font-bold text-xs">05</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Chuvas de meteoros</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Vários rastros luminosos atravessando o céu.</div>
+                <div class="text-[10px] text-sky-300/80 mt-0.5">Perseidas / Gemínidas • Ablação Atmosférica</div>
+            </div>
+        </button>
+
+        <!-- 6. Supernovas -->
+        <button data-event="supernova" class="event-card text-left p-2.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-400/40 flex items-center justify-center shrink-0 mt-0.5 text-rose-300 font-bold text-xs">06</div>
+            <div>
+                <div class="font-space font-bold text-sm text-white">Supernovas</div>
+                <div class="text-xs text-gray-300 leading-snug mt-0.5">Explosões estelares extremamente energéticas.</div>
+                <div class="text-[10px] text-rose-300/80 mt-0.5">Colapso de Núcleo, Onda de Choque & Ejeção</div>
+            </div>
+        </button>
+    </nav>
+
+    <!-- Right Physical & Spectral RGB Controls -->
+    <aside id="controls-panel" class="hidden md:flex fixed top-20 right-4 w-80 z-10 glass-panel rounded-3xl p-4 transition-all duration-300 max-h-[80vh] overflow-y-auto flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-white/10 pb-2.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-300">Controles Físicos & RGB</span>
+            <button id="btn-reset-cam" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-medium text-emerald-300 transition">
+                Centralizar Câmera
+            </button>
+        </div>
+
+        <!-- Trigger Climax / Burst Action Button -->
+        <button id="btn-trigger-action" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 hover:from-emerald-500/50 hover:to-cyan-500/50 border border-emerald-400/50 text-xs font-semibold text-white transition shadow-lg flex items-center justify-center gap-2">
+            <span id="btn-action-text">⚡ Disparar Subtempestade Magnética</span>
+        </button>
+
+        <!-- Exclusive Eclipse Quick-Phase Selector & Auto-Transit Bar (Visible in Mode 04) -->
+        <div id="eclipse-controls-box" class="hidden bg-amber-950/30 border border-amber-400/40 rounded-2xl p-3 flex-col gap-2.5">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-amber-300">Fases do Eclipse Real</span>
+                <button id="btn-eclipse-auto" class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/30 border border-amber-400 text-amber-100 transition">
+                    Trânsito Auto: OFF
+                </button>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+                <button data-ephase="0.0" class="eclipse-phase-btn py-1.5 px-1.5 rounded-lg bg-amber-500/30 border border-amber-400/60 font-semibold text-white transition">
+                    🌑 Totalidade
+                </button>
+                <button data-ephase="0.032" class="eclipse-phase-btn py-1.5 px-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 font-semibold text-amber-200 transition">
+                    💍 Diamante
+                </button>
+                <button data-ephase="0.38" class="eclipse-phase-btn py-1.5 px-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 font-semibold text-gray-300 transition">
+                    🌒 Parcial
+                </button>
+            </div>
+        </div>
+
+        <!-- Dynamic Phenomenon-Specific Box -->
+        <div class="bg-emerald-950/25 border border-emerald-400/30 rounded-2xl p-3 flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+                <span id="specific-title" class="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                    Parâmetros do Fenômeno
+                </span>
+                <span id="specific-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-200">
+                    Tempo Real
+                </span>
+            </div>
+
+            <!-- Dynamic Slider A -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span id="label-param-a" class="text-gray-200 font-medium">Altura das Cortinas de Aurora</span>
+                    <span id="val-param-a" class="text-emerald-300 font-mono font-bold">130%</span>
+                </div>
+                <input type="range" id="slider-param-a" min="0.4" max="2.4" step="0.05" value="1.3">
+            </div>
+
+            <!-- Dynamic Slider B -->
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span id="label-param-b" class="text-gray-200 font-medium">Atividade do Vento Solar (Kp)</span>
+                    <span id="val-param-b" class="text-cyan-300 font-mono font-bold">120%</span>
+                </div>
+                <input type="range" id="slider-param-b" min="0.2" max="2.4" step="0.05" value="1.2">
+            </div>
+        </div>
+
+        <!-- RGB Custom Color Tint & Cycle -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs text-gray-300 font-medium">Balanço Espectral (RGB)</span>
+                <button id="btn-rgb-cycle" class="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition">
+                    Ciclo RGB: OFF
+                </button>
+            </div>
+            <div class="bg-black/40 p-2.5 rounded-2xl border border-white/10 flex flex-col gap-2">
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-red-400 font-mono">R</span>
+                    <input type="range" id="slider-r" min="0" max="255" value="255">
+                    <span id="val-r" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-green-400 font-mono">G</span>
+                    <input type="range" id="slider-g" min="0" max="255" value="255">
+                    <span id="val-g" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-3 font-bold text-blue-400 font-mono">B</span>
+                    <input type="range" id="slider-b" min="0" max="255" value="255">
+                    <span id="val-b" class="w-7 text-right font-mono text-[11px] text-gray-300">255</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Luminosity -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Brilho & Emissão Luminosa</span>
+                <span id="val-glow" class="text-emerald-300 font-mono">135%</span>
+            </div>
+            <input type="range" id="slider-glow" min="0.4" max="2.5" step="0.05" value="1.35">
+        </div>
+
+        <!-- Simulation Speed -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-300 font-medium">Velocidade da Simulação</span>
+                <span id="val-speed" class="text-gray-400 font-mono">1.0x</span>
+            </div>
+            <input type="range" id="slider-speed" min="0.0" max="3.5" step="0.1" value="1.0">
+        </div>
+
+        <!-- Scientific Data Card -->
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-3 text-xs flex flex-col gap-1.5">
+            <div class="flex justify-between">
+                <span class="text-gray-400">Origem Física:</span>
+                <span id="stat-origin" class="font-mono font-semibold text-white">Ionização de O e N₂</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Velocidade Típica:</span>
+                <span id="stat-velocity" class="font-mono font-semibold text-emerald-300">400 a 800 km/s</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Exemplo Real:</span>
+                <span id="stat-example" class="font-mono font-semibold text-cyan-300">Oval Auroral Terrestre</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ========================================================================== -->
+    <!-- SHADER 1: PLANETARY EARTH, BOILING SUN, BILOBED COMET & ECLIPSE MOON       -->
+    <!-- ========================================================================== -->
+    <script id="sphereVertexShader" type="x-shader/x-vertex">
+        varying vec3 vNormal;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying float vElevation;
+
+        uniform int uBodyType;
+        uniform float uTime;
+
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p = p * 2.05 + vec3(37.0);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        void main() {
+            vec3 pos = position;
+            vec3 n = normalize(pos);
+            vElevation = 0.0;
+
+            // 1. BOILING SUN: Dynamic 3D convective granulation & spicules
+            if (uBodyType == 1) {
+                float boil = fbm(n * 7.5 + vec3(uTime * 0.28, -uTime * 0.22, uTime * 0.18));
+                vElevation = (boil - 0.5) * 0.12;
+                pos += n * vElevation;
+            }
+            // 2. COMET 67P-STYLE BILOBED ROCKY/ICY NUCLEUS: Physical 3D neck & rugged crags
+            else if (uBodyType == 2) {
+                float neckPinch = 1.0 - 0.52 * exp(-pow(n.x * 3.1, 2.0));
+                float lobeAsym = 1.0 + 0.22 * smoothstep(-0.3, 0.6, n.x);
+                float crags = fbm(n * 4.2) * 0.34 + fbm(n * 11.0) * 0.12;
+                vElevation = crags;
+                pos.y *= neckPinch * 0.72 * lobeAsym;
+                pos.z *= neckPinch * 0.78 * lobeAsym;
+                pos.x *= 1.28;
+                pos += normalize(pos) * (crags - 0.2) * 0.85;
+            }
+
+            vLocalPos = pos;
+            vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+            vWorldPos = worldPos.xyz;
+            vNormal = normalize(mat3(modelMatrix) * normalize(pos));
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+    </script>
+
+    <script id="sphereFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+
+        varying vec3 vNormal;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying float vElevation;
+
+        // uBodyType: 0 = Night/Twilight Earth (Aurora & Meteors), 1 = Boiling Sun (Solar Flares), 2 = Comet Icy Nucleus, 3 = Eclipse Moon, 4 = Earth Upper Atmosphere Airglow Shell
+        uniform int uBodyType;
+        uniform float uTime;
+        uniform float uGlow;
+        uniform float uParamA;
+        uniform float uParamB;
+        uniform vec3 uRgbTint;
+        uniform vec3 uSunDir;
+
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 5; i++) {
+                v += a * noise(p);
+                p = p * 2.04 + vec3(42.0);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        vec3 acesToneMap(vec3 x) {
+            float a = 2.51;
+            float b = 0.03;
+            float c = 2.43;
+            float d = 0.59;
+            float e = 0.14;
+            return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+        }
+
+        void main() {
+            vec3 p = normalize(vLocalPos);
+            vec3 viewDir = normalize(cameraPosition - vWorldPos);
+            float NdotV = max(0.0, dot(normalize(vNormal), viewDir));
+            float fresnel = pow(1.0 - NdotV, 2.8);
+
+            // 0. EARTH (With Specular Oceans, Continents, Twilight Terminator, Polar Ice, Clouds, Lightning & Night City Highways!)
+            if (uBodyType == 0) {
+                float c1 = fbm(p * 2.4 + vec3(1.2, -0.7, 2.0));
+                float c2 = fbm(p * 6.8 + vec3(c1 * 1.55));
+                float c3 = fbm(p * 18.0);
+                float landHeight = c1 * 0.66 + c2 * 0.34 - 0.50;
+                float landMask = smoothstep(-0.015, 0.025, landHeight);
+
+                vec3 deepOcean    = vec3(0.01, 0.06, 0.20);
+                vec3 coastalWater = vec3(0.03, 0.28, 0.52);
+                vec3 oceanCol = mix(deepOcean, coastalWater, smoothstep(-0.14, 0.0, landHeight));
+
+                vec3 forestCol = vec3(0.05, 0.24, 0.11);
+                vec3 desertCol = vec3(0.42, 0.32, 0.20);
+                vec3 rockPeak  = vec3(0.35, 0.32, 0.30);
+                vec3 landCol = mix(forestCol, desertCol, smoothstep(0.02, 0.16, landHeight + (c3 - 0.5) * 0.12));
+                landCol = mix(landCol, rockPeak, smoothstep(0.14, 0.25, landHeight));
+
+                // Polar snow/ice caps
+                float polarIce = smoothstep(0.71, 0.85, abs(p.y) + (c2 - 0.5) * 0.09);
+                vec3 surf = mix(oceanCol, landCol, landMask);
+                surf = mix(surf, vec3(0.84, 0.91, 0.98), polarIce);
+
+                // Dynamic swirling cloud cover with bump-like shadow contrast
+                vec3 cloudCoord = p * 3.9 + vec3(uTime * 0.025, -uTime * 0.01, 0.0);
+                float clouds = smoothstep(0.47, 0.78, fbm(cloudCoord + vec3(fbm(cloudCoord * 2.0) * 0.8)));
+                surf = mix(surf, vec3(0.92, 0.96, 1.00), clouds * 0.75);
+
+                vec3 sunD = normalize(uSunDir);
+                vec3 bumN = normalize(vNormal + vec3(c3 - 0.5) * (landMask * 0.14 + clouds * 0.06));
+                float NdotL = dot(bumN, sunD);
+                float dayFactor = smoothstep(-0.20, 0.65, NdotL);
+                // Warm golden-orange sunset/sunrise Rayleigh scattering belt along the terminator
+                float twilightBelt = exp(-pow((NdotL + 0.02) / 0.14, 2.0)) * (1.0 - clouds * 0.4);
+
+                // Specular sunglint on Earth's oceans
+                vec3 halfVec = normalize(sunD + viewDir);
+                float oceanSpec = pow(max(0.0, dot(bumN, halfVec)), 42.0) * (1.0 - landMask) * (1.0 - polarIce) * max(0.0, NdotL) * 0.62;
+
+                vec3 col = surf * (0.06 + 0.94 * dayFactor) + vec3(1.0, 0.88, 0.65) * oceanSpec;
+                col += vec3(1.0, 0.42, 0.14) * twilightBelt * 0.42;
+
+                // Detailed Golden Night City Lights ("Black Marble" metropolitan hubs + interconnected highway filaments)
+                float nightSide = smoothstep(0.12, -0.22, NdotL);
+                float nightMask = nightSide * landMask * (1.0 - polarIce) * (1.0 - clouds * 0.62);
+                float metroHubs = smoothstep(0.59, 0.75, fbm(p * 28.0));
+                float cityWeb   = smoothstep(0.52, 0.67, fbm(p * 64.0)) * smoothstep(0.35, 0.65, c2);
+                col += (vec3(1.0, 0.80, 0.38) * metroHubs * 1.65 + vec3(1.0, 0.58, 0.20) * cityWeb * 0.72) * nightMask;
+
+                // Sporadic bluish-violet thunderstorm lightning flashes inside tropical night clouds (seen from ISS!)
+                float stormCell = fbm(p * 24.0 + vec3(floor(uTime * 7.0)));
+                float flashPulse = fract(sin(floor(uTime * 7.0) * 43.758) * 192.3);
+                float lightning = smoothstep(0.81, 0.88, stormCell) * clouds * nightSide * step(0.45, flashPulse) * (1.0 - abs(p.y));
+                col += vec3(0.55, 0.82, 1.0) * lightning * 2.2;
+
+                // Emerald & Magenta auroral ground/cloud reflection under the polar ovals
+                float auroraZone = exp(-pow((abs(p.y) - 0.78) / 0.10, 2.0));
+                float auroraWave = sin(atan(p.z, p.x) * 8.0 + uTime * 2.2) * 0.5 + 0.5;
+                col += mix(vec3(0.06, 1.00, 0.50), vec3(0.95, 0.18, 0.68), auroraWave * 0.35) * auroraZone * (0.40 + 0.45 * clouds) * uGlow * uParamB;
+
+                // Rayleigh blue atmospheric limb + thin green/amber airglow horizon line (as seen from ISS!)
+                col += vec3(0.16, 0.58, 1.0) * fresnel * 1.38 * uGlow;
+                col += vec3(0.25, 0.95, 0.48) * pow(1.0 - NdotV, 8.0) * 0.68 * uGlow;
+
+                gl_FragColor = vec4(acesToneMap(col * uRgbTint * 1.05), 1.0);
+                return;
+            }
+
+            // 1. BOILING SUN (SDO Extreme UV / H-Alpha Granulation, Sunspots, Umbra/Penumbra, Magnetic Plages & X-Class Flare Flash)
+            if (uBodyType == 1) {
+                vec3 q = p * 5.8 + vec3(uTime * 0.20, -uTime * 0.16, uTime * 0.14);
+                float g1 = fbm(q);
+                float g2 = fbm(q * 2.6 + vec3(g1 * 2.4));
+                float fineCells = fbm(p * 24.0 - uTime * 0.45);
+
+                // Active sunspot magnetic regions near the solar activity belts (lat ±14°)
+                float spotBelt = exp(-pow((abs(p.y) - 0.24) / 0.12, 2.0));
+                float spotField = fbm(p * 9.5 + vec3(1.5));
+                float umbra    = smoothstep(0.73, 0.82, spotField) * spotBelt;
+                float penumbra = smoothstep(0.63, 0.73, spotField) * (1.0 - umbra) * spotBelt;
+                // Penumbral radial magnetic fibrils around sunspots
+                float fibrils  = sin(atan(p.z, p.x) * 60.0 + g1 * 8.0) * 0.5 + 0.5;
+                float faculae  = smoothstep(0.50, 0.65, spotField) * (1.0 - smoothstep(0.65, 0.75, spotField)) * spotBelt * uParamA;
+
+                // Intense X-Class Flare Reconnection Ribbons & Moreton Wave rings on the active belt
+                float flareRibbon = pow(faculae, 1.5) * (0.65 + 0.35 * sin(uTime * 6.5 + p.x * 12.0));
+
+                vec3 darkUmbra   = vec3(0.08, 0.01, 0.0);
+                vec3 penumbraCol = mix(vec3(0.45, 0.09, 0.01), vec3(0.75, 0.26, 0.03), fibrils);
+                vec3 deepRed     = vec3(0.86, 0.18, 0.02);
+                vec3 brightOrg   = vec3(1.00, 0.55, 0.06);
+                vec3 hotWhite    = vec3(1.00, 0.98, 0.88);
+
+                float cellVal = clamp(g2 * 0.76 + fineCells * 0.24 + vElevation * 1.6, 0.0, 1.0);
+                vec3 col = mix(deepRed, brightOrg, smoothstep(0.15, 0.55, cellVal));
+                col = mix(col, hotWhite * 1.55, smoothstep(0.55, 0.92, cellVal) + faculae * 0.95);
+                col = mix(col, penumbraCol, penumbra * 0.88);
+                col = mix(col, darkUmbra, umbra * 0.95);
+                col += vec3(1.0, 0.96, 0.90) * flareRibbon * 1.85;
+
+                // Solar limb darkening + incandescent chromospheric spicule forest rim
+                float limbDark = pow(NdotV, 0.42);
+                col *= (0.48 + 0.62 * limbDark);
+                col += mix(vec3(1.0, 0.38, 0.05), vec3(1.0, 0.85, 0.40), fresnel) * fresnel * 2.05 * uGlow;
+
+                gl_FragColor = vec4(acesToneMap(col * uRgbTint * uGlow), 1.0);
+                return;
+            }
+
+            // 2. COMET 67P-STYLE BILOBED ICY/DUSTY NUCLEUS (Rosetta Mission Realism)
+            if (uBodyType == 2) {
+                float strata = fbm(p * 6.5);
+                float pits = fbm(p * 16.0);
+                float microCrags = fbm(p * 32.0);
+                // Sunlit side faces -X (since tails stream toward +X)
+                vec3 cometSunDir = normalize(vec3(-1.0, 0.22, 0.18));
+                vec3 bumpN = normalize(vNormal + vec3(microCrags - 0.5, pits - 0.5, strata - 0.5) * 0.35);
+                float NdotL = max(0.03, dot(bumpN, cometSunDir));
+
+                // Exposed volatile water/CO2 ice patches in cliff scarps & active vents
+                float icePatch = smoothstep(0.56, 0.76, pits) * smoothstep(-0.2, 0.6, NdotL);
+
+                vec3 charcoalDust = vec3(0.11, 0.12, 0.14) * (0.65 + 0.65 * strata);
+                vec3 exposedIce   = vec3(0.62, 0.95, 1.00);
+                vec3 col = mix(charcoalDust, exposedIce, icePatch * 0.85) * (0.12 + 1.25 * NdotL);
+
+                // Sublimating cyan-emerald diatomic carbon (C2) gas glow on the sunlit coma boundary
+                float sunlitFresnel = fresnel * smoothstep(-0.3, 0.8, NdotL);
+                col += vec3(0.16, 0.96, 0.82) * (fresnel * 0.48 + sunlitFresnel * 1.65) * uGlow;
+
+                gl_FragColor = vec4(acesToneMap(col * uRgbTint * 1.1), 1.0);
+                return;
+            }
+
+            // 3. ECLIPSE MOON SILHOUETTE (With Earthshine Lunar Maria, Tycho Rays & Baily's Beads Rim Illumination)
+            if (uBodyType == 3) {
+                float maria = fbm(p * 2.6 + vec3(0.8, 1.4, -0.5));
+                float highlandNoise = fbm(p * 7.5);
+                float craters = fbm(p * 18.0);
+                float microCraters = abs(sin(fbm(p * 38.0) * 16.0));
+
+                // Distinct dark basaltic Lunar Maria (Sea of Tranquility, Storms, Imbrium) vs brighter Highlands
+                float mariaMask = smoothstep(0.44, 0.58, maria);
+                vec3 mariaCol    = vec3(0.010, 0.015, 0.025);
+                vec3 highlandCol = vec3(0.032, 0.044, 0.064);
+
+                // Bright crater ray systems (like Tycho & Copernicus) visible under Earthshine
+                vec3 tychoPos = normalize(vec3(0.22, -0.62, 0.75));
+                float dTycho = distance(p, tychoPos);
+                float rayAngle = atan(p.y - tychoPos.y, p.x - tychoPos.x);
+                float tychoRays = exp(-dTycho * 3.2) * pow(sin(rayAngle * 14.0 + highlandNoise * 4.0) * 0.5 + 0.5, 3.0) * 0.035;
+                float tychoRim  = exp(-pow((dTycho - 0.045) / 0.012, 2.0)) * 0.05;
+
+                // Subtle 3D crater normal perturbation for Earthshine relief
+                vec3 craterGrad = vec3(microCraters - 0.5, craters - 0.5, highlandNoise - 0.5) * 0.16;
+                vec3 moonN = normalize(vNormal + craterGrad);
+                float earthLight = max(0.15, dot(moonN, normalize(vec3(-0.25, 0.18, 1.0))));
+
+                vec3 earthshine = mix(mariaCol, highlandCol, mariaMask) * (0.75 + 0.55 * craters);
+                earthshine += vec3(0.045, 0.060, 0.085) * (tychoRays + tychoRim);
+                earthshine *= earthLight * (0.65 + 0.55 * uGlow);
+
+                // Grazing coronal & ruby H-alpha chromospheric light diffracting around the rugged lunar mountain profile
+                float limbFactor = pow(1.0 - NdotV, 7.5);
+                vec3 rimGlow = mix(vec3(1.0, 0.16, 0.42), vec3(1.0, 0.95, 0.85), pow(1.0 - NdotV, 3.0)) * limbFactor * 2.15 * uGlow;
+
+                gl_FragColor = vec4(acesToneMap((earthshine + rimGlow) * uRgbTint), 1.0);
+                return;
+            }
+
+            // 4. EARTH UPPER ATMOSPHERE AIRGLOW LIMB SHELL (95 km Sodium/Oxygen Green-Amber Band from ISS)
+            if (uBodyType == 4) {
+                float limb = pow(1.0 - NdotV, 4.0) * smoothstep(0.0, 0.30, NdotV);
+                vec3 airglowCol = mix(vec3(0.18, 0.65, 1.0), vec3(0.32, 1.00, 0.52), pow(1.0 - NdotV, 5.8));
+                airglowCol += vec3(0.98, 0.70, 0.20) * pow(1.0 - NdotV, 10.5) * 0.85;
+                gl_FragColor = vec4(airglowCol * uRgbTint * uGlow * 1.4, clamp(limb * 0.80, 0.0, 0.94));
+                return;
+            }
+        }
+    </script>
+
+    <!-- ========================================================================== -->
+    <!-- SHADER 2: VOLUMETRIC AURORA BOREALIS & AUSTRALIS CURTAINS (ISS REALISM)    -->
+    <!-- ========================================================================== -->
+    <script id="auroraVertexShader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying vec3 vNormal;
+        varying float vFold;
+
+        uniform float uTime;
+        uniform float uParamA; // Curtain vertical height
+        uniform float uParamB; // Geomagnetic wave intensity
+
+        void main() {
+            vUv = uv;
+            vec3 pos = position;
+
+            // Undulating geomagnetic Kelvin-Helmholtz spiral curls & traveling substorm surges
+            float angle = atan(pos.z, pos.x);
+            float spiralCurl = sin(angle * 5.0 + uTime * 1.15 + cos(angle * 3.0 - uTime * 0.65) * 1.8) * 0.38 * uParamB;
+            float wave2 = cos(angle * 13.0 - uTime * 1.85 + uv.y * 1.2) * 0.19 * uParamB;
+            float wave3 = sin(angle * 29.0 + uTime * 2.95) * 0.08 * uParamB;
+            float radialOffset = (spiralCurl + wave2 + wave3) * (0.20 + 0.80 * uv.y);
+            vFold = clamp((spiralCurl + wave2) * 1.45 + 0.5, 0.0, 1.0);
+
+            vec2 horizDir = normalize(pos.xz);
+            vec2 tangentDir = vec2(-horizDir.y, horizDir.x);
+            // Add tangential vortex curl so curtains form authentic spiral hooks
+            pos.xz += horizDir * radialOffset + tangentDir * (wave2 * 0.28 * uv.y);
+
+            // Stretch curtain height upward from the 100 km thermosphere base
+            float signY = sign(pos.y);
+            float baseAlt = 6.18;
+            float heightSpan = (abs(pos.y) - baseAlt) * uParamA;
+            pos.y = signY * (baseAlt + max(0.0, heightSpan));
+
+            vLocalPos = pos;
+            vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+            vWorldPos = worldPos.xyz;
+            vNormal = normalize(mat3(modelMatrix) * normal);
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+    </script>
+
+    <script id="auroraFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+
+        varying vec2 vUv;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying vec3 vNormal;
+        varying float vFold;
+
+        uniform float uTime;
+        uniform float uGlow;
+        uniform float uParamB;
+        uniform vec3 uRgbTint;
+
+        float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+        }
+
+        float noise2D(vec2 p) {
+            vec2 i = floor(p);
+            vec2 f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), f.x),
+                mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+                f.y
+            );
+        }
+
+        void main() {
+            float angle = atan(vLocalPos.z, vLocalPos.x);
+            float h = clamp(vUv.y, 0.0, 1.0); // 0 = Bottom edge (95 km), 1 = Upper exosphere (550 km)
+
+            // Multi-scale magnetic field-aligned vertical rays dancing along the curtain
+            float nRay1 = noise2D(vec2(angle * 28.0 + uTime * 1.45, h * 1.3 - uTime * 0.45));
+            float nRay2 = noise2D(vec2(angle * 74.0 - uTime * 2.75, h * 2.2));
+            float nRay3 = noise2D(vec2(angle * 165.0 + uTime * 3.80, h * 3.5));
+            float finePillars = pow(sin(angle * 145.0 + uTime * 4.2 + nRay1 * 6.5) * 0.5 + 0.5, 2.6);
+            // Rapidly downward-streaming Alfvénic electron bursts along the vertical rays
+            float electronBurst = 0.85 + 0.38 * sin(h * 18.0 + uTime * 9.5 + angle * 14.0);
+            float rayPattern = pow(nRay1 * 0.46 + nRay2 * 0.28 + nRay3 * 0.16 + finePillars * 0.38, 1.48) * electronBurst;
+
+            // Razor-sharp intense lower ionization border at ~100 km + smooth exponential vertical fade
+            float lowerEdgeBoost = exp(-pow((h - 0.068) / 0.036, 2.0)) * 1.15;
+            float verticalProfile = (smoothstep(0.0, 0.075, h) * exp(-h * 2.05)) + lowerEdgeBoost;
+
+            // Authentic Atmospheric Emission Lines by Altitude:
+            // 90–105 km: Excited Molecular Nitrogen (N2+ 427.8 nm / 1st Positive) -> Vivid Magenta-Crimson / Violet rim
+            // 105–240 km: Atomic Oxygen (557.7 nm forbidden line) -> Brilliant Aurora Emerald Green
+            // 240–500 km: Atomic Oxygen (630.0 nm doublet) -> Deep Ruby Red & Heliotrope Violet crown (plus STEVE mauve tones)
+            vec3 lowNitrogenMagenta = vec3(1.00, 0.10, 0.65);
+            vec3 brightEmeraldGreen = vec3(0.04, 1.00, 0.46);
+            vec3 tealTransition     = vec3(0.10, 0.92, 0.78);
+            vec3 highOxygenRuby     = vec3(1.00, 0.06, 0.30);
+            vec3 highExosphereViol  = vec3(0.60, 0.20, 1.00);
+
+            vec3 col = mix(lowNitrogenMagenta, brightEmeraldGreen, smoothstep(0.015, 0.115, h));
+            col = mix(col, tealTransition, smoothstep(0.24, 0.44, h) * 0.35);
+            col = mix(col, mix(highOxygenRuby, highExosphereViol, 0.35 + 0.40 * vFold), smoothstep(0.38, 0.82, h));
+
+            // Brighten where curtain folds overlap along the line of sight
+            vec3 viewDir = normalize(cameraPosition - vWorldPos);
+            float grazing = 1.0 + (1.0 - abs(dot(normalize(vNormal), viewDir))) * 0.95;
+
+            float alpha = verticalProfile * (0.24 + 0.98 * rayPattern) * grazing * clamp(uGlow * 0.88, 0.1, 2.0);
+            gl_FragColor = vec4(col * uRgbTint * uGlow * 1.95, clamp(alpha, 0.0, 0.98));
+        }
+    </script>
+
+    <!-- ========================================================================== -->
+    <!-- SHADER 3: TOTAL SOLAR ECLIPSE CORONA, BAILY'S BEADS & PROMINENCES SHADER   -->
+    <!-- ========================================================================== -->
+    <script id="eclipseCoronaFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+        varying vec3 vLocalPos;
+
+        uniform float uTime;
+        uniform float uGlow;
+        uniform float uParamA; // Moon alignment (-0.8 to +0.8, 0.0 = Total Solar Eclipse!)
+        uniform float uParamB; // Coronal Streamer Extension
+        uniform vec3 uRgbTint;
+
+        #define PI 3.14159265359
+
+        float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+        }
+
+        float noise2D(vec2 p) {
+            vec2 i = floor(p);
+            vec2 f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), f.x),
+                mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+                f.y
+            );
+        }
+
+        float fbm2D(vec2 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 5; i++) {
+                v += a * noise2D(p);
+                p = p * 2.03 + vec2(17.1, 31.7);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        vec3 acesToneMap(vec3 x) {
+            float a = 2.51;
+            float b = 0.03;
+            float c = 2.43;
+            float d = 0.59;
+            float e = 0.14;
+            return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+        }
+
+        void main() {
+            vec2 uv = vLocalPos.xy;
+            float r = length(uv);
+
+            // Physical apparent angular radii: Moon slightly larger than Sun (Magnitude ~1.015)
+            float sunRadius  = 5.85;
+            float moonRadius = 5.93;
+
+            // Moon trajectory across the ecliptic plane
+            vec2 moonCenter = vec2(uParamA * 7.2, uParamA * 0.72);
+            vec2 mVec = uv - moonCenter;
+            float distToMoon = length(mVec);
+            float moonAngle = atan(mVec.y, mVec.x);
+
+            // Authentic Lunar Limb Topography (mountains & valleys on the lunar edge)
+            float limbProfile = (noise2D(vec2(moonAngle * 34.0, 1.7)) - 0.5) * 0.032
+                              + (noise2D(vec2(moonAngle * 88.0, 4.3)) - 0.5) * 0.018
+                              + (noise2D(vec2(moonAngle * 195.0, 8.1)) - 0.5) * 0.009;
+            float effectiveMoonR = moonRadius + limbProfile;
+
+            float centerDist = length(moonCenter);
+            // Totality factor: 1.0 during totality/diamond ring, drops to 0.0 in wide partial eclipse
+            float totalityFactor = 1.0 - smoothstep(0.035, 0.28, centerDist);
+
+            // =========================================================================
+            // 1. REALISTIC SOLAR CORONA (Miloslav Druckmüller HDR Radial-Filter Style)
+            // =========================================================================
+            float angle = atan(uv.y, uv.x);
+            // Solar magnetic axis tilted by ~11 degrees
+            float magAngle = angle - 0.19;
+            float sinLat = sin(magAngle);
+            float cosLat = cos(magAngle);
+
+            float rho = max(1.0, r / sunRadius); // Normalized radius in R_sun (1.0 at limb)
+            float distFromLimb = max(0.0, r - sunRadius);
+
+            // Magnetic field line mapping: near the limb (rho~1) field lines are curved arches,
+            // further out (rho>2.2) the solar wind stretches them into radial heliospheric current sheets
+            float bendFactor = exp(-(rho - 1.0) * 1.15);
+            float mappedAngle = magAngle + sin(magAngle * 2.0) * 0.36 * (1.0 - bendFactor);
+
+            // Continuous logarithmic radial advection + fine angular magnetic striations (avoids noisy blobs!)
+            float logRho = log(rho);
+            float nLow  = fbm2D(vec2(mappedAngle * 7.5, logRho * 1.1 - uTime * 0.018));
+            float nMid  = fbm2D(vec2(mappedAngle * 24.0 + nLow * 0.65, logRho * 1.6 - uTime * 0.025));
+            float nHigh = fbm2D(vec2(mappedAngle * 68.0 + nMid * 0.45, logRho * 2.2));
+            // Silky hair-like K-corona electron Thompson-scattering fibers
+            float fineFibers = 0.72 + 0.18 * (nMid - 0.5) + 0.14 * (nHigh - 0.5)
+                             + 0.08 * sin(mappedAngle * 140.0 + nLow * 5.0);
+
+            // 5 Authentic Helmet Streamers (Bulbous closed-loop base + dark coronal cavity + narrow outer stalk)
+            float stalkSharp = 1.0 + (rho - 1.0) * 1.35;
+            float s1 = exp(-pow(atan(sin(mappedAngle - 0.10), cos(mappedAngle - 0.10)) * stalkSharp / 0.44, 2.0));
+            float s2 = exp(-pow(atan(sin(mappedAngle + 0.52), cos(mappedAngle + 0.52)) * stalkSharp / 0.34, 2.0)) * 0.85;
+            float s3 = exp(-pow(atan(sin(mappedAngle - 2.78), cos(mappedAngle - 2.78)) * stalkSharp / 0.40, 2.0));
+            float s4 = exp(-pow(atan(sin(mappedAngle - 3.36), cos(mappedAngle - 3.36)) * stalkSharp / 0.32, 2.0)) * 0.82;
+            float s5 = exp(-pow(atan(sin(mappedAngle - 1.12), cos(mappedAngle - 1.12)) * stalkSharp / 0.26, 2.0)) * 0.65;
+            float helmetEnvelope = clamp(s1 + s2 + s3 + s4 + s5, 0.0, 1.45);
+
+            // Dark coronal cavities inside the base of the largest helmet streamers (real eclipse feature!)
+            float cavity1 = exp(-pow(atan(sin(mappedAngle - 0.10), cos(mappedAngle - 0.10)) / 0.16, 2.0)) * exp(-pow((rho - 1.22) / 0.18, 2.0));
+            float cavity2 = exp(-pow(atan(sin(mappedAngle - 2.78), cos(mappedAngle - 2.78)) / 0.15, 2.0)) * exp(-pow((rho - 1.20) / 0.17, 2.0));
+            float coronalCavity = 1.0 - 0.38 * clamp(cavity1 + cavity2, 0.0, 1.0);
+
+            // Delicate North & South Polar Magnetic Plumes (diverging dipole brushes at the poles)
+            float dipoleTheta = magAngle + sin(magAngle * 2.0) * 0.48 * logRho;
+            float plumeRays = 0.62 + 0.38 * sin(dipoleTheta * 58.0 + nLow * 2.5) * cos(dipoleTheta * 29.0);
+            float polarHood = pow(abs(sinLat), 2.8) * (1.0 - helmetEnvelope * 0.55);
+            float polarPlumes = polarHood * plumeRays * exp(-distFromLimb / (3.8 * uParamB));
+
+            // Inner low-corona closed magnetic loop arcades hugging the limb
+            float loopArcades = pow(sin(mappedAngle * 16.0 + nLow * 4.0) * 0.5 + 0.5, 2.2) * exp(-distFromLimb * 1.45);
+
+            // HDR radially-compensated coronal brightness profile (Druckmüller method: keeps inner & outer detail visible simultaneously)
+            float streamerReach = (5.4 * uParamB) * (0.28 + 0.95 * helmetEnvelope);
+            float kCorona = exp(-distFromLimb / max(0.45, streamerReach)) * (0.22 + 0.95 * helmetEnvelope) * fineFibers * coronalCavity;
+            float innerKCorona = (exp(-distFromLimb * 2.1) * 1.55 + exp(-distFromLimb * 0.65) * 0.48) * fineFibers;
+
+            // F-Corona (Zodiacal dust scattering subtly elongated along the ecliptic plane)
+            float eclipticSquash = length(vec2(uv.x * 0.72, uv.y * 1.25));
+            float fCorona = exp(-max(0.0, eclipticSquash - sunRadius) * 0.16) * 0.14 * uParamB;
+
+            // Corona is only visible when the blinding photosphere is nearly or fully covered!
+            float coronaVis = pow(totalityFactor, 1.6);
+            float totalCorona = (kCorona + polarPlumes * 0.72 + loopArcades * 0.48 + innerKCorona + fCorona) * coronaVis;
+
+            // =========================================================================
+            // 2. THIN RUBY-PINK CHROMOSPHERE & H-ALPHA PROMINENCES (656.28 nm)
+            // =========================================================================
+            // Razor-thin crimson chromospheric ring right at the solar limb (r = sunRadius)
+            float chromoRing = exp(-pow((r - sunRadius) / 0.038, 2.0)) * 2.1;
+            // Discreet realistic solar prominences (tiny intricate ruby arches on the limb)
+            float promMask1 = exp(-pow(atan(sin(angle - 0.55), cos(angle - 0.55)) / 0.08, 2.0));
+            float promMask2 = exp(-pow(atan(sin(angle + 2.35), cos(angle + 2.35)) / 0.09, 2.0));
+            float promMask3 = exp(-pow(atan(sin(angle - 2.10), cos(angle - 2.10)) / 0.06, 2.0));
+            float promHeight = exp(-distFromLimb * 5.2) * smoothstep(-0.02, 0.01, distFromLimb);
+            float promDetail = fbm2D(vec2(angle * 45.0, distFromLimb * 12.0 - uTime * 0.15));
+            float prominences = (chromoRing + (promMask1 + promMask2 + promMask3) * promHeight * (0.6 + 1.2 * promDetail) * 3.8)
+                              * smoothstep(0.24, 0.01, centerDist);
+
+            // =========================================================================
+            // 3. EXPOSED SOLAR PHOTOSPHERE, BAILY'S BEADS & DIAMOND RING
+            // =========================================================================
+            float sunDiscMask = 1.0 - smoothstep(sunRadius - 0.022, sunRadius + 0.022, r);
+            float moonOccludeMask = smoothstep(effectiveMoonR - 0.020, effectiveMoonR + 0.020, distToMoon);
+
+            // Uncovered Solar Photosphere (during Partial Eclipse)
+            float exposedSun = sunDiscMask * moonOccludeMask;
+            vec3 photosphereCol = vec3(0.0);
+            if (exposedSun > 0.0005) {
+                float mu = sqrt(max(0.0, 1.0 - pow(min(1.0, r / sunRadius), 2.0)));
+                // Authentic neck-to-limb solar darkening + fine granulation & small sunspot group
+                float limbDarkening = 0.30 + 0.70 * pow(mu, 0.44);
+                float gran = fbm2D(uv * 4.5 + vec2(uTime * 0.04));
+                float spotDist = length(uv - vec2(-1.8, 0.95));
+                float sunspot = 1.0 - 0.78 * exp(-pow(spotDist / 0.18, 2.0)) - 0.35 * exp(-pow(spotDist / 0.38, 2.0));
+
+                vec3 sunCoreCol = vec3(1.00, 0.96, 0.88);
+                vec3 sunLimbCol = vec3(1.00, 0.48, 0.12);
+                photosphereCol = mix(sunLimbCol, sunCoreCol, pow(mu, 0.58)) * limbDarkening * (0.95 + 0.10 * gran) * sunspot * 4.8;
+            }
+
+            // Baily's Beads: Chain of incandescent sunlight beads shining through deep lunar mountain valleys!
+            float limbContact = exp(-pow((r - sunRadius) / 0.055, 2.0)) * exp(-pow((distToMoon - moonRadius) / 0.065, 2.0));
+            float deepValleys = smoothstep(-0.002, -0.026, limbProfile);
+            float bailyBeads = limbContact * deepValleys * smoothstep(0.002, 0.018, centerDist) * (1.0 - smoothstep(0.065, 0.16, centerDist)) * 12.0;
+
+            // Diamond Ring Effect at 2nd and 3rd Contact (|uParamA| ~ 0.015 to 0.075)
+            float diamondPhase = smoothstep(0.004, 0.020, centerDist) * (1.0 - smoothstep(0.055, 0.16, centerDist));
+            vec2 contactDir = (centerDist > 0.0001) ? normalize(-moonCenter) : vec2(-1.0, 0.0);
+            vec2 diamondPos = contactDir * sunRadius;
+            vec2 dVec = uv - diamondPos;
+            float dDist = length(dVec);
+            float dAng = atan(dVec.y, dVec.x);
+
+            float diamondCore  = exp(-dDist * 2.5) * 9.5 * diamondPhase;
+            float diamondBloom = exp(-dDist * 0.52) * 2.4 * diamondPhase;
+            // Realistic camera lens 6-blade aperture diffraction star + subtle anamorphic flare
+            float diffRays = (pow(abs(cos(dAng * 3.0 + 0.22)), 58.0) + pow(abs(cos(dAng * 3.0 - 0.82)), 64.0) * 0.65)
+                           * exp(-dDist * 0.22) * 6.5 * diamondPhase;
+
+            // =========================================================================
+            // 4. REALISTIC LUNAR DISC WITH EARTHSHINE (LUZ CINÉREA) & SKY TRANSITION
+            // =========================================================================
+            // Natural pearlescent silver-white K-corona with subtle cool coronal temperature tint
+            vec3 coronaSilvery = mix(vec3(1.00, 0.98, 0.94), vec3(0.80, 0.89, 0.98), smoothstep(0.0, 8.0, distFromLimb));
+            vec3 promRubyCol   = mix(vec3(1.00, 0.08, 0.30), vec3(1.00, 0.42, 0.72), 0.35);
+
+            // During Partial Eclipse, unoccluded sunlight scatters in Earth's atmosphere creating a daytime cobalt-blue glare
+            float daylightGlare = (1.0 - totalityFactor) * exp(-r * 0.065) * 0.42;
+            vec3 skyGlareCol = mix(vec3(0.08, 0.24, 0.55), vec3(1.0, 0.65, 0.25), exp(-max(0.0, r - sunRadius) * 0.35)) * daylightGlare;
+
+            vec3 outerSpaceCol = coronaSilvery * totalCorona + promRubyCol * prominences * 1.45 + skyGlareCol;
+
+            // Inside the Moon's Silhouette: Earthshine (Luz Cinérea) illuminating Lunar Maria & craters during totality!
+            vec3 moonSurfaceCol = vec3(0.0);
+            if (distToMoon < effectiveMoonR + 0.04) {
+                vec2 mUv = mVec / moonRadius;
+                float mZ = sqrt(max(0.0, 1.0 - dot(mUv, mUv)));
+
+                // Authentic nearside Lunar Maria layout (Mare Imbrium, Serenitatis, Tranquillitatis, Crisium, Procellarum)
+                float mImbrium  = exp(-length(mUv - vec2(-0.22, 0.34)) * 4.2);
+                float mSeren    = exp(-length(mUv - vec2(0.18, 0.26)) * 5.0);
+                float mTranq    = exp(-length(mUv - vec2(0.34, 0.04)) * 4.6);
+                float mCrisium  = exp(-length(mUv - vec2(0.62, 0.18)) * 7.5);
+                float mProcell  = exp(-length(mUv - vec2(-0.48, -0.05)) * 3.2);
+                float mariaNoise = fbm2D(mUv * 3.8 + vec2(1.2, -0.7));
+                float mariaMask = clamp((mImbrium + mSeren + mTranq + mCrisium + mProcell) * (0.65 + 0.65 * mariaNoise), 0.0, 1.0);
+
+                float craterTex = fbm2D(mUv * 14.0);
+                float microRelief = fbm2D(mUv * 38.0);
+
+                vec3 highlandAlbedo = vec3(0.022, 0.029, 0.042);
+                vec3 mariaAlbedo    = vec3(0.006, 0.009, 0.015);
+                vec3 moonAlbedo = mix(highlandAlbedo, mariaAlbedo, smoothstep(0.22, 0.68, mariaMask)) * (0.78 + 0.44 * craterTex);
+
+                // Tycho & Copernicus bright ray craters under Earthshine
+                vec2 tychoUv = mUv - vec2(-0.08, -0.62);
+                float dTycho = length(tychoUv);
+                float rayAng = atan(tychoUv.y, tychoUv.x);
+                float tychoRays = exp(-dTycho * 3.2) * pow(sin(rayAng * 11.0 + craterTex * 3.0) * 0.5 + 0.5, 3.0) * 0.016;
+                moonAlbedo += vec3(0.018, 0.024, 0.035) * tychoRays;
+
+                // Subtle 3D spherical shading + inner coronal illumination Bounce on the lunar limb
+                float sphericalShade = (0.38 + 0.62 * mZ) * (0.85 + 0.30 * microRelief);
+                float limbBounce = pow(1.0 - mZ, 2.5) * 0.45;
+                moonSurfaceCol = moonAlbedo * (sphericalShade + limbBounce) * pow(totalityFactor, 1.8) * (0.65 + 0.55 * uGlow);
+
+                // Ultra-thin grazing coronal silver diffraction right on the jagged lunar mountain edge
+                float lunarEdgeGlow = exp(-pow((effectiveMoonR - distToMoon) / 0.042, 2.0));
+                moonSurfaceCol += mix(vec3(1.0, 0.95, 0.88), promRubyCol, 0.28) * lunarEdgeGlow * 0.36 * totalityFactor;
+            }
+
+            // Composite Moon over Sun & Corona, then add foreground Baily's Beads and Diamond Ring bloom
+            vec3 finalCol = mix(moonSurfaceCol, outerSpaceCol + photosphereCol, moonOccludeMask);
+            finalCol += vec3(1.00, 0.96, 0.88) * (bailyBeads + diamondCore + diamondBloom + diffRays);
+
+            // Realistic atmospheric & optical bloom spilling slightly over the Moon's edge near Diamond Ring / Partial phases
+            float glareSpill = exp(-max(0.0, effectiveMoonR - distToMoon) * 1.95) * (diamondBloom * 0.42 + exposedSun * 0.35 + (1.0 - totalityFactor) * 0.08);
+            finalCol += vec3(1.0, 0.90, 0.72) * glareSpill;
+
+            // Smooth outer vignette at the edge of the 52x52 optical plane so it merges seamlessly with the 3D stars
+            float quadEdgeFade = 1.0 - smoothstep(21.5, 25.8, r);
+            float outsideAlpha = clamp((totalCorona * 0.95 + prominences + exposedSun + bailyBeads + diamondCore + diamondBloom + diffRays + daylightGlare) * uGlow, 0.0, 1.0);
+            float finalAlpha = mix(1.0, outsideAlpha, moonOccludeMask) * quadEdgeFade;
+
+            gl_FragColor = vec4(acesToneMap(finalCol * uRgbTint * uGlow * 1.22), finalAlpha);
+        }
+    </script>
+
+    <!-- ========================================================================== -->
+    <!-- SHADER 4: 3D SUPERNOVA RAYLEIGH-TAYLOR SHOCK SHELL SHADER                  -->
+    <!-- ========================================================================== -->
+    <script id="snVertexShader" type="x-shader/x-vertex">
+        varying vec3 vNormal;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying float vPlume;
+
+        uniform float uTime;
+        uniform float uParamA; // Expansion turbulence
+
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p = p * 2.06 + vec3(29.0);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        void main() {
+            vec3 n = normalize(position);
+            // Multi-octave Rayleigh-Taylor mushroom fingers & shock instabilities
+            float p1 = fbm(n * 4.6 + vec3(uTime * 0.36));
+            float p2 = fbm(n * 11.5 - vec3(uTime * 0.62));
+            float micro = noise(n * 22.0 + vec3(uTime * 0.95));
+            vPlume = clamp(p1 * 0.85 + p2 * 0.45, 0.0, 1.5);
+
+            float disp = (pow(p1, 1.4) * 0.48 + (p2 - 0.5) * 0.22 + (micro - 0.5) * 0.08) * uParamA;
+            vec3 pos = position * (1.0 + disp);
+
+            vLocalPos = n;
+            vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+            vWorldPos = worldPos.xyz;
+            vNormal = normalize(mat3(modelMatrix) * normalize(n + vec3(p1 - 0.5) * 0.42));
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+    </script>
+
+    <script id="snFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+
+        varying vec3 vNormal;
+        varying vec3 vLocalPos;
+        varying vec3 vWorldPos;
+        varying float vPlume;
+
+        uniform float uTime;
+        uniform float uGlow;
+        uniform vec3 uRgbTint;
+
+        float hash(vec3 p) {
+            p = fract(p * 0.3183099 + 0.1);
+            p *= 17.0;
+            return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+        }
+
+        float noise(vec3 x) {
+            vec3 i = floor(x);
+            vec3 f = fract(x);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(
+                mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                    mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                    mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
+
+        float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+                v += a * noise(p);
+                p = p * 2.08 + vec3(17.0);
+                a *= 0.5;
+            }
+            return v;
+        }
+
+        void main() {
+            vec3 viewDir = normalize(cameraPosition - vWorldPos);
+            float NdotV = abs(dot(normalize(vNormal), viewDir));
+            float rim = pow(1.0 - NdotV, 1.55);
+
+            float web1 = fbm(vLocalPos * 9.5 - uTime * 0.45);
+            float web2 = fbm(vLocalPos * 20.0 + uTime * 0.75);
+            float filaments = smoothstep(0.26, 0.76, web1 * 0.72 + web2 * 0.38);
+
+            // Authentic Cassiopeia A / Crab / SN 1987A multi-element emission palette
+            vec3 shockBlue   = vec3(0.24, 0.86, 1.00); // Synchrotron forward shock wave
+            vec3 hAlphaPink  = vec3(1.00, 0.16, 0.58); // Ionized Hydrogen & Nitrogen filaments
+            vec3 nickelGold  = vec3(1.00, 0.64, 0.14); // Radioactive 56Ni / Sulfur knots
+            vec3 oxygenGreen = vec3(0.25, 0.96, 0.68); // Doubly-ionized Oxygen [O III]
+            vec3 whiteCore   = vec3(1.00, 0.98, 0.95);
+
+            vec3 activeCol = mix(hAlphaPink, nickelGold, smoothstep(0.25, 0.80, vPlume));
+            activeCol = mix(activeCol, oxygenGreen, smoothstep(0.58, 0.88, web2) * 0.55);
+            vec3 col = mix(activeCol, shockBlue * 1.65, rim * 0.85);
+            col = mix(col, whiteCore * 2.35, pow(filaments * vPlume, 1.85) * 0.65);
+
+            float alpha = clamp((rim * 0.90 + filaments * 0.65 + vPlume * 0.35) * uGlow * 0.68, 0.0, 0.96);
+            gl_FragColor = vec4(col * uRgbTint * 1.75, alpha);
+        }
+    </script>
+
+    <!-- ========================================================================== -->
+    <!-- SHADER 5: SOLAR CORONAL MAGNETIC LOOPS & VOLUMETRIC COMET TAILS SHADER     -->
+    <!-- ========================================================================== -->
+    <script id="plasmaLoopVertexShader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        void main() {
+            vUv = uv;
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vWorldPos = worldPos.xyz;
+            vNormal = normalize(mat3(modelMatrix) * normal);
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+    </script>
+
+    <script id="plasmaLoopFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+
+        uniform float uTime;
+        uniform float uGlow;
+        uniform vec3 uRgbTint;
+        uniform float uPhase;
+
+        void main() {
+            // Streaming incandescent plasma blobs & coronal rain flowing along the magnetic arch (SDO 171/304 Å style)
+            float flow1 = sin(vUv.x * 28.0 - uTime * 5.8 + uPhase) * 0.5 + 0.5;
+            float flow2 = cos(vUv.x * 54.0 + uTime * 4.1 - uPhase) * 0.5 + 0.5;
+            // Fine multi-threaded magnetic flux tubes inside each coronal loop
+            float strands = pow(sin(vUv.y * 24.0 + flow1 * 2.2) * 0.5 + 0.5, 1.4);
+            // Bright loop-top magnetic reconnection knot (at vUv.x ~ 0.5)
+            float apexKnot = exp(-pow((vUv.x - 0.5) / 0.16, 2.0)) * 0.55;
+
+            vec3 viewDir = normalize(cameraPosition - vWorldPos);
+            float core = pow(max(0.0, abs(dot(normalize(vNormal), viewDir))), 0.80);
+
+            vec3 crimsonEdge = vec3(1.00, 0.20, 0.03);
+            vec3 goldPlasma  = vec3(1.00, 0.68, 0.14);
+            vec3 whiteHot    = vec3(1.00, 0.98, 0.90);
+
+            float intensity = (0.45 + 0.55 * flow1 * flow2 + apexKnot) * (0.60 + 0.40 * strands);
+            vec3 col = mix(crimsonEdge, goldPlasma, core);
+            col = mix(col, whiteHot * 1.75, pow(core * intensity, 1.65));
+
+            // Fade smoothly where the magnetic loop roots into the solar photosphere
+            float footFade = smoothstep(0.0, 0.08, vUv.x) * (1.0 - smoothstep(0.92, 1.0, vUv.x));
+            float alpha = clamp(core * intensity * footFade * uGlow * 0.94, 0.0, 0.97);
+
+            gl_FragColor = vec4(col * uRgbTint * 1.85, alpha);
+        }
+    </script>
+
+    <!-- ========================================================================== -->
+    <!-- SHADER 6: VOLUMETRIC COMET ION & CURVED DUST TAIL SHEETS (NEOWISE REALISM) -->
+    <!-- ========================================================================== -->
+    <script id="cometTailVertexShader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        uniform float uTime;
+        uniform float uTailType; // 0.0 = Straight Blue Ion Tail, 1.0 = Curved Golden Dust Tail
+        uniform float uParamA;
+        uniform float uParamB;
+
+        void main() {
+            vUv = uv;
+            vec3 pos = position;
+            // uv.x goes from 0 (Comet Nucleus at -4.5) to 1 (Far tail tip)
+            float t = uv.x;
+            float tailLen = 30.0 * uParamA;
+
+            if (uTailType < 0.5) {
+                // Straight Narrow Blue Ion/Plasma Tail with Alfvén wave kinks
+                float width = (0.45 + t * 2.8 * uParamB) * (uv.y - 0.5) * 2.0;
+                float alfven = sin(t * 14.0 - uTime * 6.5) * 0.35 * t;
+                pos = vec3(-4.5 + t * tailLen, width + alfven, (uv.y - 0.5) * 0.8);
+            } else {
+                // Broad Sweeping Curved Golden-White Dust Tail with radiation pressure bend
+                float width = (0.75 + pow(t, 0.9) * 6.8 * uParamB) * (uv.y - 0.5) * 2.0;
+                float curveZ = pow(t, 1.80) * 10.8;
+                pos = vec3(-4.5 + t * tailLen * 0.92, width * 0.35, curveZ + width);
+            }
+
+            vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+            vWorldPos = worldPos.xyz;
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+    </script>
+
+    <script id="cometTailFragmentShader" type="x-shader/x-fragment">
+        precision highp float;
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+
+        uniform float uTime;
+        uniform float uGlow;
+        uniform float uTailType;
+        uniform vec3 uRgbTint;
+
+        void main() {
+            float t = vUv.x;
+            float across = abs(vUv.y - 0.5) * 2.0;
+            float edgeFade = exp(-across * across * 3.2) * (1.0 - across * across);
+            float lengthFade = smoothstep(0.0, 0.06, t) * pow(max(0.0, 1.0 - t), 1.35);
+
+            vec3 col;
+            float structure = 1.0;
+
+            if (uTailType < 0.5) {
+                // Ion Tail: Fine magnetic streamer rays + traveling plasma disconnection knots
+                float rays = pow(sin(vUv.y * 28.0 + sin(t * 10.0 - uTime * 4.5) * 1.5) * 0.5 + 0.5, 1.6);
+                float knot = 0.80 + 0.40 * sin(t * 18.0 - uTime * 7.5);
+                structure = (0.55 + 0.65 * rays) * knot;
+                col = mix(vec3(0.14, 0.58, 1.00), vec3(0.45, 0.88, 1.00), 1.0 - across);
+            } else {
+                // Dust Tail: Synchrone & syndyne dust striae bands (like Comet NEOWISE & McNaught)
+                float striae = 0.82 + 0.28 * sin((t * 24.0 + vUv.y * 12.0) - uTime * 1.2);
+                structure = striae;
+                col = mix(vec3(0.95, 0.72, 0.38), vec3(1.00, 0.94, 0.78), 1.0 - t * 0.5);
+            }
+
+            float alpha = edgeFade * lengthFade * structure * uGlow * (uTailType < 0.5 ? 0.52 : 0.44);
+            gl_FragColor = vec4(col * uRgbTint * 1.55, clamp(alpha, 0.0, 0.92));
+        }
+    </script>
+
+    <script>
+        window.onload = function () {
+            const container = document.getElementById('canvas-container');
+
+            // ============================================================================
+            // METADATA FOR THE 6 SPACE PHENOMENA
+            // ============================================================================
+            const SPACE_EVENTS = {
+                aurora: {
+                    title: "Auroras Polares (Boreal & Austral)",
+                    catalog: "Magnetosfera Terrestre • 80 a 600 km de Altitude",
+                    desc: "Ondas luminosas coloridas na atmosfera superior produzidas quando elétrons e prótons do vento solar colidem com átomos de oxigênio (verde/vermelho) e nitrogênio (rosa/violeta) nos polos.",
+                    ref: "Ref: NASA Space Weather / ISS Aurora Borealis & Australis",
+                    origin: "Excitação de Oxigênio e Nitrogênio",
+                    velocity: "Vento Solar a 400–800 km/s",
+                    example: "Oval Auroral Ártico & Antártico",
+                    actionBtn: "⚡ Disparar Subtempestade Geomagnética",
+                    labelA: "Altura das Cortinas de Aurora",
+                    minA: 0.5, maxA: 2.2, stepA: 0.05, valA: 1.35,
+                    labelB: "Intensidade do Vento Solar (Kp)",
+                    minB: 0.3, maxB: 2.2, stepB: 0.05, valB: 1.25,
+                    camPos: { theta: 0.55, phi: 0.92, radius: 22.0, lookAt: [0, 2.2, 0] }
+                },
+                comet: {
+                    title: "Cometas (Coma, Cauda de Poeira & Cauda de Íons)",
+                    catalog: "Corpos Gelados Primordiais • Nuvem de Oort / Cinturão de Kuiper",
+                    desc: "Corpos gelados que ao se aproximarem do Sol sublimam gelo e liberam gás e silicato, desenvolvendo duas caudas distintas: uma cauda azul retilínea de íons (plasma) e uma cauda curva dourada de poeira.",
+                    ref: "Ref: Cometa C/2020 F3 (NEOWISE) / Hale-Bopp / Missão Rosetta",
+                    origin: "Sublimação de Gelo & Radiação Solar",
+                    velocity: "40 a 70 km/s no Periélio",
+                    example: "Halley / NEOWISE / Hale-Bopp",
+                    actionBtn: "☄️ Disparar Jato Explosivo do Núcleo (Outburst)",
+                    labelA: "Extensão das Caudas do Cometa",
+                    minA: 0.5, maxA: 2.2, stepA: 0.05, valA: 1.35,
+                    labelB: "Taxa de Sublimação de Gás/Poeira",
+                    minB: 0.4, maxB: 2.2, stepB: 0.05, valB: 1.25,
+                    camPos: { theta: 0.35, phi: 1.32, radius: 28.0, lookAt: [5.5, 0, 0] }
+                },
+                solarflare: {
+                    title: "Erupções Solares & Ejeção de Massa Coronal (CME)",
+                    catalog: "Reconexão Magnética • Classe X • >10²⁵ Joules",
+                    desc: "Liberações explosivas de energia magnética na atmosfera do Sol, formando gigantescos arcos coronais incandescentes e arremessando bilhões de toneladas de plasma no espaço.",
+                    ref: "Ref: NASA Solar Dynamics Observatory (SDO) AIA 171/304 Å",
+                    origin: "Reconexão de Linhas Magnéticas Solares",
+                    velocity: "CME de 1.000 a 3.000 km/s",
+                    example: "Evento de Carrington / Flares Classe X",
+                    actionBtn: "☀️ Disparar Ejeção de Massa Coronal Classe X",
+                    labelA: "Altura dos Arcos Magnéticos",
+                    minA: 0.5, maxA: 2.2, stepA: 0.05, valA: 1.30,
+                    labelB: "Velocidade da Ejeção de Plasma",
+                    minB: 0.4, maxB: 2.5, stepB: 0.05, valB: 1.25,
+                    camPos: { theta: 0.42, phi: 1.28, radius: 25.0, lookAt: [0, 0, 0] }
+                },
+                eclipse: {
+                    title: "Eclipses Solares (Totalidade, Coroa & Anel de Diamante)",
+                    catalog: "Alinhamento Sol–Lua–Terra • Sombra da Umbra",
+                    desc: "A Lua encobre o disco solar com precisão milimétrica, revelando os filamentos magnéticos da coroa solar, proeminências rubis de H-alfa, Contas de Baily nos vales lunares e o Anel de Diamante.",
+                    ref: "Ref: Miloslav Druckmüller HDR Eclipse / NASA Total Solar Eclipse",
+                    origin: "Ocultação Lunar & Coroa Magnética",
+                    velocity: "Sombra da Umbra a ~2.200 km/h",
+                    example: "Totalidade, Contas de Baily & Anel de Diamante",
+                    actionBtn: "🌑 Alternar Totalidade / Anel de Diamante",
+                    labelA: "Posição da Lua (Trânsito do Eclipse)",
+                    minA: -0.8, maxA: 0.8, stepA: 0.002, valA: 0.0,
+                    labelB: "Extensão dos Filamentos da Coroa",
+                    minB: 0.6, maxB: 2.2, stepB: 0.05, valB: 1.35,
+                    camPos: { theta: 0.0, phi: Math.PI / 2, radius: 24.5, lookAt: [0, 0, 0] }
+                },
+                meteors: {
+                    title: "Chuvas de Meteoros (Bólidos & Ablação Atmosférica)",
+                    catalog: "Detritos Cometários • Entrada a 11 a 72 km/s",
+                    desc: "Vários rastros luminosos atravessando o céu quando a Terra cruza a trilha de fragmentos deixada por um cometa, vaporizando os meteoroides por compressão extrema no topo da atmosfera.",
+                    ref: "Ref: NASA Meteor Watch — Perseidas, Gemínidas & Leônidas",
+                    origin: "Vaporização na Mesosfera (80–120 km)",
+                    velocity: "59 km/s (Perseidas) / 71 km/s (Leônidas)",
+                    example: "Chuva das Perseidas & Gemínidas",
+                    actionBtn: "🌠 Disparar Tempestade de Bólidos Brilhantes",
+                    labelA: "Taxa de Meteoros (ZHR)",
+                    minA: 0.4, maxA: 2.5, stepA: 0.05, valA: 1.65,
+                    labelB: "Comprimento dos Rastros de Ionização",
+                    minB: 0.5, maxB: 2.4, stepB: 0.05, valB: 1.50,
+                    camPos: { theta: 0.0, phi: 1.46, radius: 24.0, lookAt: [0, 0, 0] }
+                },
+                supernova: {
+                    title: "Supernovas (Explosões Estelares Cataclísmicas)",
+                    catalog: "Colapso Gravitacional • Energia de 10⁴⁴ Joules",
+                    desc: "Explosões estelares extremamente energéticas capazes de ofuscar uma galáxia inteira, lançando ondas de choque supersônicas, elementos pesados e deixando uma estrela de nêutrons ou buraco negro.",
+                    ref: "Ref: Hubble & Chandra — SN 1987A / Cassiopeia A / SN 1054",
+                    origin: "Colapso de Núcleo / Detonação Termonuclear",
+                    velocity: "Onda de Choque a 10.000–30.000 km/s",
+                    example: "SN 1987A / Cassiopeia A / Kepler",
+                    actionBtn: "💥 Detonar Nova Explosão de Supernova",
+                    labelA: "Turbulência das Plumas de Ejeção",
+                    minA: 0.4, maxA: 2.2, stepA: 0.05, valA: 1.35,
+                    labelB: "Velocidade de Expansão da Onda",
+                    minB: 0.3, maxB: 2.5, stepB: 0.05, valB: 1.15,
+                    camPos: { theta: 0.45, phi: 1.22, radius: 34.0, lookAt: [0, 0, 0] }
+                }
+            };
+
+            // ============================================================================
+            // THREE.JS SCENE & RENDERER
+            // ============================================================================
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.2, 1500);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Soft Radial Glow Texture for Particles, Coma & Flares
+            function createGlowTexture() {
+                const c = document.createElement('canvas');
+                c.width = 128;
+                c.height = 128;
+                const ctx = c.getContext('2d');
+                const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+                grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+                grad.addColorStop(0.24, 'rgba(220, 245, 255, 0.80)');
+                grad.addColorStop(0.55, 'rgba(120, 200, 255, 0.24)');
+                grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 128, 128);
+                return new THREE.CanvasTexture(c);
+            }
+            const glowTex = createGlowTexture();
+
+            // Background Starfield
+            const starCount = 3400;
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = new Float32Array(starCount * 3);
+            const starCol = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount; i++) {
+                const r = 280 + Math.random() * 520;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                starPos[i * 3 + 1] = r * Math.cos(phi);
+                starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+
+                const t = Math.random();
+                starCol[i * 3] = 0.78 + 0.22 * t;
+                starCol[i * 3 + 1] = 0.84 + 0.16 * (1 - t * 0.3);
+                starCol[i * 3 + 2] = 0.95 + 0.05 * (1 - t);
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+            scene.add(new THREE.Points(
+                starGeo,
+                new THREE.PointsMaterial({ size: 0.85, vertexColors: true, transparent: true, opacity: 0.78 })
+            ));
+
+            // Shared Uniforms across Shaders
+            const sharedUniforms = {
+                uBodyType: { value: 0 },
+                uTime: { value: 0 },
+                uGlow: { value: 1.35 },
+                uParamA: { value: 1.35 },
+                uParamB: { value: 1.25 },
+                uRgbTint: { value: new THREE.Vector3(1.0, 1.0, 1.0) },
+                uSunDir: { value: new THREE.Vector3(-0.85, 0.25, -0.45).normalize() }
+            };
+
+            // ============================================================================
+            // SCENE GROUPS FOR EACH OF THE 6 PHENOMENA
+            // ============================================================================
+
+            // Central Sphere Mesh (Used as Earth in Aurora/Meteors, Sun in Solar Flares, Comet Nucleus in Comets)
+            const mainSphereGeo = new THREE.SphereGeometry(6.0, 96, 96);
+            const mainSphereMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('sphereVertexShader').textContent,
+                fragmentShader: document.getElementById('sphereFragmentShader').textContent,
+                uniforms: sharedUniforms
+            });
+            const mainSphereMesh = new THREE.Mesh(mainSphereGeo, mainSphereMat);
+            scene.add(mainSphereMesh);
+
+            // Earth's Upper Atmosphere 95 km Airglow Shell (Visible in Aurora & Meteor Shower modes, like real ISS photos!)
+            const airglowUniforms = Object.assign({}, sharedUniforms, {
+                uBodyType: { value: 4 }
+            });
+            const earthAirglowMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(6.14, 72, 72),
+                new THREE.ShaderMaterial({
+                    vertexShader: document.getElementById('sphereVertexShader').textContent,
+                    fragmentShader: document.getElementById('sphereFragmentShader').textContent,
+                    uniforms: airglowUniforms,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    side: THREE.FrontSide
+                })
+            );
+            scene.add(earthAirglowMesh);
+
+            const mainHaloSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: glowTex,
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.45,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            mainHaloSprite.scale.set(16.5, 16.5, 1);
+            scene.add(mainHaloSprite);
+
+            // ----------------------------------------------------------------------------
+            // GROUP 1: AURORAS POLARES (12 Multi-Layered Volumetric Borealis & Australis Curtains)
+            // ----------------------------------------------------------------------------
+            const auroraGroup = new THREE.Group();
+            scene.add(auroraGroup);
+
+            const auroraMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('auroraVertexShader').textContent,
+                fragmentShader: document.getElementById('auroraFragmentShader').textContent,
+                uniforms: sharedUniforms,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+
+            function createAuroraCurtainRing(radiusTop, radiusBottom, yBase, height, isSouth) {
+                const geo = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 128, 28, true);
+                const posAttr = geo.attributes.position;
+                for (let i = 0; i < posAttr.count; i++) {
+                    const x = posAttr.getX(i);
+                    const y = posAttr.getY(i);
+                    const z = posAttr.getZ(i);
+                    const angle = Math.atan2(z, x);
+                    const wave = Math.sin(angle * 4.0) * 0.25 + Math.cos(angle * 7.0) * 0.14;
+                    const normH = (y + height * 0.5) / height; // 0 at base, 1 at top
+                    const newY = (isSouth ? -1 : 1) * (yBase + normH * height);
+                    posAttr.setXYZ(i, x * (1 + wave * 0.1), newY, z * (1 + wave * 0.1));
+                }
+                geo.computeVertexNormals();
+                return new THREE.Mesh(geo, auroraMat);
+            }
+
+            // 6 Concentric Curtains on the North Pole (Aurora Borealis) & 6 on the South Pole (Aurora Australis)
+            const ovalRadii = [2.15, 2.45, 2.75, 3.05, 3.35, 3.65];
+            ovalRadii.forEach((r, idx) => {
+                const h = 1.65 + (idx % 3) * 0.35;
+                const yStart = 5.45 - idx * 0.16;
+                const northCurtain = createAuroraCurtainRing(r * 1.18, r, yStart, h, false);
+                const southCurtain = createAuroraCurtainRing(r * 1.18, r, yStart, h, true);
+                northCurtain.rotation.y = idx * 0.7;
+                southCurtain.rotation.y = -idx * 0.7;
+                auroraGroup.add(northCurtain);
+                auroraGroup.add(southCurtain);
+            });
+
+            // ----------------------------------------------------------------------------
+            // GROUP 2: COMETAS (Volumetric Ion Tail, Curved Dust Tail, Emerald Coma & Active Jets)
+            // ----------------------------------------------------------------------------
+            const cometEnvelopeGroup = new THREE.Group();
+            cometEnvelopeGroup.visible = false;
+            scene.add(cometEnvelopeGroup);
+
+            const ionTailUniforms = Object.assign({}, sharedUniforms, { uTailType: { value: 0.0 } });
+            const dustTailUniforms = Object.assign({}, sharedUniforms, { uTailType: { value: 1.0 } });
+
+            // Intersecting volumetric sheets for the straight blue Ion Tail & sweeping golden Dust Tail
+            [-0.35, 0.0, 0.35].forEach(rotX => {
+                const ionSheet = new THREE.Mesh(
+                    new THREE.PlaneGeometry(2.0, 2.0, 64, 32),
+                    new THREE.ShaderMaterial({
+                        vertexShader: document.getElementById('cometTailVertexShader').textContent,
+                        fragmentShader: document.getElementById('cometTailFragmentShader').textContent,
+                        uniforms: ionTailUniforms,
+                        transparent: true,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false,
+                        side: THREE.DoubleSide
+                    })
+                );
+                ionSheet.rotation.x = rotX;
+                cometEnvelopeGroup.add(ionSheet);
+            });
+
+            [-0.25, 0.0, 0.25].forEach(rotX => {
+                const dustSheet = new THREE.Mesh(
+                    new THREE.PlaneGeometry(2.0, 2.0, 64, 32),
+                    new THREE.ShaderMaterial({
+                        vertexShader: document.getElementById('cometTailVertexShader').textContent,
+                        fragmentShader: document.getElementById('cometTailFragmentShader').textContent,
+                        uniforms: dustTailUniforms,
+                        transparent: true,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false,
+                        side: THREE.DoubleSide
+                    })
+                );
+                dustSheet.rotation.x = rotX;
+                cometEnvelopeGroup.add(dustSheet);
+            });
+
+            // Active Sunward Sublimation Geyser Cones erupting from the bilobed 67P nucleus
+            const jetConeMat = new THREE.MeshBasicMaterial({
+                color: 0x5eead4,
+                transparent: true,
+                opacity: 0.42,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            for (let j = 0; j < 5; j++) {
+                const jetCone = new THREE.Mesh(new THREE.ConeGeometry(0.45 + j * 0.12, 3.8, 24, 1, true), jetConeMat);
+                jetCone.position.set(-5.2, (j - 2) * 0.28, (j % 2 === 0 ? 1 : -1) * 0.22);
+                jetCone.rotation.z = -Math.PI / 2 + (j - 2) * 0.22;
+                cometEnvelopeGroup.add(jetCone);
+            }
+
+            // ----------------------------------------------------------------------------
+            // GROUP 3: ERUPÇÕES SOLARES (16 Magnetic Coronal Loops, X-Class Flash & CME Wave)
+            // ----------------------------------------------------------------------------
+            const solarFlareGroup = new THREE.Group();
+            solarFlareGroup.visible = false;
+            scene.add(solarFlareGroup);
+
+            const flareLoops = [];
+            for (let i = 0; i < 16; i++) {
+                const holder = new THREE.Group();
+                const lat = (i % 2 === 0 ? 1 : -1) * (0.18 + (i % 4) * 0.10);
+                const lon = (i / 16) * Math.PI * 2;
+                holder.rotation.set(lat, lon, (i % 3 - 1) * 0.35);
+
+                const loopRadius = 1.45 + (i % 4) * 0.55;
+                const tubeRadius = 0.12 + (i % 3) * 0.04;
+                const torusGeo = new THREE.TorusGeometry(loopRadius, tubeRadius, 24, 64, Math.PI * 1.15);
+                const loopMat = new THREE.ShaderMaterial({
+                    vertexShader: document.getElementById('plasmaLoopVertexShader').textContent,
+                    fragmentShader: document.getElementById('plasmaLoopFragmentShader').textContent,
+                    uniforms: {
+                        uTime: sharedUniforms.uTime,
+                        uGlow: sharedUniforms.uGlow,
+                        uRgbTint: sharedUniforms.uRgbTint,
+                        uPhase: { value: i * 1.3 }
+                    },
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    side: THREE.DoubleSide
+                });
+                const mesh = new THREE.Mesh(torusGeo, loopMat);
+                mesh.position.set(5.65, 0, 0);
+                mesh.rotation.z = -Math.PI / 2;
+                holder.add(mesh);
+                solarFlareGroup.add(holder);
+                flareLoops.push({ holder, mesh, phase: i * 0.9 });
+            }
+
+            const solarXFlareFlash = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: glowTex,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.85,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            solarXFlareFlash.position.set(6.1, 1.2, 1.5);
+            solarXFlareFlash.scale.set(5.5, 5.5, 1);
+            solarFlareGroup.add(solarXFlareFlash);
+
+            const cmeShockShell = new THREE.Mesh(
+                new THREE.SphereGeometry(1.0, 64, 64),
+                new THREE.ShaderMaterial({
+                    vertexShader: document.getElementById('snVertexShader').textContent,
+                    fragmentShader: document.getElementById('snFragmentShader').textContent,
+                    uniforms: {
+                        uTime: sharedUniforms.uTime,
+                        uParamA: { value: 0.45 },
+                        uGlow: { value: 0.55 },
+                        uRgbTint: { value: new THREE.Vector3(1.0, 0.58, 0.18) }
+                    },
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    side: THREE.DoubleSide
+                })
+            );
+            solarFlareGroup.add(cmeShockShell);
+
+            // ----------------------------------------------------------------------------
+            // GROUP 4: ECLIPSES SOLARES (Unified Optical HDR Eclipse Plane: Sun + Corona + Baily's Beads + Moon)
+            // ----------------------------------------------------------------------------
+            const eclipseGroup = new THREE.Group();
+            eclipseGroup.visible = false;
+            scene.add(eclipseGroup);
+
+            const eclipseCoronaPlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(52, 52),
+                new THREE.ShaderMaterial({
+                    vertexShader: document.getElementById('sphereVertexShader').textContent,
+                    fragmentShader: document.getElementById('eclipseCoronaFragmentShader').textContent,
+                    uniforms: sharedUniforms,
+                    transparent: true,
+                    blending: THREE.NormalBlending,
+                    depthWrite: false,
+                    side: THREE.DoubleSide
+                })
+            );
+            eclipseCoronaPlane.position.set(0, 0, 0.0);
+            eclipseGroup.add(eclipseCoronaPlane);
+
+            // ----------------------------------------------------------------------------
+            // GROUP 5: CHUVAS DE METEOROS (Deep-Sky Radiant Perspective, Bolides & Ionization Wakes - NO PLANET)
+            // ----------------------------------------------------------------------------
+            const meteorGroup = new THREE.Group();
+            meteorGroup.visible = false;
+            scene.add(meteorGroup);
+
+            // Subtle Deep-Sky Milky Way & Zodiacal Dust Glow behind the Meteor Shower Radiant
+            const radiantGlowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: glowTex,
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.22,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            radiantGlowSprite.position.set(16.0, 9.5, -26.0);
+            radiantGlowSprite.scale.set(28.0, 18.0, 1);
+            meteorGroup.add(radiantGlowSprite);
+
+            const meteorHeadSprites = new THREE.Group();
+            meteorGroup.add(meteorHeadSprites);
+
+            const NUM_METEORS = 110;
+            const TRAIL_POINTS = 28;
+            const meteorList = [];
+            // True Perspective Radiant Point in the Deep Night Sky (Perseus / Gemini Constellation)
+            const radiantOrigin = new THREE.Vector3(16.0, 9.5, -26.0);
+
+            for (let i = 0; i < NUM_METEORS; i++) {
+                const lineGeo = new THREE.BufferGeometry();
+                const linePos = new Float32Array(TRAIL_POINTS * 3);
+                const lineCol = new Float32Array(TRAIL_POINTS * 3);
+                lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+                lineGeo.setAttribute('color', new THREE.BufferAttribute(lineCol, 3));
+
+                const lineMat = new THREE.LineBasicMaterial({
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.98,
+                    blending: THREE.AdditiveBlending
+                });
+                const line = new THREE.Line(lineGeo, lineMat);
+                meteorGroup.add(line);
+
+                const isBolide = i % 5 === 0;
+                const headSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                    map: glowTex,
+                    color: isBolide ? 0xffffff : 0xa5f3fc,
+                    transparent: true,
+                    opacity: 0.98,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                }));
+                headSprite.scale.set(isBolide ? 1.85 : 0.85, isBolide ? 1.85 : 0.85, 1);
+                meteorHeadSprites.add(headSprite);
+
+                // Secondary terminal explosion flash & persistent ionization wake glow for bright bolides
+                let wakeGlowSprite = null;
+                if (isBolide) {
+                    wakeGlowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                        map: glowTex,
+                        color: 0x34d399,
+                        transparent: true,
+                        opacity: 0.0,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false
+                    }));
+                    wakeGlowSprite.scale.set(3.2, 3.2, 1);
+                    meteorHeadSprites.add(wakeGlowSprite);
+                }
+
+                meteorList.push({
+                    line: line,
+                    head: headSprite,
+                    wakeGlow: wakeGlowSprite,
+                    isBolide: isBolide,
+                    life: Math.random(),
+                    speed: 0.65 + Math.random() * 1.15,
+                    startPos: new THREE.Vector3(),
+                    velDir: new THREE.Vector3(),
+                    pathLength: 26.0 + Math.random() * 18.0,
+                    colorType: i % 3 // 0 = Emerald-Cyan (Mg/O 518nm), 1 = Golden-Amber (Na 589nm), 2 = Violet-Rose (Ca+/N2)
+                });
+            }
+
+            function resetMeteor(m) {
+                // True perspective meteor shower geometry: all meteors diverge from the Radiant constellation point
+                const targetPoint = new THREE.Vector3(
+                    (Math.random() - 0.5) * 42.0 - 4.0,
+                    (Math.random() - 0.5) * 28.0 - 2.5,
+                    (Math.random() - 0.5) * 26.0 + 6.0
+                );
+                m.velDir.subVectors(targetPoint, radiantOrigin).normalize();
+                const leadOffset = 2.0 + Math.random() * 14.0;
+                m.startPos.copy(radiantOrigin).addScaledVector(m.velDir, leadOffset);
+                m.pathLength = 24.0 + Math.random() * 20.0;
+            }
+            meteorList.forEach(resetMeteor);
+
+            // ----------------------------------------------------------------------------
+            // GROUP 6: SUPERNOVAS (3D Rayleigh-Taylor Shock Shells, SN 1987A Triple Rings, Bipolar Jets & Pulsar)
+            // ----------------------------------------------------------------------------
+            const supernovaGroup = new THREE.Group();
+            supernovaGroup.visible = false;
+            scene.add(supernovaGroup);
+
+            const snShellMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('snVertexShader').textContent,
+                fragmentShader: document.getElementById('snFragmentShader').textContent,
+                uniforms: sharedUniforms,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            const snOuterShell = new THREE.Mesh(new THREE.SphereGeometry(1.0, 96, 96), snShellMat);
+            const snInnerShell = new THREE.Mesh(new THREE.SphereGeometry(0.65, 72, 72), snShellMat);
+            supernovaGroup.add(snOuterShell);
+            supernovaGroup.add(snInnerShell);
+
+            const snRingGeo = new THREE.RingGeometry(0.86, 1.0, 96);
+            snRingGeo.rotateX(Math.PI / 2);
+            const snRingMat = new THREE.MeshBasicMaterial({
+                color: 0x7dd3fc,
+                transparent: true,
+                opacity: 0.85,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const snRing1 = new THREE.Mesh(snRingGeo, snRingMat);
+            const snRing2 = new THREE.Mesh(snRingGeo.clone(), snRingMat.clone());
+            snRing2.rotation.set(0.6, 0.3, 0.5);
+            // SN 1987A Hourglass Double Equatorial & Polar Rings
+            const snRing3 = new THREE.Mesh(snRingGeo.clone(), snRingMat.clone());
+            snRing3.material.color.setHex(0xf472b6);
+            snRing3.rotation.set(-0.55, -0.25, -0.45);
+            supernovaGroup.add(snRing1);
+            supernovaGroup.add(snRing2);
+            supernovaGroup.add(snRing3);
+
+            // Bipolar Relativistic Gamma-Ray / Synchrotron Jets punching out of the Supernova Core
+            const snJetMat = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('plasmaLoopVertexShader').textContent,
+                fragmentShader: document.getElementById('plasmaLoopFragmentShader').textContent,
+                uniforms: {
+                    uTime: sharedUniforms.uTime,
+                    uGlow: sharedUniforms.uGlow,
+                    uRgbTint: { value: new THREE.Vector3(0.45, 0.88, 1.0) },
+                    uPhase: { value: 0.0 }
+                },
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            const snJetCone = new THREE.ConeGeometry(2.2, 26.0, 32, 16, true);
+            snJetCone.translate(0, 13.0, 0);
+            const snNorthJet = new THREE.Mesh(snJetCone, snJetMat);
+            const snSouthJet = new THREE.Mesh(snJetCone.clone().rotateZ(Math.PI), snJetMat);
+            const snJetsHolder = new THREE.Group();
+            snJetsHolder.rotation.z = 0.24;
+            snJetsHolder.add(snNorthJet);
+            snJetsHolder.add(snSouthJet);
+            supernovaGroup.add(snJetsHolder);
+
+            const snCentralPulsar = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: glowTex,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.98,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            }));
+            snCentralPulsar.scale.set(6.5, 6.5, 1);
+            supernovaGroup.add(snCentralPulsar);
+
+            // ============================================================================
+            // DYNAMIC MULTI-PURPOSE PARTICLE SYSTEM (24,000 High-Density Particles)
+            // ============================================================================
+            const PARTICLE_COUNT = 24000;
+            const partGeo = new THREE.BufferGeometry();
+            const partPos = new Float32Array(PARTICLE_COUNT * 3);
+            const partCol = new Float32Array(PARTICLE_COUNT * 3);
+            const partData = [];
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                partData.push({
+                    life: Math.random(),
+                    speed: 0.25 + Math.random() * 0.55,
+                    theta: theta,
+                    phi: phi,
+                    spreadX: (Math.random() - 0.5),
+                    spreadY: (Math.random() - 0.5),
+                    spreadZ: (Math.random() - 0.5),
+                    role: i % 3 // 0 = Ion/Primary, 1 = Dust/Secondary, 2 = Coma/Core
+                });
+            }
+            partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
+            partGeo.setAttribute('color', new THREE.BufferAttribute(partCol, 3));
+
+            const partMat = new THREE.PointsMaterial({
+                size: 0.58,
+                map: glowTex,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.88,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const dynamicParticles = new THREE.Points(partGeo, partMat);
+            scene.add(dynamicParticles);
+
+            // ============================================================================
+            // FREE 360° CAMERA ORBIT + PAN + WIDE ZOOM
+            // ============================================================================
+            const camOrbit = {
+                theta: 0.55,
+                phi: 0.92,
+                radius: 22.0,
+                targetTheta: 0.55,
+                targetPhi: 0.92,
+                targetRadius: 22.0,
+                lookAt: new THREE.Vector3(0, 2.2, 0),
+                targetLookAt: new THREE.Vector3(0, 2.2, 0)
+            };
+
+            let dragMode = null;
+            let prevX = 0, prevY = 0;
+            let pinchDist = null;
+            let flyThroughActive = false;
+
+            function isPointerOverUI(target) {
+                return Boolean(
+                    target.closest('aside') ||
+                    target.closest('header') ||
+                    target.closest('nav') ||
+                    target.closest('button') ||
+                    target.closest('input')
+                );
+            }
+
+            window.addEventListener('contextmenu', (e) => {
+                if (!isPointerOverUI(e.target)) e.preventDefault();
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                if (e.button === 2 || e.button === 1 || e.shiftKey) {
+                    dragMode = 'pan';
+                } else if (e.button === 0) {
+                    dragMode = 'orbit';
+                }
+                prevX = e.clientX;
+                prevY = e.clientY;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!dragMode) return;
+                const dx = e.clientX - prevX;
+                const dy = e.clientY - prevY;
+                prevX = e.clientX;
+                prevY = e.clientY;
+
+                if (dragMode === 'orbit') {
+                    camOrbit.targetTheta -= dx * 0.007;
+                    camOrbit.targetPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camOrbit.targetPhi - dy * 0.007));
+                } else if (dragMode === 'pan') {
+                    const panSpeed = camOrbit.radius * 0.0014;
+                    const forward = new THREE.Vector3().subVectors(camOrbit.targetLookAt, camera.position).normalize();
+                    const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+                    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+                    camOrbit.targetLookAt.addScaledVector(right, -dx * panSpeed);
+                    camOrbit.targetLookAt.addScaledVector(up, dy * panSpeed);
+                }
+            });
+
+            window.addEventListener('mouseup', () => { dragMode = null; });
+            window.addEventListener('mouseleave', () => { dragMode = null; });
+
+            window.addEventListener('wheel', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                e.preventDefault();
+                const zoomStep = Math.max(0.025, camOrbit.targetRadius * 0.0012);
+                camOrbit.targetRadius = Math.max(6.0, Math.min(260.0, camOrbit.targetRadius + e.deltaY * zoomStep));
+            }, { passive: false });
+
+            window.addEventListener('touchstart', (e) => {
+                if (isPointerOverUI(e.target)) return;
+                if (e.touches.length === 1) {
+                    dragMode = 'orbit';
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    dragMode = 'pan';
+                    pinchDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && dragMode === 'orbit') {
+                    const dx = e.touches[0].clientX - prevX;
+                    const dy = e.touches[0].clientY - prevY;
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                    camOrbit.targetTheta -= dx * 0.007;
+                    camOrbit.targetPhi = Math.max(0.05, Math.min(Math.PI - 0.05, camOrbit.targetPhi - dy * 0.007));
+                } else if (e.touches.length === 2 && pinchDist !== null) {
+                    const d = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const pinchStep = Math.max(0.05, camOrbit.targetRadius * 0.0025);
+                    camOrbit.targetRadius = Math.max(6.0, Math.min(260.0, camOrbit.targetRadius + (pinchDist - d) * pinchStep));
+                    pinchDist = d;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                dragMode = null;
+                pinchDist = null;
+            });
+
+            // ============================================================================
+            // UI CONTROLS & SWITCHING BETWEEN THE 6 SPACE PHENOMENA
+            // ============================================================================
+            let currentEventKey = 'aurora';
+            let simSpeed = 1.0;
+            let rgbCycle = false;
+            let rgbHue = 0.0;
+            let burstBoost = 0.0;
+            let supernovaAge = 1.2;
+            let eclipseAutoTransit = false;
+
+            const sliderParamA = document.getElementById('slider-param-a');
+            const sliderParamB = document.getElementById('slider-param-b');
+            const labelParamA = document.getElementById('label-param-a');
+            const labelParamB = document.getElementById('label-param-b');
+            const valParamA = document.getElementById('val-param-a');
+            const valParamB = document.getElementById('val-param-b');
+            const headerLiveMetric = document.getElementById('header-live-metric');
+            const eclipseControlsBox = document.getElementById('eclipse-controls-box');
+            const btnEclipseAuto = document.getElementById('btn-eclipse-auto');
+
+            const sliderR = document.getElementById('slider-r');
+            const sliderG = document.getElementById('slider-g');
+            const sliderB = document.getElementById('slider-b');
+            const valR = document.getElementById('val-r');
+            const valG = document.getElementById('val-g');
+            const valB = document.getElementById('val-b');
+
+            function applyRgbTint(r, g, b) {
+                sliderR.value = r;
+                sliderG.value = g;
+                sliderB.value = b;
+                valR.textContent = r;
+                valG.textContent = g;
+                valB.textContent = b;
+                sharedUniforms.uRgbTint.value.set(r / 255, g / 255, b / 255);
+                document.getElementById('status-dot').style.backgroundColor = `rgb(${r},${g},${b})`;
+            }
+
+            function updateSpecificControls() {
+                const a = parseFloat(sliderParamA.value);
+                const b = parseFloat(sliderParamB.value);
+                sharedUniforms.uParamA.value = a;
+                sharedUniforms.uParamB.value = b;
+
+                if (currentEventKey === 'aurora') {
+                    valParamA.textContent = Math.round(a * 100) + "%";
+                    valParamB.textContent = "Kp " + Math.min(9, Math.round(b * 5.5));
+                    headerLiveMetric.textContent = `Tempestade Geomagnética: Kp ${Math.min(9, Math.round(b * 5.5))} • Cortinas: ${Math.round(a * 100)}%`;
+                } else if (currentEventKey === 'comet') {
+                    valParamA.textContent = Math.round(a * 100) + "%";
+                    valParamB.textContent = Math.round(b * 100) + "%";
+                    headerLiveMetric.textContent = `Cauda de Íons (Azul) & Poeira (Ouro): ${Math.round(a * 100)}%`;
+                } else if (currentEventKey === 'solarflare') {
+                    valParamA.textContent = Math.round(a * 100) + "%";
+                    valParamB.textContent = Math.round(b * 1200) + " km/s";
+                    headerLiveMetric.textContent = `Flare Classe X • Velocidade CME: ${Math.round(b * 1200)} km/s`;
+                } else if (currentEventKey === 'eclipse') {
+                    const absA = Math.abs(a);
+                    const obscuration = Math.max(0, Math.min(100, Math.round((1.0 - absA * 0.58) * 100)));
+                    valParamA.textContent = absA < 0.012
+                        ? "Totalidade (100%)"
+                        : (absA < 0.065 ? "Anel de Diamante" : `${obscuration}%`);
+                    valParamB.textContent = Math.round(b * 100) + "%";
+                    headerLiveMetric.textContent = absA < 0.012
+                        ? "Eclipse Total (100%) • Coroa Magnética & Luz Cinérea"
+                        : (absA < 0.065 ? "2º/3º Contato: Anel de Diamante & Contas de Baily!" : `Eclipse Parcial (${obscuration}% Oculto)`);
+                } else if (currentEventKey === 'meteors') {
+                    valParamA.textContent = Math.round(a * 120) + " meteoros/h";
+                    valParamB.textContent = Math.round(b * 100) + "%";
+                    headerLiveMetric.textContent = `ZHR: ~${Math.round(a * 120)}/h • Ablação a 59 km/s`;
+                } else if (currentEventKey === 'supernova') {
+                    valParamA.textContent = Math.round(a * 100) + "%";
+                    valParamB.textContent = Math.round(b * 15000) + " km/s";
+                    headerLiveMetric.textContent = `Onda de Choque: ${Math.round(b * 15000)} km/s • Remanescente 3D`;
+                }
+            }
+
+            sliderParamA.addEventListener('input', updateSpecificControls);
+            sliderParamB.addEventListener('input', updateSpecificControls);
+
+            function selectSpaceEvent(key) {
+                const cfg = SPACE_EVENTS[key];
+                if (!cfg) return;
+                currentEventKey = key;
+                burstBoost = 0.0;
+
+                document.getElementById('header-title').textContent = cfg.title;
+                document.getElementById('header-catalog').textContent = cfg.catalog;
+                document.getElementById('header-desc').textContent = cfg.desc;
+                document.getElementById('header-ref').textContent = cfg.ref;
+                document.getElementById('stat-origin').textContent = cfg.origin;
+                document.getElementById('stat-velocity').textContent = cfg.velocity;
+                document.getElementById('stat-example').textContent = cfg.example;
+                document.getElementById('btn-action-text').textContent = cfg.actionBtn;
+
+                document.querySelectorAll('.event-card').forEach(btn => {
+                    if (btn.dataset.event === key) btn.classList.add('active');
+                    else btn.classList.remove('active');
+                });
+
+                labelParamA.textContent = cfg.labelA;
+                sliderParamA.min = cfg.minA;
+                sliderParamA.max = cfg.maxA;
+                sliderParamA.step = cfg.stepA;
+                sliderParamA.value = cfg.valA;
+
+                labelParamB.textContent = cfg.labelB;
+                sliderParamB.min = cfg.minB;
+                sliderParamB.max = cfg.maxB;
+                sliderParamB.step = cfg.stepB;
+                sliderParamB.value = cfg.valB;
+
+                // Configure 3D Scene Visibility per Mode
+                auroraGroup.visible = (key === 'aurora');
+                cometEnvelopeGroup.visible = (key === 'comet');
+                solarFlareGroup.visible = (key === 'solarflare');
+                eclipseGroup.visible = (key === 'eclipse');
+                meteorGroup.visible = (key === 'meteors');
+                supernovaGroup.visible = (key === 'supernova');
+                // Only show Earth & Airglow in Aurora mode (NO planet in Meteor Shower mode 05!)
+                earthAirglowMesh.visible = (key === 'aurora');
+                dynamicParticles.visible = (key !== 'eclipse');
+
+                if (eclipseControlsBox) {
+                    if (key === 'eclipse') {
+                        eclipseControlsBox.classList.remove('hidden');
+                        eclipseControlsBox.classList.add('flex');
+                    } else {
+                        eclipseControlsBox.classList.add('hidden');
+                        eclipseControlsBox.classList.remove('flex');
+                        eclipseAutoTransit = false;
+                    }
+                }
+
+                if (key === 'aurora') {
+                    mainSphereMesh.visible = true;
+                    mainSphereMesh.scale.set(1, 1, 1);
+                    mainSphereMesh.position.set(0, 0, 0);
+                    sharedUniforms.uBodyType.value = 0; // Earth
+                    mainHaloSprite.visible = true;
+                    mainHaloSprite.position.set(0, 0, 0);
+                    mainHaloSprite.scale.set(16.5, 16.5, 1);
+                    mainHaloSprite.material.color.setHex(0x10b981);
+                } else if (key === 'meteors') {
+                    // Pure Deep-Sky Meteor Shower without any planet obstructing the view!
+                    mainSphereMesh.visible = false;
+                    mainHaloSprite.visible = false;
+                } else if (key === 'comet') {
+                    mainSphereMesh.visible = true;
+                    // 3D Sculpted Bilobed Comet 67P Nucleus
+                    mainSphereMesh.scale.set(0.36, 0.36, 0.36);
+                    mainSphereMesh.position.set(-4.5, 0, 0);
+                    sharedUniforms.uBodyType.value = 2; // Comet icy nucleus
+                    mainHaloSprite.visible = true;
+                    mainHaloSprite.position.set(-4.5, 0, 0);
+                    mainHaloSprite.scale.set(11.5, 11.5, 1);
+                    mainHaloSprite.material.color.setHex(0x14b8a6);
+                } else if (key === 'solarflare') {
+                    mainSphereMesh.visible = true;
+                    mainSphereMesh.scale.set(1, 1, 1);
+                    mainSphereMesh.position.set(0, 0, 0);
+                    sharedUniforms.uBodyType.value = 1; // Boiling Sun
+                    mainHaloSprite.visible = true;
+                    mainHaloSprite.position.set(0, 0, 0);
+                    mainHaloSprite.scale.set(21.5, 21.5, 1);
+                    mainHaloSprite.material.color.setHex(0xf97316);
+                } else if (key === 'eclipse') {
+                    mainSphereMesh.visible = false;
+                    mainHaloSprite.visible = false;
+                } else if (key === 'supernova') {
+                    mainSphereMesh.visible = false;
+                    mainHaloSprite.visible = true;
+                    mainHaloSprite.position.set(0, 0, 0);
+                    mainHaloSprite.scale.set(26.0, 26.0, 1);
+                    mainHaloSprite.material.color.setHex(0xf43f5e);
+                    supernovaAge = 0.25;
+                }
+
+                updateSpecificControls();
+
+                camOrbit.targetTheta = cfg.camPos.theta;
+                camOrbit.targetPhi = cfg.camPos.phi;
+                camOrbit.targetRadius = cfg.camPos.radius;
+                camOrbit.targetLookAt.set(cfg.camPos.lookAt[0], cfg.camPos.lookAt[1], cfg.camPos.lookAt[2]);
+            }
+
+            document.querySelectorAll('.event-card').forEach(btn => {
+                btn.addEventListener('click', () => selectSpaceEvent(btn.dataset.event));
+            });
+
+            // Trigger Action Button per Phenomenon
+            document.getElementById('btn-trigger-action').addEventListener('click', () => {
+                if (currentEventKey === 'eclipse') {
+                    // Toggle between Totality (0.0) and Diamond Ring / Baily's Beads (0.032)
+                    const cur = parseFloat(sliderParamA.value);
+                    sliderParamA.value = Math.abs(cur) < 0.012 ? 0.032 : 0.0;
+                    updateSpecificControls();
+                } else if (currentEventKey === 'supernova') {
+                    supernovaAge = 0.05;
+                    burstBoost = 1.2;
+                } else {
+                    burstBoost = 1.25;
+                }
+            });
+
+            // Eclipse Quick-Phase Buttons & Automatic Lunar Transit Toggle
+            document.querySelectorAll('.eclipse-phase-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    eclipseAutoTransit = false;
+                    if (btnEclipseAuto) {
+                        btnEclipseAuto.textContent = "Trânsito Auto: OFF";
+                        btnEclipseAuto.className = "text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-gray-300 transition";
+                    }
+                    document.querySelectorAll('.eclipse-phase-btn').forEach(b => {
+                        b.className = "eclipse-phase-btn py-1.5 px-1.5 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 font-semibold text-gray-300 transition";
+                    });
+                    btn.className = "eclipse-phase-btn py-1.5 px-1.5 rounded-lg bg-amber-500/30 border border-amber-400/60 font-semibold text-white transition";
+
+                    sliderParamA.value = parseFloat(btn.dataset.ephase);
+                    updateSpecificControls();
+                });
+            });
+
+            if (btnEclipseAuto) {
+                btnEclipseAuto.addEventListener('click', () => {
+                    eclipseAutoTransit = !eclipseAutoTransit;
+                    btnEclipseAuto.textContent = eclipseAutoTransit ? "Trânsito Auto: ON" : "Trânsito Auto: OFF";
+                    btnEclipseAuto.className = eclipseAutoTransit
+                        ? "text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/40 border border-amber-300 text-white transition animate-pulse"
+                        : "text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-gray-300 transition";
+                });
+            }
+
+            [sliderR, sliderG, sliderB].forEach(s => {
+                s.addEventListener('input', () => {
+                    applyRgbTint(
+                        parseInt(sliderR.value, 10),
+                        parseInt(sliderG.value, 10),
+                        parseInt(sliderB.value, 10)
+                    );
+                });
+            });
+
+            const btnRgbCycle = document.getElementById('btn-rgb-cycle');
+            btnRgbCycle.addEventListener('click', () => {
+                rgbCycle = !rgbCycle;
+                btnRgbCycle.textContent = rgbCycle ? "Ciclo RGB: ON" : "Ciclo RGB: OFF";
+                btnRgbCycle.className = rgbCycle
+                    ? "text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-400 text-white transition"
+                    : "text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition";
+            });
+
+            document.getElementById('slider-glow').addEventListener('input', (e) => {
+                const v = parseFloat(e.target.value);
+                sharedUniforms.uGlow.value = v;
+                document.getElementById('val-glow').textContent = Math.round(v * 100) + "%";
+            });
+
+            document.getElementById('slider-speed').addEventListener('input', (e) => {
+                simSpeed = parseFloat(e.target.value);
+                document.getElementById('val-speed').textContent = simSpeed.toFixed(1) + "x";
+            });
+
+            document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                const cfg = SPACE_EVENTS[currentEventKey];
+                camOrbit.targetTheta = cfg.camPos.theta;
+                camOrbit.targetPhi = cfg.camPos.phi;
+                camOrbit.targetRadius = cfg.camPos.radius;
+                camOrbit.targetLookAt.set(cfg.camPos.lookAt[0], cfg.camPos.lookAt[1], cfg.camPos.lookAt[2]);
+            });
+
+            const btnFlythrough = document.getElementById('btn-flythrough');
+            const flythroughText = document.getElementById('flythrough-text');
+            btnFlythrough.addEventListener('click', () => {
+                flyThroughActive = !flyThroughActive;
+                flythroughText.textContent = flyThroughActive ? "Voo Orbital: ON" : "Voo Orbital: OFF";
+                if (flyThroughActive) {
+                    btnFlythrough.classList.add('bg-emerald-500/25', 'border-emerald-400');
+                } else {
+                    btnFlythrough.classList.remove('bg-emerald-500/25', 'border-emerald-400');
+                }
+            });
+
+            // Hide / Show All UI Panels
+            const topHeader = document.getElementById('top-header');
+            const eventsPanel = document.getElementById('events-panel');
+            const controlsPanel = document.getElementById('controls-panel');
+            const toggleUiBtn = document.getElementById('toggle-ui-btn');
+            const toggleUiText = document.getElementById('toggle-ui-text');
+            const iconEyeOpen = document.getElementById('icon-eye-open');
+            const iconEyeClosed = document.getElementById('icon-eye-closed');
+            let uiVisible = true;
+
+            function toggleAllPanels() {
+                uiVisible = !uiVisible;
+                [topHeader, eventsPanel, controlsPanel].forEach(panel => {
+                    if (!panel) return;
+                    if (uiVisible) {
+                        panel.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+                    } else {
+                        panel.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+                    }
+                });
+
+                if (uiVisible) {
+                    toggleUiText.textContent = "Esconder Painéis";
+                    iconEyeOpen.classList.remove('hidden');
+                    iconEyeClosed.classList.add('hidden');
+                } else {
+                    toggleUiText.textContent = "Mostrar Painéis";
+                    iconEyeOpen.classList.add('hidden');
+                    iconEyeClosed.classList.remove('hidden');
+                }
+            }
+
+            toggleUiBtn.addEventListener('click', toggleAllPanels);
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'h' || e.key === 'H') toggleAllPanels();
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            selectSpaceEvent('aurora');
+
+            // ============================================================================
+            // ANIMATION LOOP
+            // ============================================================================
+            let lastTime = performance.now();
+            let elapsed = 0;
+            let cmeWaveAge = 0.2;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                const now = performance.now();
+                const dt = Math.min((now - lastTime) * 0.001, 0.1);
+                lastTime = now;
+                elapsed += dt * simSpeed;
+
+                sharedUniforms.uTime.value = elapsed;
+                burstBoost = Math.max(0.0, burstBoost - dt * 0.65);
+
+                const paramA = parseFloat(sliderParamA.value);
+                const paramB = parseFloat(sliderParamB.value);
+                const tint = sharedUniforms.uRgbTint.value;
+                const glow = sharedUniforms.uGlow.value + burstBoost * 0.85;
+
+                // Rotate Earth / Sun / Comet Nucleus
+                if (mainSphereMesh.visible) {
+                    mainSphereMesh.rotation.y += dt * (currentEventKey === 'comet' ? 0.65 : 0.12) * simSpeed;
+                }
+
+                // Mode 4 (Solar Eclipse): Keep optical plane perpendicular to camera so Moon & Sun never suffer parallax misalignment, plus optional slow lunar transit
+                if (eclipseGroup.visible) {
+                    eclipseCoronaPlane.quaternion.copy(camera.quaternion);
+                    if (eclipseAutoTransit && simSpeed > 0.01) {
+                        let curA = parseFloat(sliderParamA.value);
+                        // Slow down dramatically near Totality & Diamond Ring so the user can admire the corona!
+                        const transitRate = (0.018 + Math.abs(curA) * 0.12) * simSpeed;
+                        curA += dt * transitRate;
+                        if (curA > 0.65) curA = -0.65;
+                        sliderParamA.value = curA;
+                        updateSpecificControls();
+                    }
+                }
+
+                // Animate Pulsating Solar Coronal Magnetic Loops, X-Flare Flash & CME Shockwave (Mode 3)
+                if (solarFlareGroup.visible) {
+                    flareLoops.forEach((fl, idx) => {
+                        const pulse = 1.0 + Math.sin(elapsed * 2.2 + fl.phase) * 0.12 * paramA + burstBoost * 0.45;
+                        fl.mesh.scale.set(pulse, 0.85 + 0.35 * paramA, 1.0);
+                        fl.holder.rotation.y += dt * 0.08 * simSpeed * (idx % 2 === 0 ? 1 : -1);
+                    });
+
+                    // X-Class Flare Reconnection Flash on the Solar Limb
+                    const flareFlicker = 4.8 + Math.sin(elapsed * 14.0) * 1.4 + burstBoost * 7.5;
+                    solarXFlareFlash.scale.set(flareFlicker, flareFlicker, 1);
+                    solarXFlareFlash.material.opacity = Math.min(1.0, (0.65 + 0.35 * Math.sin(elapsed * 9.0) + burstBoost) * glow);
+
+                    // Expanding CME Magnetic Flux Bubble
+                    cmeWaveAge = (cmeWaveAge + dt * 0.28 * paramB * Math.max(0.2, simSpeed) * (1.0 + burstBoost)) % 1.0;
+                    const cmeR = 6.1 + Math.pow(cmeWaveAge, 0.85) * 14.5 * paramA;
+                    cmeShockShell.position.set(cmeWaveAge * 4.5, cmeWaveAge * 1.2, 0);
+                    cmeShockShell.scale.set(cmeR, cmeR * 0.78, cmeR * 0.78);
+                    cmeShockShell.rotation.y = elapsed * 0.4;
+                    cmeShockShell.material.uniforms.uGlow.value = Math.sin(cmeWaveAge * Math.PI) * (1.0 - cmeWaveAge * 0.4) * glow * 0.55;
+                }
+
+                // ------------------------------------------------------------------------
+                // MODE 5: METEOR SHOWER MULTI-SEGMENT BOLIDE STREAKS & TERMINAL FLARES
+                // ------------------------------------------------------------------------
+                if (meteorGroup.visible) {
+                    const activeCount = Math.min(NUM_METEORS, Math.floor(48 * paramA + burstBoost * 50));
+                    for (let i = 0; i < NUM_METEORS; i++) {
+                        const m = meteorList[i];
+                        if (i >= activeCount) {
+                            m.line.visible = false;
+                            m.head.visible = false;
+                            if (m.wakeGlow) m.wakeGlow.visible = false;
+                            continue;
+                        }
+                        m.line.visible = true;
+                        m.head.visible = true;
+
+                        m.life += dt * m.speed * (0.58 + 0.55 * simSpeed);
+                        if (m.life >= 1.0) {
+                            m.life = 0.0;
+                            resetMeteor(m);
+                        }
+
+                        const travelDist = m.life * m.pathLength;
+                        const hx = m.startPos.x + m.velDir.x * travelDist;
+                        const hy = m.startPos.y + m.velDir.y * travelDist;
+                        const hz = m.startPos.z + m.velDir.z * travelDist;
+
+                        const trailLen = (m.isBolide ? 9.6 : 5.2) * paramB * Math.sin(m.life * Math.PI);
+                        const posArr = m.line.geometry.attributes.position.array;
+                        const colArr = m.line.geometry.attributes.color.array;
+
+                        // Explosive terminal fragmentation flare for bright bolides around 74% atmospheric entry!
+                        const terminalBurst = m.isBolide ? Math.exp(-Math.pow((m.life - 0.74) / 0.065, 2.0)) * 2.25 : 0.0;
+                        const baseFade = (Math.sin(m.life * Math.PI) + terminalBurst) * glow;
+
+                        for (let s = 0; s < TRAIL_POINTS; s++) {
+                            const frac = s / (TRAIL_POINTS - 1); // 0 = Incandescent Meteoroid Head, 1 = Fading Persistent Ionization Train
+                            const distBack = frac * trailLen;
+                            // Realistic upper-atmosphere wind shear twisting the persistent ionization train
+                            const windShear = Math.pow(frac, 2.1) * 0.24 * Math.sin(elapsed * 2.2 + i * 1.7 + frac * 4.0);
+
+                            posArr[s * 3]     = hx - m.velDir.x * distBack + windShear;
+                            posArr[s * 3 + 1] = hy - m.velDir.y * distBack + windShear * 0.4;
+                            posArr[s * 3 + 2] = hz - m.velDir.z * distBack - windShear;
+
+                            const segFade = Math.pow(1.0 - frac, 1.30) * baseFade;
+                            // Authentic spectroscopy: Meteor head starts with warm orange sodium/iron ablation, peaks in cyan-emerald Mg/O, and leaves a glowing wake
+                            let rCol = 1.0, gCol = 1.0, bCol = 1.0;
+                            if (m.colorType === 0) {
+                                // Perseid Emerald-Cyan (Forbidden Oxygen 557.7nm + Ionized Magnesium 518nm)
+                                rCol = THREE.MathUtils.lerp(1.0, 0.06, Math.min(1.0, frac * 1.3));
+                                gCol = THREE.MathUtils.lerp(1.0, 0.98, frac);
+                                bCol = THREE.MathUtils.lerp(1.0, 0.58, frac);
+                            } else if (m.colorType === 1) {
+                                // Heated Sodium/Iron Golden-Amber Streak
+                                rCol = 1.0;
+                                gCol = THREE.MathUtils.lerp(1.0, 0.52, frac);
+                                bCol = THREE.MathUtils.lerp(0.92, 0.08, frac);
+                            } else {
+                                // High-velocity Leonid/Geminid Ionized Calcium & Nitrogen Violet-Rose Streak
+                                rCol = THREE.MathUtils.lerp(1.0, 0.85, frac);
+                                gCol = THREE.MathUtils.lerp(0.96, 0.20, frac);
+                                bCol = 1.0;
+                            }
+
+                            colArr[s * 3]     = rCol * segFade * tint.x;
+                            colArr[s * 3 + 1] = gCol * segFade * tint.y;
+                            colArr[s * 3 + 2] = bCol * segFade * tint.z;
+                        }
+
+                        m.line.geometry.attributes.position.needsUpdate = true;
+                        m.line.geometry.attributes.color.needsUpdate = true;
+
+                        m.head.position.set(hx, hy, hz);
+                        const headSize = (m.isBolide ? 1.65 : 0.82) * (1.0 + terminalBurst * 0.95);
+                        m.head.scale.set(headSize, headSize, 1);
+                        m.head.material.opacity = Math.min(1.0, baseFade * 1.25);
+
+                        if (m.wakeGlow) {
+                            m.wakeGlow.visible = true;
+                            m.wakeGlow.position.set(
+                                hx - m.velDir.x * (trailLen * 0.28),
+                                hy - m.velDir.y * (trailLen * 0.28),
+                                hz - m.velDir.z * (trailLen * 0.28)
+                            );
+                            const wakeScale = 2.6 + terminalBurst * 2.8;
+                            m.wakeGlow.scale.set(wakeScale, wakeScale, 1);
+                            m.wakeGlow.material.opacity = Math.min(0.85, (0.22 * Math.sin(m.life * Math.PI) + terminalBurst * 0.65) * glow);
+                        }
+                    }
+                }
+
+                // ------------------------------------------------------------------------
+                // MODE 6: SUPERNOVA 3D SHELL EXPANSION, SN 1987A RINGS & BIPOLAR JETS
+                // ------------------------------------------------------------------------
+                if (supernovaGroup.visible) {
+                    supernovaAge += dt * 0.38 * paramB * Math.max(0.2, simSpeed);
+                    if (supernovaAge > 4.5) supernovaAge = 0.15;
+
+                    const rOuter = 2.5 + Math.pow(supernovaAge, 0.82) * 8.8;
+                    snOuterShell.scale.set(rOuter, rOuter, rOuter);
+                    snOuterShell.rotation.y = elapsed * 0.25;
+
+                    const rInner = 1.8 + Math.pow(supernovaAge, 0.78) * 6.0;
+                    snInnerShell.scale.set(rInner, rInner, rInner);
+                    snInnerShell.rotation.y = -elapsed * 0.35;
+
+                    const rShock = 3.0 + supernovaAge * 11.8;
+                    snRing1.scale.set(rShock, rShock, 1);
+                    snRing2.scale.set(rShock * 0.85, rShock * 0.85, 1);
+                    snRing3.scale.set(rShock * 0.78, rShock * 0.78, 1);
+                    snRingMat.opacity = Math.max(0.0, Math.exp(-supernovaAge * 0.50) * 0.92);
+                    snRing2.material.opacity = Math.max(0.0, Math.exp(-supernovaAge * 0.55) * 0.82);
+                    snRing3.material.opacity = Math.max(0.0, Math.exp(-supernovaAge * 0.58) * 0.78);
+
+                    const jetReach = 0.4 + Math.pow(supernovaAge, 0.75) * 0.45;
+                    snJetsHolder.scale.set(0.8 + supernovaAge * 0.12, jetReach, 0.8 + supernovaAge * 0.12);
+                    snJetsHolder.rotation.y = elapsed * 0.85;
+
+                    const pulsarPulse = 5.8 + Math.sin(elapsed * 28.0) * 1.6;
+                    snCentralPulsar.scale.set(pulsarPulse, pulsarPulse, 1);
+                }
+
+                // ------------------------------------------------------------------------
+                // UPDATE MULTI-PURPOSE PARTICLE SYSTEM (AURORA, COMET, SOLAR FLARE, SUPERNOVA)
+                // ------------------------------------------------------------------------
+                if (dynamicParticles.visible) {
+                    const pArr = partGeo.attributes.position.array;
+                    const cArr = partGeo.attributes.color.array;
+
+                    for (let i = 0; i < PARTICLE_COUNT; i++) {
+                        const d = partData[i];
+                        d.life = (d.life + dt * d.speed * (0.45 + 0.55 * simSpeed) * (1.0 + burstBoost)) % 1.0;
+                        const idx = i * 3;
+
+                        if (currentEventKey === 'aurora') {
+                            // Solar wind particles funneling into Earth's north & south polar cusps
+                            const pole = (i % 2 === 0) ? 1.0 : -1.0;
+                            const r = 6.25 + d.life * 4.2 * paramA;
+                            const angle = d.theta + elapsed * 0.6;
+                            const ringR = (2.1 + Math.sin(angle * 3.0) * 0.35) * (1.0 + d.life * 0.25);
+
+                            pArr[idx] = Math.cos(angle) * ringR;
+                            pArr[idx + 1] = pole * (5.6 + d.life * 2.8 * paramA);
+                            pArr[idx + 2] = Math.sin(angle) * ringR;
+
+                            const fade = Math.sin(d.life * Math.PI) * glow * 0.9;
+                            cArr[idx] = (0.1 + 0.8 * d.life) * fade * tint.x;
+                            cArr[idx + 1] = (1.0 - 0.5 * d.life) * fade * tint.y;
+                            cArr[idx + 2] = (0.45 + 0.55 * d.life) * fade * tint.z;
+                        } else if (currentEventKey === 'comet') {
+                            // Comet at (-4.5, 0, 0):
+                            // Role 0 = Straight Narrow Blue Ion/Plasma Tail (pushed directly anti-sunward along +X)
+                            // Role 1 = Broad Curved Golden-White Silicate Dust Tail (curved by orbital motion & radiation pressure)
+                            // Role 2 = Turquoise Green Coma & Outgassing Jets (C2 / CN emission)
+                            const tailLen = 30.0 * paramA;
+                            if (d.role === 0) {
+                                // Straight Blue Ion Tail with Alfven helical magnetic ripples & plasma knots
+                                const dist = d.life * tailLen;
+                                const rayIdx = i % 5;
+                                const rayAngle = (rayIdx - 2.0) * 0.065;
+                                const cone = 0.18 + d.life * 1.45 * paramB;
+                                const alfvenWave = Math.sin(dist * 0.65 - elapsed * 6.5 + rayIdx) * 0.22 * d.life;
+
+                                pArr[idx] = -4.5 + dist;
+                                pArr[idx + 1] = d.spreadY * cone + dist * rayAngle + alfvenWave;
+                                pArr[idx + 2] = d.spreadZ * cone * 0.85;
+
+                                const knotBoost = 0.85 + 0.35 * Math.sin(dist * 0.9 - elapsed * 8.0);
+                                const fade = Math.pow(1.0 - d.life, 0.72) * knotBoost * glow * 1.38;
+                                cArr[idx] = 0.20 * fade * tint.x;
+                                cArr[idx + 1] = 0.70 * fade * tint.y;
+                                cArr[idx + 2] = 1.00 * fade * tint.z;
+                            } else if (d.role === 1) {
+                                // Sweeping Curved Golden-White Dust Tail with Synchrone Striae
+                                const dist = d.life * tailLen * 0.94;
+                                const curveZ = Math.pow(d.life, 1.82) * 10.5;
+                                const striae = 0.85 + 0.25 * Math.sin(d.life * 28.0 + d.spreadZ * 6.0);
+                                const cone = 0.42 + d.life * 3.9 * paramB;
+                                pArr[idx] = -4.5 + dist * 0.92;
+                                pArr[idx + 1] = d.spreadY * cone * 0.68;
+                                pArr[idx + 2] = curveZ + d.spreadZ * cone;
+
+                                const fade = Math.sin(d.life * Math.PI) * (1.0 - d.life * 0.32) * striae * glow * 1.32;
+                                cArr[idx] = 1.00 * fade * tint.x;
+                                cArr[idx + 1] = 0.86 * fade * tint.y;
+                                cArr[idx + 2] = 0.56 * fade * tint.z;
+                            } else {
+                                // Glowing Green-Aqua Diatomic Carbon (C2) Coma & Sunward Parabolic Bow Envelope
+                                const r = Math.pow(d.life, 0.68) * 4.6 * paramB;
+                                pArr[idx] = -4.5 + r * Math.sin(d.phi) * Math.cos(d.theta) + d.life * 2.4;
+                                pArr[idx + 1] = r * Math.cos(d.phi);
+                                pArr[idx + 2] = r * Math.sin(d.phi) * Math.sin(d.theta);
+
+                                const fade = (1.0 - d.life) * glow * 1.28;
+                                cArr[idx] = 0.16 * fade * tint.x;
+                                cArr[idx + 1] = 0.96 * fade * tint.y;
+                                cArr[idx + 2] = 0.76 * fade * tint.z;
+                            }
+                        } else if (currentEventKey === 'solarflare') {
+                            // Coronal Mass Ejection (CME) erupting from active solar flare regions
+                            const r = 6.05 + Math.pow(d.life, 0.85) * 16.5 * paramB;
+                            const flareCone = d.theta;
+                            pArr[idx] = r * Math.sin(d.phi) * Math.cos(flareCone);
+                            pArr[idx + 1] = r * Math.cos(d.phi) * 0.78;
+                            pArr[idx + 2] = r * Math.sin(d.phi) * Math.sin(flareCone);
+
+                            const fade = Math.sin(d.life * Math.PI) * (1.0 - d.life * 0.3) * glow * 1.35;
+                            cArr[idx] = 1.00 * fade * tint.x;
+                            cArr[idx + 1] = (0.68 - d.life * 0.42) * fade * tint.y;
+                            cArr[idx + 2] = 0.14 * fade * tint.z;
+                        } else if (currentEventKey === 'supernova') {
+                            // High-velocity 3D Supernova Ejecta Filaments & Heavy Element Knots
+                            const r = 1.5 + d.life * 22.0 * paramA;
+                            const rtMod = 1.0 + 0.32 * Math.sin(d.theta * 8.0) * Math.cos(d.phi * 6.0);
+                            const rad = r * rtMod;
+
+                            pArr[idx] = rad * Math.sin(d.phi) * Math.cos(d.theta);
+                            pArr[idx + 1] = rad * Math.cos(d.phi);
+                            pArr[idx + 2] = rad * Math.sin(d.phi) * Math.sin(d.theta);
+
+                            const fade = Math.sin(d.life * Math.PI) * glow * 1.5;
+                            if (d.role === 0) {
+                                cArr[idx] = 0.35 * fade * tint.x; cArr[idx + 1] = 0.90 * fade * tint.y; cArr[idx + 2] = 1.00 * fade * tint.z;
+                            } else if (d.role === 1) {
+                                cArr[idx] = 1.00 * fade * tint.x; cArr[idx + 1] = 0.62 * fade * tint.y; cArr[idx + 2] = 0.15 * fade * tint.z;
+                            } else {
+                                cArr[idx] = 1.00 * fade * tint.x; cArr[idx + 1] = 0.22 * fade * tint.y; cArr[idx + 2] = 0.65 * fade * tint.z;
+                            }
+                        } else if (currentEventKey === 'meteors') {
+                            // Deep-Sky Cosmic Dust Band (Milky Way) & Glowing Meteoric Ablation Sparks in 3D Space
+                            if (d.role === 0) {
+                                // Fine ablation sparks and lingering ionization dust drifting along the meteor corridor
+                                const sparkDist = d.life * 36.0;
+                                const dirX = -0.58 + d.spreadX * 0.65;
+                                const dirY = -0.36 + d.spreadY * 0.55;
+                                const dirZ = 0.72 + d.spreadZ * 0.55;
+                                pArr[idx]     = radiantOrigin.x + dirX * sparkDist;
+                                pArr[idx + 1] = radiantOrigin.y + dirY * sparkDist;
+                                pArr[idx + 2] = radiantOrigin.z + dirZ * sparkDist;
+
+                                const sparkFade = Math.sin(d.life * Math.PI) * Math.pow(1.0 - d.life, 0.6) * glow * 0.95;
+                                cArr[idx]     = 0.25 * sparkFade * tint.x;
+                                cArr[idx + 1] = 0.98 * sparkFade * tint.y;
+                                cArr[idx + 2] = 0.78 * sparkFade * tint.z;
+                            } else {
+                                // Diagonal Milky Way Star Cloud & Cosmic Dust Band in the deep background
+                                const bandT = (d.theta / (Math.PI * 2.0)) - 0.5;
+                                const bx = bandT * 120.0 + d.spreadX * 14.0;
+                                const by = bandT * 62.0 + d.spreadY * 12.0;
+                                const bz = -48.0 + d.spreadZ * 16.0;
+                                pArr[idx]     = bx;
+                                pArr[idx + 1] = by;
+                                pArr[idx + 2] = bz;
+
+                                const mwGlow = (0.28 + 0.22 * Math.sin(d.phi * 5.0)) * glow;
+                                cArr[idx]     = (0.45 + 0.35 * d.role) * mwGlow * tint.x;
+                                cArr[idx + 1] = 0.62 * mwGlow * tint.y;
+                                cArr[idx + 2] = 0.95 * mwGlow * tint.z;
+                            }
+                        }
+                    }
+                    partGeo.attributes.position.needsUpdate = true;
+                    partGeo.attributes.color.needsUpdate = true;
+                }
+
+                // Optional Automatic RGB Spectrum Cycle
+                if (rgbCycle) {
+                    rgbHue = (rgbHue + dt * 0.12) % 1.0;
+                    const c = new THREE.Color().setHSL(rgbHue, 0.95, 0.60);
+                    applyRgbTint(Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255));
+                }
+
+                // Orbital Fly-Through Motion
+                if (flyThroughActive && !dragMode && currentEventKey !== 'eclipse') {
+                    camOrbit.targetTheta += dt * 0.24;
+                    camOrbit.targetPhi = 1.15 + Math.cos(elapsed * 0.35) * 0.25;
+                }
+
+                // Smooth Camera Damping
+                camOrbit.theta += (camOrbit.targetTheta - camOrbit.theta) * 0.08;
+                camOrbit.phi += (camOrbit.targetPhi - camOrbit.phi) * 0.08;
+                camOrbit.radius += (camOrbit.targetRadius - camOrbit.radius) * 0.08;
+                camOrbit.lookAt.lerp(camOrbit.targetLookAt, 0.08);
+
+                const sinPhi = Math.sin(camOrbit.phi);
+                camera.position.set(
+                    camOrbit.lookAt.x + camOrbit.radius * sinPhi * Math.sin(camOrbit.theta),
+                    camOrbit.lookAt.y + camOrbit.radius * Math.cos(camOrbit.phi),
+                    camOrbit.lookAt.z + camOrbit.radius * sinPhi * Math.cos(camOrbit.theta)
+                );
+                camera.lookAt(camOrbit.lookAt);
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        };
+    </script>
+</body>
+</html>
